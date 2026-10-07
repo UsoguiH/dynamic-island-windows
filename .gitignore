@@ -2,3 +2,8 @@ bin/
 obj/
 .vs/
 *.user
+publish/
+
+# design references (not ours to publish)
+agent-widget.mp4
+welcome-orb.mp4

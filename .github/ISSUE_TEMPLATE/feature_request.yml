@@ -1,0 +1,19 @@
+name: Feature request
+description: An idea for the island or for Bloub
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like the island to do?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why? What's the workflow?
+  - type: textarea
+    id: look
+    attributes:
+      label: How could it look or move?
+      description: Compact / expanded / full sizes, which Bloub state… sketches welcome.

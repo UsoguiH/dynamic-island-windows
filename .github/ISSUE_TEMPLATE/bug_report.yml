@@ -1,0 +1,39 @@
+name: Bug report
+description: Something looks or behaves wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect instead? A GIF or screenshot helps a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Hover the island\n2. Click an agent\n3. …"
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 23H2 / Windows 10 22H2
+    validations:
+      required: true
+  - type: input
+    id: display
+    attributes:
+      label: Display
+      placeholder: 2560×1440, 125% scale, 165 Hz, 2 monitors
+  - type: input
+    id: version
+    attributes:
+      label: Island version
+      placeholder: v0.1.0 or commit hash
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Relevant lines from %TEMP%\islandlab.log
+      render: text
