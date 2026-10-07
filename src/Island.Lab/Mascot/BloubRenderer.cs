@@ -124,10 +124,6 @@ public sealed class BloubRenderer : IDisposable
 
         using var body = BuildBody(factory, f.Body);
 
-        // Opaque backing in the paper colour (what the eye holes show).
-        if (PaperColor.A > 0)
-            ctx.FillGeometry(body, Brush(WithA(PaperColor, PaperColor.A * alpha)), null);
-
         var inkBrushColor = WithA(ink, ink.A * alpha);
 
         // Holes: eyes (capsules placed by their matrix) and the notch.
@@ -149,6 +145,26 @@ public sealed class BloubRenderer : IDisposable
             }
 
             using var group = factory.CreateGeometryGroup(FillMode.Winding, _holes.ToArray(), (uint)_holes.Count);
+
+            // The paper colour (what the eye holes show) goes only under the holes, clipped to the body and
+            // widened a hair so there's no seam with the ink. A full-body backing would bleed a dark fringe
+            // around the antialiased silhouette, visible on light backgrounds.
+            if (PaperColor.A > 0)
+            {
+                ctx.PushLayer(new LayerParameters1
+                {
+                    ContentBounds = new Rect(-1e6f, -1e6f, 2e6f, 2e6f),
+                    GeometricMask = body,
+                    MaskAntialiasMode = AntialiasMode.PerPrimitive,
+                    MaskTransform = Matrix3x2.Identity,
+                    Opacity = 1,
+                    LayerOptions = LayerOptions1.None,
+                }, null!);
+                var paper = Brush(WithA(PaperColor, PaperColor.A * alpha));
+                ctx.FillGeometry(group, paper, null);
+                ctx.DrawGeometry(group, paper, tol * 6);   // ≈ 1.5 device px
+                ctx.PopLayer();
+            }
             using var holed = factory.CreatePathGeometry();
             using (var sink = holed.Open())
             {
