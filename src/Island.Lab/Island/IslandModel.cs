@@ -70,7 +70,7 @@ public sealed class IslandModel
     public readonly Spring Retract = new(0, SpringSpec.Content, 0.002f);
 
     /// <summary>Top-space strategy: a reserved bar (Windows work area shrinks) or auto-retract into a line.</summary>
-    public bool ReserveMode, RetractMode = true;
+    public bool ReserveMode, RetractMode = Environment.GetEnvironmentVariable("ISLAND_RETRACT") != "0";
     /// <summary>A window's top edge is under the island (e.g. Chrome's tab strip).</summary>
     public bool WindowAtTop;
     public const float ReservedHeight = 40;
@@ -643,7 +643,6 @@ public sealed class IslandModel
                 }
                 break;
             case "gallery": OpenTeam(); Team.SetView(TeamView.List); break; // ✦ Bloub → all your agents
-            case "preview": SetMode(Base); Team.CelebrateDemo(this); break;   // TEMP: ▶ Done button replays the "done" animation
             case "g":
                 switch (parts[1])
                 {

@@ -23,6 +23,8 @@ public sealed class Tray : IDisposable
         var ico = Path.Combine(AppContext.BaseDirectory, "Assets", "bloub.ico");
         int size = GetSystemMetrics(49 /* SM_CXSMICON */);
         _icon = File.Exists(ico) ? LoadImageW(0, ico, 1 /* IMAGE_ICON */, size, size, 0x10 /* LR_LOADFROMFILE */) : 0;
+        // Single-file builds have no Assets folder: use the icon embedded in the exe (the app icon is resource 32512).
+        if (_icon == 0) _icon = LoadImageW(GetModuleHandleW(null), 32512, 1 /* IMAGE_ICON */, size, size, 0);
         Add();
     }
 
@@ -119,6 +121,8 @@ public sealed class Tray : IDisposable
     [DllImport("shell32", CharSet = CharSet.Unicode)] static extern bool Shell_NotifyIconW(uint msg, ref NOTIFYICONDATAW data);
     [DllImport("user32", CharSet = CharSet.Unicode)] static extern uint RegisterWindowMessageW(string name);
     [DllImport("user32", CharSet = CharSet.Unicode)] static extern nint LoadImageW(nint inst, string name, uint type, int cx, int cy, uint flags);
+    [DllImport("user32", CharSet = CharSet.Unicode)] static extern nint LoadImageW(nint inst, nint id, uint type, int cx, int cy, uint flags);
+    [DllImport("kernel32", CharSet = CharSet.Unicode)] static extern nint GetModuleHandleW(string? name);
     [DllImport("user32")] static extern bool DestroyIcon(nint icon);
     [DllImport("user32")] static extern int GetSystemMetrics(int index);
     [DllImport("user32")] static extern nint CreatePopupMenu();

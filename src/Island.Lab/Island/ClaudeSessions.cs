@@ -62,7 +62,7 @@ public sealed class ClaudeSessions : IDisposable
     {
         while (!_stop)
         {
-            try { _snapshot = Read(); }
+            try { _snapshot = Showcase.On ? Showcase.Sessions() : Read(); }
             catch (Exception ex) { Diag.Log("sessions: " + ex.Message); }
             Thread.Sleep(400);
         }

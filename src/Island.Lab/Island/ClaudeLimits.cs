@@ -46,6 +46,7 @@ public sealed class ClaudeLimits
     /// <summary>Refreshes in the background if the numbers are older than <paramref name="maxAge"/>.</summary>
     public void Refresh(TimeSpan maxAge)
     {
+        if (Showcase.On) { Showcase.Limits(this); return; }
         if (DateTime.Now - UpdatedAt < maxAge || DateTime.Now - _lastProbe < TimeSpan.FromSeconds(45)) return;
         if (Interlocked.Exchange(ref _probing, 1) == 1) return;
         _lastProbe = DateTime.Now;

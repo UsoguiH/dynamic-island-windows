@@ -213,13 +213,7 @@ public static class Scenes
             c.Round(tx + 6, y0 + 18, 92, 28, 14, Rgba(0xBF5AF2, gh ? 0.5f : 0.28f));
             c.Text("✦ Bloub", tx + 52, y0 + 22, 13, White, FontWeight.SemiBold, 0.5f);
         }
-        {
-            // TEMP: replay the "done" animation on demand
-            bool dh = m.Hit("preview", tx + 106, y0 + 18, 92, 28);
-            c.Round(tx + 106, y0 + 18, 92, 28, 14, Rgba(0x30D158, dh ? 0.55f : 0.3f));
-            c.Text("▶ Done", tx + 152, y0 + 22, 13, White, FontWeight.SemiBold, 0.5f);
-        }
-        // c.Text(DateTime.Now.ToString("ddd HH:mm"), x0 + w - 26, y0 + 23, 13, Secondary, FontWeight.SemiBold, 1f);   // TEMP: hidden while the ▶ Done button is here
+        c.Text(DateTime.Now.ToString("ddd HH:mm"), x0 + w - 26, y0 + 23, 13, Secondary, FontWeight.SemiBold, 1f);
 
         // Panel cross-fade + small rise when switching tabs.
         float f = Math.Clamp(m.TabFade.Value, 0, 1);

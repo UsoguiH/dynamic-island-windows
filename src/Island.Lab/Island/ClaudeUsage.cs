@@ -47,6 +47,7 @@ public sealed class ClaudeUsage : IDisposable
 
     public ClaudeUsage()
     {
+        if (Showcase.On) return;
         new Thread(Loop) { IsBackground = true, Name = "ClaudeUsage", Priority = ThreadPriority.BelowNormal }.Start();
     }
 
@@ -55,6 +56,7 @@ public sealed class ClaudeUsage : IDisposable
     {
         get
         {
+            if (Showcase.On) return Showcase.Usage();
             if ((DateTime.Now - _statsAt).TotalSeconds > 2) { _stats = Compute(); _statsAt = DateTime.Now; }
             return _stats;
         }

@@ -449,7 +449,7 @@ public sealed class AgentTeam
     public void SetView(TeamView v, Agent? sel = null)
     {
         if (sel != null) Selected = sel;
-        if (v == TeamView.New) { _recent = Shell.RecentProjects(); _newFolder ??= _recent.FirstOrDefault(); }
+        if (v == TeamView.New) { _recent = Showcase.On ? Showcase.RecentProjects() : Shell.RecentProjects(); _newFolder ??= _recent.FirstOrDefault(); }
         if (v == View) return;
         View = v;
         ViewTime = 0;
