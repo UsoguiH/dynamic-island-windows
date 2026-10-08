@@ -202,8 +202,11 @@ public sealed class FrameRenderer : IDisposable
                 MaskTransform = Matrix3x2.Identity,
                 Opacity = 1,
             }, null);
+            // in the tab library Bloub has two moons: the far one passes behind him, the near one in front
+            Scenes.LibraryMoons(_canvas, m, front: false, bop);
             _bloub.Draw(ctx, _gpu.D2DFactory, m.Bloub.Engine.Sample(m.Clock),
-                new Vector2(m.Face.X, m.Face.Y), 11f * m.Face.Size.Value * m.Bloub.Squish.Value, Canvas.Rgba(0xF2F2F7), bop);
+                new Vector2(m.Face.X, m.Face.Y + m.BloubLift), 11f * m.Face.Size.Value * m.Bloub.Squish.Value, Canvas.Rgba(0xF2F2F7), bop);
+            Scenes.LibraryMoons(_canvas, m, front: true, bop);
             ctx.PopLayer();
 
             // Poke reaction speech bubble ("hehe", "stop poking me!") under Bloub in the larger states.

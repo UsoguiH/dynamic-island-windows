@@ -102,6 +102,11 @@ static class Program
             if (!welcomed && now > 0.35) { welcomed = true; if (_demo == null) StartWelcome(mi.rcMonitor); }
             // Dev: ISLAND_DEMO="focus:<agent#>[:plan|files]" or "team" opens a screen without touching the mouse.
             if (_demo != null && now > 2.5) { RunDemo(_demo); _demo = null; }
+            if (_demoToggle is { } dt_ && _model.Clock >= dt_.At)
+            {
+                if (_model.Tabs.Editing) _model.Tabs.Toggle(_model, dt_.Id);
+                _demoToggle = (dt_.Id, _model.Clock + 1.8);
+            }
 
             if (now >= nextCheck)
             {
@@ -146,6 +151,7 @@ static class Program
 
     static (StageScene scene, Gpu gpu, nint hwnd, Action landed)? _welcome;
     static string? _demo = Environment.GetEnvironmentVariable("ISLAND_DEMO");
+    static (string Id, double At)? _demoToggle;
 
     static void RunDemo(string demo)
     {
@@ -155,8 +161,20 @@ static class Program
             _model.OpenTeam(_model.Team.Live.ElementAtOrDefault(n));
             if (p.Length > 2) _model.Team.Act(_model, ["atab", p[2]]);
         }
-        else if (p[0] == "tab" && p.Length > 1) { _model.SetMode(Mode.Full); _model.Act("tab:" + p[1]); }
+        else if (p[0] == "tab" && p.Length > 1)
+        {
+            _model.SetMode(Mode.Full);
+            // the demo pins a tab that isn't in your bar yet, so it shows up selected
+            if (Showcase.On && TabBar.Catalogue.Any(d => d.Id == p[1]) && !_model.Tabs.Enabled.Contains(p[1])) _model.Tabs.Toggle(_model, p[1]);
+            _model.Act("tab:" + p[1]);
+        }
         else if (p[0] == "celebrate") _model.Team.CelebrateDemo(_model);
+        else if (p[0] == "edit")
+        {
+            _model.SetMode(Mode.Full); _model.Tabs.SetEditing(_model, true);
+            // "edit:usage": then unpin that tab (Bloub shrugs) and pin it back (he winks), on a loop
+            if (p.Length > 1) _demoToggle = (p[1], _model.Clock + 1.6);
+        }
         else if (p[0] == "intro") _replayWelcome = true;
         else if (p[0] == "list") { _model.OpenTeam(); _model.Team.SetView(TeamView.List); }
         else if (p[0] == "new") { _model.OpenTeam(); _model.Team.SetView(TeamView.New); }
@@ -365,7 +383,7 @@ static class Program
         {
             case Tray.Command.Open: _model.SetMode(Mode.Full); break;
             case Tray.Command.Agents: _model.OpenTeam(); break;
-            case Tray.Command.Usage: _model.SetMode(Mode.Full); _model.Act("tab:2"); break;
+            case Tray.Command.Usage: _model.SetMode(Mode.Full); _model.Act("tab:usage"); break;
             case Tray.Command.Startup:
                 Tray.StartsWithWindows = !Tray.StartsWithWindows;
                 _model.ShowInfo(Tray.StartsWithWindows ? "Starts with Windows" : "Won't start with Windows",

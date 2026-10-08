@@ -485,6 +485,17 @@ public sealed class AgentTeam
     {
         if (f == Message && Selected != null) { var t = Message.Text; Message.Clear(); Send(m, Selected, t); }
         else if (f == Task) LaunchFromForm(m);
+        else m.Tabs.Submit(m, f);
+    }
+
+    /// <summary>"+ New agent" from a project: the form opens with that folder picked.</summary>
+    public void NewAgentIn(IslandModel m, string folder)
+    {
+        SetView(TeamView.New);
+        if (!_recent.Contains(folder, StringComparer.OrdinalIgnoreCase)) _recent.Insert(0, folder);
+        _newFolder = folder;
+        m.SetMode(Mode.Agents);
+        m.FocusField(Task);
     }
 
     void LaunchFromForm(IslandModel m)
@@ -664,12 +675,13 @@ public sealed class AgentTeam
         float cx = IslandModel.CX, left = cx - w / 2, top = m.Top;
         bool widget = m.Mode == Mode.Agents;
         bool pill = m.Mode == Mode.Dormant && (!m.Retracted || m.Peeking) && !m.Welcoming;
+        bool dock = m.Mode == Mode.Full && !m.Welcoming; // docked in the dashboard header
         if (!widget && View != TeamView.Grid && m.Layers.Count == 1) { View = TeamView.Grid; ViewFade.Snap(1); Panel = TeamPanel.Activity; PanelT.Snap(1); }
         if (View == TeamView.Focus && Selected == null) View = TeamView.Grid;
         Message.Placeholder = Selected == null ? "Message…" : Selected.Island ? $"Message {Selected.Name}…" : $"Ask {Selected.Name} a side question…";
 
         var live = Live.ToList();
-        bool greet = pill && (m.Hovered || m.Peeking);
+        bool greet = pill && (m.Hovered || m.Peeking) || dock && m.HoverHit == "tabs:team";
         if (greet && !_greeted) for (int i = 0; i < live.Count; i++) live[i].HopAt = _now + 0.05 + i * 0.075;
         _greeted = greet;
         foreach (var a in Agents) if (_now >= a.HopAt) { a.Hop.Velocity = -150; a.HopAt = double.MaxValue; }
@@ -723,6 +735,19 @@ public sealed class AgentTeam
                     pos = new(left + w - (m.Peeking ? 16 : 20) - (shown - 1 - i) * 19 * spread, top + h / 2);
                     PillTeamLeft = MathF.Max(cx + 10, MathF.Min(PillTeamLeft, pos.X - 9));
                     r = m.Peeking ? 6.2f : MiniR;
+                    float sp = a.Status == AgentStatus.Working ? 3.4f : 1.8f;
+                    pos.Y += MathF.Sin((float)_now * sp + i * 1.4f) * 1.1f;
+                }
+            }
+            else if (dock)
+            {
+                var (_, dr, shown) = Scenes.TeamDock(m, w);
+                if (i >= shown) { pos = new(a.X, a.Y); r = 0; alpha = 0; }
+                else
+                {
+                    float spread = m.HoverHit == "tabs:team" ? 1.12f : 1;
+                    pos = new(left + dr - 17 - (shown - 1 - i) * 16 * spread, top + 32);
+                    r = 7f;
                     float sp = a.Status == AgentStatus.Working ? 3.4f : 1.8f;
                     pos.Y += MathF.Sin((float)_now * sp + i * 1.4f) * 1.1f;
                 }
@@ -1436,7 +1461,7 @@ public sealed class AgentTeam
     }
 
     /// <summary>A one-line text box; Enter submits, Esc leaves. Long text scrolls to keep the caret visible.</summary>
-    void Field(Canvas c, IslandModel m, TextField f, string id, float x, float y, float w, float h, float k, bool send)
+    internal static void Field(Canvas c, IslandModel m, TextField f, string id, float x, float y, float w, float h, float k, bool send)
     {
         bool focused = m.Focused == f;
         bool hov = m.Hit(id, x, y, w - (send ? 44 : 0), h);

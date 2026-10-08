@@ -42,6 +42,8 @@ public enum BloubExpressionId
     Blase,
     /// <summary>Sleepy: half-closed lids via <c>open</c> (the same vertical squash as a blink).</summary>
     Somnolent,
+    /// <summary>"Bof" (meh): the shrug. Eyes roll up and away, head tilted. Island addition, not in the original set.</summary>
+    Bof,
 }
 
 /// <summary>
@@ -80,6 +82,7 @@ public static class BloubExpressions
         new(BloubExpressionId.Timide, new(-19, -14, -7), 14, Pair(0.17, 0.3)),
         new(BloubExpressionId.Blase, new(-22, 2, 0), 16, Pair(0.3, 0.12)),
         new(BloubExpressionId.Somnolent, new(6, -9, -3), 16, Pair(0.2, 0.42, 0, 0.42)),
+        new(BloubExpressionId.Bof, new(-22, 24, 12), 15.5, Pair(0.2, 0.34)),
     ];
 
     /// <summary>Catalogue instance for an id (stable reference, as the engine compares by reference).</summary>

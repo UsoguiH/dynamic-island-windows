@@ -28,6 +28,15 @@ Island sits at the top of your screen as a small black pill with a face. Its nam
 > [!TIP]
 > **No Claude Code? Try it anyway.** Run `IslandLab.exe --showcase` for a scripted team of agents, usage and limits. Nothing is read from your disk. Every GIF on this page was recorded in showcase mode.
 
+**At a glance**
+
+- 👀 **Watches every Claude Code session** on your PC: who's working, who's done, who needs you
+- 🚀 **Launches agents** from the island and answers their Allow / Deny prompts there
+- 📊 **Your real plan limits**: 5-hour and weekly rings, with a heads-up at 80% and 95%
+- 🧩 **17 tabs you pick**: dev servers, battery, projects, tasks, notes, timers, downloads and more
+- 🫧 **Bloub**, a mascot with 15 states and 17 moods, who winks, shrugs and celebrates with you
+- ⚡ **Native and light**: C# + Direct3D at your monitor's refresh rate, no Electron, local-only
+
 ## Contents
 
 - [Features](#features)
@@ -79,6 +88,25 @@ It plays at most once every 12 s, and never during a fullscreen game.
 - **Today:** tokens, active time, files edited and commands run, with hour, project, week and model breakdowns
 - Everything is computed locally from `~/.claude/projects/**/*.jsonl`
 
+### 17 tabs, your way
+
+<img src="docs/media/library.gif" alt="The tab library: Bloub sits in an orb with two moons; unpinning a tile makes him shrug with the moons lifting like shoulders, pinning one makes him wink while the tile fills with colour" width="720">
+
+Click the pencil and the dashboard turns into a **tab library**. Bloub floats down into an orb and two moons start circling him. Tap a tile to pin it to your bar: its colour spreads out from your finger and Bloub **winks**. Tap it again to unpin it and Bloub **shrugs** ("oh well"), with the moons lifting like shoulders. Drag the tabs in the bar to reorder them. You can pin up to 10, and your choice is saved.
+
+<img src="docs/media/tabs.gif" alt="A tour of the tabs: dev servers, battery, calendar, network, tasks, notes, downloads" width="720">
+
+| | |
+|---|---|
+| **Servers** | Every dev server listening on localhost (Vite, Next.js, uvicorn, Postgres, Redis…), with how long it's been up. **Open** it in the browser or **Stop** it (asks twice). |
+| **Battery** | Charge ring, time left, power mode and battery saver, and the charge over this session. A banner when you plug in or unplug. |
+| **Projects** | Your recent Claude Code projects: open in your editor or Explorer, or start a new agent there. |
+| **Tasks · Notes** | A to-do list and quick notes, saved on your PC. |
+| **Timer · Focus** | Stopwatch with laps, countdown with presets, deep-work sessions. |
+| **Calendar · Clocks** | The month at a glance, how much of today is gone, and world clocks. |
+| **Downloads · Network** | Your latest downloads (open or show in folder) and live up/down speed. |
+| **Overview · Agents · Usage** | Everything at a glance, your sessions, and your limits. |
+
 ### Never in your way
 
 <img src="docs/media/retract.gif" alt="Over a browser's tab strip the island folds into a thin line; hovering pops it back out" width="800">
@@ -95,7 +123,7 @@ It plays at most once every 12 s, and never during a fullscreen game.
 
 *Slow motion (Ctrl+Alt+0).* Every property has its own physical spring (analytic damped-spring solution, stable at any frame time), so animations can be **interrupted and retargeted mid-flight** without a jump. Content follows Apple's choreography: the old content blurs out first, the shape springs to its new size with the width leading, and the new content un-blurs into place. A second activity **buds off like a droplet**, using smooth-min signed distance fields. The island renders at your monitor's refresh rate (144 Hz here).
 
-### Bloub: 15 states, 16 moods, 8 shapes
+### Bloub: 15 states, 17 moods, 8 shapes
 
 <img src="docs/media/gallery.gif" alt="Bloub cycling through its states: idle, thinking, wink, wide, alert" width="800">
 
@@ -112,10 +140,10 @@ Bloub's engine is ported 1:1 from the original TypeScript to C#, with parity che
 
 These screens are fully designed and animated. They show sample data until they're wired to Windows (see the [roadmap](#roadmap)):
 
-- **Now Playing** with a live waveform, scrubber and controls (next up: Windows media controls / SMTC)
+- **Now Playing** and the **Music** tab, with a live waveform, scrubber and controls (next up: Windows media controls / SMTC)
 - **Focus timer** with rolling digits and a progress ring
 - **Command bar** (Alt+Space style)
-- **Clipboard**, **System** and **Today** tasks
+- **Clipboard** history and the **System** monitor
 
 </details>
 
@@ -162,7 +190,7 @@ dotnet publish src/Island.Lab -c Release -p:PublishSingleFile=true -p:IncludeNat
 | `Ctrl+Alt+0` | Slow motion (0.2×) |
 | `Ctrl+Alt+Q` | Quit |
 
-**Options:** `--showcase` (or `ISLAND_SHOWCASE=1`) runs the scripted demo, and `ISLAND_RETRACT=0` starts with auto-retract off.
+**Options:** `--showcase` (or `ISLAND_SHOWCASE=1`) runs the scripted demo, and `ISLAND_RETRACT=0` starts with auto-retract off. Your tabs, tasks and notes are saved in `%APPDATA%\Island\settings.json`.
 
 ## How it works
 
@@ -207,15 +235,15 @@ Island is **local-only**. It has no telemetry, no account and no server.
 ## Roadmap
 
 - [x] Shape, springs, gooey split, content choreography
-- [x] Bloub: 15 states, 16 moods, 8 shapes, gaze, blinking
+- [x] Bloub: 15 states, 17 moods, 8 shapes, gaze, blinking
 - [x] Claude Code agent team, island agents, Allow/Deny, side questions
 - [x] Usage & plan limits, "done" celebration, intro, tray, autostart
 - [x] Auto-retract, reserved bar, fullscreen-game hiding
+- [x] Tab library with 17 tabs: dev servers, battery, projects, tasks, notes, timers, calendar, clocks, downloads, network
 - [ ] **Now Playing** from Windows media controls (SMTC) with a live waveform
 - [ ] Approve Claude Code permission prompts for *terminal* sessions (`PermissionRequest` hook)
-- [ ] Focus sessions, timers and tasks with real data
-- [ ] Clipboard history, file shelf, downloads tracker
-- [ ] System monitor, volume/brightness indicators, audio device switcher
+- [ ] Clipboard history and a file shelf
+- [ ] Real system monitor, volume/brightness indicators, audio device switcher
 - [ ] Settings window, themes and Bloub skins, multi-monitor
 - [ ] Code signing and auto-update
 

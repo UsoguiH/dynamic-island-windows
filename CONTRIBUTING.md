@@ -15,7 +15,8 @@ dotnet run --project src/Island.Lab -c Release -- --showcase
 | Folder | What lives there |
 |---|---|
 | `Island/IslandModel.cs` | Modes, springs, hit-testing, alerts: the island's brain |
-| `Island/Scenes.cs` | Drawing for each mode (dashboard tabs, media, focus…) |
+| `Island/Scenes.cs` | Drawing for each mode (dashboard, media, focus…) |
+| `Island/TabBar.cs`, `Scenes.Tabs.cs` | The dashboard's tabs: the catalogue, your picks, the tab library, and each tab's data and panel |
 | `Island/AgentTeam.cs` | Claude Code agents as a team of Bloubs: grid, focus, list, new agent |
 | `Island/ClaudeSessions.cs`, `ClaudeUsage.cs`, `ClaudeLimits.cs` | Reading Claude Code's local files and plan limits |
 | `Island/AgentRunner.cs` | Headless `claude -p` agents over stream-json |
@@ -25,6 +26,17 @@ dotnet run --project src/Island.Lab -c Release -- --showcase
 | `Motion/Spring.cs` | The analytic damped spring everything moves with |
 | `Render/` | D3D11/D2D device, frame renderer, canvas helpers |
 | `Platform/` | Win32 interop, tray, terminal focusing, shell helpers |
+
+## Adding a tab
+
+A new tab is a great first PR. It touches four places:
+
+1. **`TabBar.Catalogue`**: add a `TabDef` with an id, a name, a Segoe MDL2 icon, a colour and a one-line blurb. It shows up in the tab library right away.
+2. **`Scenes.Tabs.cs`**: draw its panel (`static void YourPanel(Canvas c, IslandModel m, float x, float y, float w, float h)`). Reuse `Card`, `PillButton`, `Chip` and `Empty` so it looks like the rest.
+3. **`Scenes.Full`**: add a `case "yourid":` that calls your panel.
+4. **Data**: keep it in `TabBar` and refresh it from `TabBar.Update` only while the tab is selected. In `--showcase` mode, return believable sample data instead of reading the user's machine.
+
+Clicks are ids like `"yourid:action:3"`, which `IslandModel.ActTabs` routes. Try it with `ISLAND_DEMO=tab:yourid` and `--showcase`.
 
 ## The rules that matter
 

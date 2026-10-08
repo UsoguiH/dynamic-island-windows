@@ -6,7 +6,7 @@ using static Island.Lab.Render.Canvas;
 namespace Island.Lab.Island;
 
 /// <summary>Content for each island state, laid out at the state's target size (x0, y0 = top-left).</summary>
-public static class Scenes
+public static partial class Scenes
 {
     static readonly Vortice.Mathematics.Color4 Secondary = WhiteA(0.6f), Tertiary = WhiteA(0.38f), Fill = WhiteA(0.1f);
     const uint Green = 0x30D158, Orange = 0xFF9F0A, Blue = 0x0A84FF, Red = 0xFF453A;
@@ -181,39 +181,9 @@ public static class Scenes
         else c.StrokeCircle(cx, cy, 7.5f, 1.6f, WhiteA(hover ? 0.75f : 0.4f));
     }
 
-    static readonly string[] Tabs = ["Overview", "Agents", "Usage", "Clipboard", "System"];
-
     static void Full(Canvas c, IslandModel m, float x0, float y0, float w, float h)
     {
-        if (m.Hit("bloub", x0 + 18, y0 + 12, 44, 40)) c.Circle(x0 + 40, y0 + 32, 21, WhiteA(0.08f));
-
-        // Segmented tabs with a sliding pill (its springs live in the model).
-        float tx = x0 + 78;
-        for (int i = 0; i < Tabs.Length; i++)
-        {
-            float tw = c.Measure(Tabs[i], 13, FontWeight.SemiBold) + 24;
-            if (i == m.Tab)
-            {
-                if (!m.TabPillReady) { m.TabPillX.Snap(tx - x0); m.TabPillW.Snap(tw); m.TabPillReady = true; }
-                m.TabPillX.To(tx - x0); m.TabPillW.To(tw);
-            }
-            tx += tw + 4;
-        }
-        c.Round(x0 + m.TabPillX.Value, y0 + 18, m.TabPillW.Value, 28, 14, WhiteA(0.14f));
-        tx = x0 + 78;
-        for (int i = 0; i < Tabs.Length; i++)
-        {
-            float tw = c.Measure(Tabs[i], 13, FontWeight.SemiBold) + 24;
-            bool hover = m.Hit("tab:" + i, tx, y0 + 18, tw, 28);
-            c.Text(Tabs[i], tx + 12, y0 + 22, 13, i == m.Tab ? White : WhiteA(hover ? 0.75f : 0.38f), FontWeight.SemiBold);
-            tx += tw + 4;
-        }
-        {
-            bool gh = m.Hit("gallery", tx + 6, y0 + 18, 92, 28);
-            c.Round(tx + 6, y0 + 18, 92, 28, 14, Rgba(0xBF5AF2, gh ? 0.5f : 0.28f));
-            c.Text("✦ Bloub", tx + 52, y0 + 22, 13, White, FontWeight.SemiBold, 0.5f);
-        }
-        c.Text(DateTime.Now.ToString("ddd HH:mm"), x0 + w - 26, y0 + 23, 13, Secondary, FontWeight.SemiBold, 1f);
+        Header(c, m, x0, y0, w);
 
         // Panel cross-fade + small rise when switching tabs.
         float f = Math.Clamp(m.TabFade.Value, 0, 1);
@@ -225,13 +195,26 @@ public static class Scenes
             Opacity = f,
         }, null);
         float pw = w - 32, ph = h - 62 - 16, px = x0 + 16;
-        switch (m.Tab)
+        if (m.Tabs.Editing) Library(c, m, px, py, pw, ph);
+        else switch (m.Tabs.Selected)
         {
-            case 0: Overview(c, m, px, py, pw, ph); break;
-            case 1: Agents(c, m, px, py, pw, ph); break;
-            case 2: Usage(c, m, px, py, pw, ph); break;
-            case 3: Clipboard(c, m, px, py, pw, ph); break;
-            case 4: SystemPanel(c, m, px, py, pw, ph); break;
+            case "overview": Overview(c, m, px, py, pw, ph); break;
+            case "agents": Agents(c, m, px, py, pw, ph); break;
+            case "usage": Usage(c, m, px, py, pw, ph); break;
+            case "clipboard": Clipboard(c, m, px, py, pw, ph); break;
+            case "system": SystemPanel(c, m, px, py, pw, ph); break;
+            case "projects": ProjectsPanel(c, m, px, py, pw, ph); break;
+            case "media": MediaPanel(c, m, px, py, pw, ph); break;
+            case "focus": FocusPanel(c, m, px, py, pw, ph); break;
+            case "tasks": TasksPanel(c, m, px, py, pw, ph); break;
+            case "calendar": CalendarPanel(c, m, px, py, pw, ph); break;
+            case "timer": TimerPanel(c, m, px, py, pw, ph); break;
+            case "notes": NotesPanel(c, m, px, py, pw, ph); break;
+            case "downloads": DownloadsPanel(c, m, px, py, pw, ph); break;
+            case "clocks": ClocksPanel(c, m, px, py, pw, ph); break;
+            case "network": NetworkPanel(c, m, px, py, pw, ph); break;
+            case "battery": BatteryPanel(c, m, px, py, pw, ph); break;
+            case "servers": ServersPanel(c, m, px, py, pw, ph); break;
         }
         c.Ctx.PopLayer();
 
@@ -298,20 +281,21 @@ public static class Scenes
         c.Text(m.FocusPaused ? "Click to resume" : "Click to pause", x + 112, y2 + 84, 11.5f, Tertiary);
 
         float dx = x + w3 + pad;
-        int done = m.TaskDone.Count(t => t);
-        Card(c, m, dx, y2, w3, h2, "Today", $"{done}/3");
-        string[] tasks = ["Port Bloub engine", "Gooey split prototype", "Wire SMTC media"];
-        for (int i = 0; i < tasks.Length; i++)
+        var tasks = m.Tabs.Tasks;
+        int open = tasks.Count(t => !t.Done);
+        Card(c, m, dx, y2, w3, h2, "Today", tasks.Count == 0 ? null : $"{tasks.Count - open}/{tasks.Count}", tasks.Count == 0 ? "tab:tasks" : null);
+        if (tasks.Count == 0) c.Text("No tasks — add some in Tasks", dx + 16, y2 + 50, 12, Tertiary, FontWeight.Regular, 0, w3 - 32);
+        for (int i = 0; i < Math.Min(3, tasks.Count); i++)
         {
             float ty = y2 + 44 + i * 27;
-            bool hover = m.Hit("task:" + i, dx + 8, ty - 4, w3 - 16, 26);
+            bool hover = m.Hit("tasks:toggle:" + i, dx + 8, ty - 4, w3 - 16, 26);
             if (hover) c.Round(dx + 8, ty - 4, w3 - 16, 26, 9, WhiteA(0.07f));
-            Check(c, dx + 24, ty + 9, m.TaskDone[i], hover);
-            c.Text(tasks[i], dx + 40, ty, 13, m.TaskDone[i] ? Tertiary : White);
+            Check(c, dx + 24, ty + 9, tasks[i].Done, hover);
+            c.Text(tasks[i].Text, dx + 40, ty, 13, tasks[i].Done ? Tertiary : White, FontWeight.Regular, 0, w3 - 56);
         }
 
         float sx = dx + w3 + pad;
-        Card(c, m, sx, y2, w3, h2, "System", "RTX 2070 S", "tab:4");
+        Card(c, m, sx, y2, w3, h2, "System", "RTX 2070 S", "tab:system");
         var stats = Stats(m);
         for (int i = 0; i < 3; i++)
         {

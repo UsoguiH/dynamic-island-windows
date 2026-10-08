@@ -1,5 +1,6 @@
 using System.Numerics;
 using Island.Lab.Motion;
+using Island.Lab.Platform;
 using Island.Lab.Render;
 
 namespace Island.Lab.Island;
@@ -113,18 +114,21 @@ public sealed class IslandModel
     }
 
     // ---- Workspace (Full) state
-    public int Tab;
+    /// <summary>Your dashboard tabs (which, in what order, customize mode) and the state the tabs keep.</summary>
+    public readonly TabBar Tabs = new();
     public readonly Spring TabFade = new(1, SpringSpec.Content, 0.002f);
     public readonly Spring TabPillX = new(0, SpringSpec.Bounce, 0.05f);
     public readonly Spring TabPillW = new(0, SpringSpec.Bounce, 0.05f);
     public bool TabPillReady;
-    public readonly bool[] TaskDone = [true, true, false];
     public bool FocusPaused;
     public bool PermissionResolved;
     public string Toast = "";
     public float ToastTime = -10;
 
     public void ShowToast(string text) { Toast = text; ToastTime = Clock; }
+
+    /// <summary>Bloub's extra vertical offset (his hops in the tab library).</summary>
+    public float BloubLift => Mode == Mode.Full ? Tabs.LibHop.Value * Math.Clamp(Tabs.EditT.Value, 0, 1) : 0;
     public readonly Face Face = new();
     public readonly BloubHost Bloub = new();
     /// <summary>The Claude Code agents, embodied as a team of coloured Bloubs.</summary>
@@ -181,7 +185,7 @@ public sealed class IslandModel
     public float TimeScale = 1;
     public bool Hidden;
     public bool Hovered { get; private set; }
-    public readonly float FocusLength = 25 * 60;
+    public float FocusLength = 25 * 60;
     public float FocusElapsed = 47;
     public const string CommandText = "open vs code";
 
@@ -323,6 +327,7 @@ public sealed class IslandModel
         var (ow, oh, _) = Geometry(Mode);
         var old = Mode;
         Mode = m;
+        if (old == Mode.Full && m != Mode.Full) { Tabs.Editing = false; Tabs.EditT.To(0); Tabs.Release(); }
         ModeTime = 0;
         _enteredThisMode = false;
         // Going straight to the retracted line (e.g. leaving Full over Chrome) is ONE continuous motion.
@@ -397,8 +402,8 @@ public sealed class IslandModel
         if (Hovered) { _hoverTime += dt; _outTime = 0; if (Mode != Mode.Agents || ModeTime > 0.4f) _enteredThisMode = true; IdleTime = 0; }
         else { _outTime += dt; _hoverTime = 0; IdleTime += dt; }
         // While you're typing into the island it stays open, wherever the cursor wanders.
-        if (Focused != null && Mode == Mode.Agents) _outTime = 0;
-        if (Mode != Mode.Agents) Focused = null;
+        if (Focused != null && Mode is Mode.Agents or Mode.Full) _outTime = 0;
+        if (Mode is not (Mode.Agents or Mode.Full)) Focused = null;
 
         HoverGrow.To(Hovered && Mode == Mode.Dormant ? 1 : 0);
         // Hover opens the island (short intent delay so passing over Chrome's tabs doesn't trigger it).
@@ -490,6 +495,8 @@ public sealed class IslandModel
             Mode.Media or Mode.Focus or Mode.Split => (left + 22, Top + h / 2, 0.95f),
             Mode.Alert => (left + 42, Top + h / 2, 1.5f),
             Mode.Expanded => (left + w - 40, Top + 38, 1.3f),
+            // customizing: Bloub flies down into the library's orb
+            Mode.Full when Tabs.Editing => (left + Scenes.LibOrbX, Top + Scenes.LibOrbY, Scenes.LibOrbR / 11f),
             Mode.Full => (left + 40, Top + 32, 1.3f),
             Mode.Command => (left + 30, Top + 28, 1.15f),
             Mode.Gallery => (left + 118, Top + h / 2, 5.2f),
@@ -524,6 +531,7 @@ public sealed class IslandModel
         else if (Mode == Mode.Agents)
             SetGlow(Team.View == TeamView.Focus && Team.Selected != null ? Team.Selected.StatusColor : 0x5E5CE6u, Team.View == TeamView.Focus ? 0.34f : 0.2f);
         Face.Step(dt);
+        Tabs.Update(this, dt);
         Team.Update(this, dt);
         WatchLimits();
         DeliverDone();
@@ -536,16 +544,19 @@ public sealed class IslandModel
 
     public void PressDown()
     {
+        if (Mode == Mode.Full && Tabs.Editing && HoverHit is { } h && h.StartsWith("tab:"))
+            Tabs.PressTab(h[4..], Cursor.X - (CX - Geometry(Mode.Full).W / 2));
         if (HoverHit == "bloub") Bloub.PressDown();
         else if (Geometry(Mode).H < 90) Press.To(0.96f, SpringSpec.Press);
     }
 
-    public void PressUp() { Press.To(1, SpringSpec.Bounce); Bloub.PressUp(); }
+    public void PressUp() { Press.To(1, SpringSpec.Bounce); Bloub.PressUp(); Tabs.Release(); }
 
     /// <summary>Click at a point in DIPs (already known to be on the island).</summary>
     public void Click(Vector2 p)
     {
         IdleTime = 0;
+        if (Tabs.SwallowClick) { Tabs.SwallowClick = false; return; } // that was a drag, not a click
         if (HoverHit is { } id) { Act(id); return; }
         var (w, h, _) = Geometry(Mode);
         float x0 = CX - w / 2, y0 = Top;
@@ -587,6 +598,7 @@ public sealed class IslandModel
                 SetMode(_beforeAlert == Mode.Alert ? Base : _beforeAlert);
                 break;
             case Mode.Full:
+                FocusField(null);
                 break; // stays open while you use it; collapses when the cursor leaves
             case Mode.Command:
                 SetMode(Mode.Dormant);
@@ -597,20 +609,26 @@ public sealed class IslandModel
     public void Act(string id)
     {
         var parts = id.Split(':');
+        if (Mode == Mode.Full && parts[0] != "tf") FocusField(null);
         if (Team.Act(this, parts)) return;
+        if (ActTabs(parts)) return;
         switch (parts[0])
         {
             case "tab":
-                int t = int.Parse(parts[1]);
-                if (t != Tab) { Tab = t; TabFade.Snap(0); TabFade.To(1); Bloub.React(Mascot.BloubState.Swirl, Clock, 0.9); }
+                // "tab:usage", or an index into your tabs ("tab:2")
+                string tab = int.TryParse(parts[1], out int ti) ? Tabs.Enabled[Math.Clamp(ti, 0, Tabs.Enabled.Count - 1)] : parts[1];
+                if (TabBar.Catalogue.Any(d => d.Id == tab)) Tabs.Select(this, tab);
                 break;
             case "play": Playing = !Playing; Face.Blink(); break;
             case "prev": NextSong(-1); break;
             case "next": NextSong(1); break;
-            case "task":
-                int i = int.Parse(parts[1]);
-                TaskDone[i] = !TaskDone[i];
-                if (TaskDone[i]) { ShowToast("Nice — task done"); Bloub.React(Mascot.BloubState.Burst, Clock, 2.4, Mascot.BloubExpressionId.Excite); }
+            case "focus" when parts.Length > 2 && parts[1] == "len":
+                FocusLength = int.Parse(parts[2]) * 60; FocusElapsed = 0; FocusPaused = false;
+                ShowToast($"{parts[2]}-minute session started");
+                Bloub.React(Mascot.BloubState.Hexagon, Clock, 1.6);
+                break;
+            case "focus" when parts.Length > 1 && parts[1] == "reset":
+                FocusElapsed = 0; FocusPaused = false; ShowToast("Fresh start");
                 break;
             case "focus":
                 FocusPaused = !FocusPaused;
@@ -642,7 +660,6 @@ public sealed class IslandModel
                     if (Mode == Mode.Agents) { Team.SetView(TeamView.Grid); FocusField(null); } else OpenTeam();
                 }
                 break;
-            case "gallery": OpenTeam(); Team.SetView(TeamView.List); break; // ✦ Bloub → all your agents
             case "g":
                 switch (parts[1])
                 {
@@ -656,6 +673,91 @@ public sealed class IslandModel
                 break;
             case "expand": SetMode(Mode.Full); break;
         }
+    }
+
+    /// <summary>Clicks that belong to the dashboard's tabs and their panels.</summary>
+    bool ActTabs(string[] p)
+    {
+        var tb = Tabs;
+        int N(int i) => p.Length > i && int.TryParse(p[i], out int n) ? n : -1;
+        switch (p[0])
+        {
+            case "tabs":
+                switch (p[1])
+                {
+                    case "edit": tb.SetEditing(this, !tb.Editing); break;
+                    case "team": Bloub.React(Mascot.BloubState.Wink, Clock, 1.0, Mascot.BloubExpressionId.Heureux); OpenTeam(); break;
+                    case "toggle": tb.Toggle(this, p[2]); break;
+                    case "preset": tb.ApplyPreset(this, N(2)); break;
+                }
+                return true;
+            case "tf":
+                FocusField(p[1] == "task" ? tb.TaskField : tb.NoteField);
+                return true;
+            case "tasks":
+                if (p[1] == "clear") { if (tb.Tasks.Any(t => t.Done)) { tb.ClearDone(); ShowToast("Cleared"); } }
+                else tb.ToggleTask(this, N(2));
+                return true;
+            case "note" when N(2) is int ni && ni >= 0 && ni < tb.Notes.Count:
+                if (p[1] == "del") { tb.DeleteNote(ni); ShowToast("Note deleted"); }
+                else if (Shell.SetClipboard(Hwnd, tb.Notes[ni].Text)) { ShowToast("Copied"); Bloub.React(Mascot.BloubState.Wink, Clock, 1.2, Mascot.BloubExpressionId.Heureux); }
+                return true;
+            case "sw":
+                switch (p[1])
+                {
+                    case "toggle": tb.SwRunning = !tb.SwRunning; break;
+                    case "lap": tb.Laps.Add(tb.SwElapsed); break;
+                    case "reset": tb.SwElapsed = 0; tb.Laps.Clear(); tb.SwRunning = false; break;
+                }
+                return true;
+            case "cd":
+                switch (p[1])
+                {
+                    case "len": tb.CdLength = tb.CdLeft = N(2) * 60; tb.CdRunning = false; break;
+                    case "toggle":
+                        if (tb.CdLeft <= 0) tb.CdLeft = tb.CdLength;
+                        tb.CdRunning = !tb.CdRunning;
+                        if (tb.CdRunning) Bloub.React(Mascot.BloubState.Thinking, Clock, 1.2);
+                        break;
+                    case "reset": tb.CdLeft = tb.CdLength; tb.CdRunning = false; break;
+                }
+                return true;
+            case "cal":
+                tb.MonthOffset = p[1] switch { "prev" => tb.MonthOffset - 1, "next" => tb.MonthOffset + 1, _ => 0 };
+                return true;
+            case "song" when N(1) >= 0:
+                SongIndex = N(1) % Songs.Length; TrackPos = 0; Playing = true; Face.Blink();
+                return true;
+            case "proj" when N(2) is int pi && pi >= 0 && pi < tb.Projects.Count:
+            {
+                var path = tb.Projects[pi];
+                if (Showcase.On && p[1] != "agent") { ShowToast("Showcase mode: nothing opens"); return true; }
+                switch (p[1])
+                {
+                    case "open" or "folder": Shell.OpenFolder(path); ShowToast("Opened the folder"); break;
+                    case "editor": Shell.OpenInEditor(path); ShowToast($"Opening in {Shell.EditorName}"); break;
+                    case "agent": Team.NewAgentIn(this, path); break;
+                }
+                return true;
+            }
+            case "srv" when N(2) is int si && si >= 0 && si < tb.Servers.Count:
+            {
+                var s = tb.Servers[si];
+                if (p[1] == "stop") tb.StopServer(this, si);
+                else if (Showcase.On) ShowToast("Showcase mode: nothing opens");
+                else { TabBar.Open($"http://localhost:{s.Port}"); ShowToast($"Opening localhost:{s.Port}"); }
+                return true;
+            }
+            case "dl" when N(2) is int di && di >= 0 && di < tb.Downloads.Count:
+            {
+                var f = tb.Downloads[di];
+                if (Showcase.On) { ShowToast("Showcase mode: nothing opens"); return true; }
+                if (p[1] == "show") TabBar.Reveal(f.Path);
+                else if (!f.Partial) { TabBar.Open(f.Path); Bloub.React(Mascot.BloubState.Comet, Clock, 1.6); }
+                return true;
+            }
+        }
+        return false;
     }
 
     public void ToggleSleep()

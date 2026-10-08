@@ -45,7 +45,7 @@ public sealed class BloubHost
         (BloubExpressionId.Colere, "Angry"), (BloubExpressionId.Triste, "Sad"), (BloubExpressionId.Effraye, "Scared"),
         (BloubExpressionId.Confus, "Confused"), (BloubExpressionId.Hilare, "Laughing"), (BloubExpressionId.Somnolent, "Sleepy"),
         (BloubExpressionId.Mefiant, "Suspicious"), (BloubExpressionId.Blase, "Unimpressed"), (BloubExpressionId.Attentif, "Attentive"),
-        (BloubExpressionId.Surpris, "Surprised"),
+        (BloubExpressionId.Surpris, "Surprised"), (BloubExpressionId.Bof, "Meh"),
     ];
     public static readonly (BloubShapeId Id, string Name)[] Shapes =
     [
