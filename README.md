@@ -117,36 +117,6 @@ Click the pencil and the dashboard turns into a **tab library**. Bloub floats do
 - **Hides in fullscreen games** automatically
 - **One instance:** launching it again just opens the running island
 
-### Motion that feels like Apple's
-
-<img src="docs/media/slowmo.gif" alt="Slow motion: a bubble buds off the island like liquid, then the island expands into the dashboard and collapses" width="640">
-
-*Slow motion (Ctrl+Alt+0).* Every property has its own physical spring (analytic damped-spring solution, stable at any frame time), so animations can be **interrupted and retargeted mid-flight** without a jump. Content follows Apple's choreography: the old content blurs out first, the shape springs to its new size with the width leading, and the new content un-blurs into place. A second activity **buds off like a droplet**, using smooth-min signed distance fields. The island renders at your monitor's refresh rate (144 Hz here).
-
-### Bloub: 15 states, 17 moods, 8 shapes
-
-<img src="docs/media/gallery.gif" alt="Bloub cycling through its states: idle, thinking, wink, wide, alert" width="800">
-
-Bloub's engine is ported 1:1 from the original TypeScript to C#, with parity checked frame by frame (max error 7.6e-6). It covers blinking, gaze tracking, squash and stretch, and blending between any two states without a jump. Open the gallery with **Ctrl+Alt+9**.
-
-### A proper entrance
-
-<img src="docs/media/intro.gif" alt="On launch Bloub drops out of the island onto the screen, grows, lands, says hi and jumps back home" width="720">
-
-<details>
-<summary><b>Design previews: built, but still showing sample data</b></summary>
-
-<br>
-
-These screens are fully designed and animated. They show sample data until they're wired to Windows (see the [roadmap](#roadmap)):
-
-- **Now Playing** and the **Music** tab, with a live waveform, scrubber and controls (next up: Windows media controls / SMTC)
-- **Focus timer** with rolling digits and a progress ring
-- **Command bar** (Alt+Space style)
-- **Clipboard** history and the **System** monitor
-
-</details>
-
 ## Install
 
 ### Download (recommended)
