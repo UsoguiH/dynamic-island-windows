@@ -29,8 +29,7 @@ public static partial class Scenes
 
     static void Art(Canvas c, IslandModel m, float x, float y, float s, float r)
     {
-        using var g = c.Gradient(new(x, y), new(x + s, y + s), Rgba(m.Song.C0), Rgba(m.Song.C1));
-        c.Ctx.FillRoundedRectangle(new Vortice.Direct2D1.RoundedRectangle(new System.Drawing.RectangleF(x, y, s, s), r, r), g);
+        c.GradientRound(x, y, s, s, r, new(x, y), new(x + s, y + s), Rgba(m.Song.C0), Rgba(m.Song.C1));
         // a soft highlight so it reads as artwork
         c.Circle(x + s * 0.72f, y + s * 0.3f, s * 0.18f, WhiteA(0.22f));
     }
@@ -188,12 +187,7 @@ public static partial class Scenes
         // Panel cross-fade + small rise when switching tabs.
         float f = Math.Clamp(m.TabFade.Value, 0, 1);
         float py = y0 + 62 + (1 - f) * 10;
-        c.Ctx.PushLayer(new Vortice.Direct2D1.LayerParameters1
-        {
-            ContentBounds = new Vortice.RawRectF(-1e6f, -1e6f, 1e6f, 1e6f),
-            MaskTransform = Matrix3x2.Identity,
-            Opacity = f,
-        }, null);
+        c.PushLayer(f);
         float pw = w - 32, ph = h - 62 - 16, px = x0 + 16;
         if (m.Tabs.Editing) Library(c, m, px, py, pw, ph);
         else switch (m.Tabs.Selected)
@@ -216,7 +210,7 @@ public static partial class Scenes
             case "battery": BatteryPanel(c, m, px, py, pw, ph); break;
             case "servers": ServersPanel(c, m, px, py, pw, ph); break;
         }
-        c.Ctx.PopLayer();
+        c.PopLayer();
 
         // Toast
         float age = m.Clock - m.ToastTime;

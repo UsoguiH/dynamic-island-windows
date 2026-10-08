@@ -34,6 +34,9 @@ static class Program
     {
         // One island at a time: launching it again (shortcut, Start menu) just opens the running one.
         _single = new Mutex(true, "IslandLab.SingleInstance", out bool first);
+        // measuring: the instance just killed may still be letting go of the mutex
+        if (!first && Environment.GetEnvironmentVariable("ISLAND_BENCH") == "1")
+            try { first = _single.WaitOne(4000); } catch (AbandonedMutexException) { first = true; }
         if (!first)
         {
             var other = FindWindowW("IslandLabWindow", "Island");
@@ -81,18 +84,28 @@ static class Program
             if (RegisterHotKey(_hwnd, 102, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, k)) { _retractKey = k; break; }
         AppDomain.CurrentDomain.ProcessExit += (_, _) => { SetReserved(false); _model.Team.Dispose(); _tray?.Dispose(); };
 
+        using var pacer = new Pacer();
+        // the loop must wake on every vblank even when other apps keep the CPU busy; it uses little time per tick
+        Thread.CurrentThread.Priority = ThreadPriority.Highest;
         var clock = Stopwatch.StartNew();
         double last = 0, nextCheck = 0, nextTopmost = 0;
         bool welcomed = false;
 
         while (true)
         {
+            // one tick per display refresh; a message wakes the loop early to handle it, then it waits on
+            if (Perf && _pBusyFrom > 0) _pBusy += (Stopwatch.GetTimestamp() - _pBusyFrom) * 1000.0 / Stopwatch.Frequency;
+            // nothing changed for a while: look every other refresh (a new animation starts at most one frame later; it then runs at full rate)
+            bool tick = pacer.Wait(_stillTicks > 72 && _welcome == null && !_model.Hovered ? 2 : 1);
+            _pBusyFrom = Stopwatch.GetTimestamp();
+            if (Perf && tick && pacer.Late > 1) _pLate++;
             while (PeekMessageW(out var msg, 0, 0, 0, PM_REMOVE))
             {
                 if (msg.message == WM_QUIT) { SetReserved(false); _model.Team.Dispose(); _tray?.Dispose(); return; }
                 TranslateMessage(ref msg);
                 DispatchMessageW(ref msg);
             }
+            if (!tick) continue;
 
             double now = clock.Elapsed.TotalSeconds;
             if (now - last > 0.04 && last > 0) Diag.Log($"hitch {(now - last) * 1000:0}ms mode={_model.Mode} layers={_model.Layers.Count}");
@@ -111,10 +124,10 @@ static class Program
             if (now >= nextCheck)
             {
                 nextCheck = now + 0.25;
-                _model.WindowAtTop = WindowUnderIsland();
+                _model.WindowAtTop = !Bench && WindowUnderIsland();
                 if (now >= nextTopmost) { nextTopmost = now + 2; SetWindowPos(_hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE); }
                 // Our own full-screen welcome makes Windows report "busy": ignore that while it plays.
-                bool fullscreen = _welcome == null && FullscreenAppActive();
+                bool fullscreen = !Bench && _welcome == null && FullscreenAppActive();
                 if (fullscreen != _model.Hidden)
                 {
                     Log($"hidden={fullscreen} reason={_lastFullscreenReason}");
@@ -128,9 +141,13 @@ static class Program
             bool inside = !_model.Hidden && HitTest(_cursor);
             SetClickThrough(!inside);
 
+            long pt0 = Stopwatch.GetTimestamp();
             _model.Update(dt, _cursor, inside);
             KeyboardFocus(now);
-            renderer.Render(_model); // Present(1) waits for vsync → runs at the monitor's 144 Hz
+            long pt1 = Stopwatch.GetTimestamp();
+            renderer.Render(_model); // redraws (and presents) only what changed, if anything
+            _stillTicks = renderer.Presented ? 0 : _stillTicks + 1;
+            if (Perf) PerfSample(now, pt0, pt1, Stopwatch.GetTimestamp());
             if (_replayWelcome) { _replayWelcome = false; EndWelcome(); StartWelcome(mi.rcMonitor); }
             // A session finished: Bloub comes out to tell you (only when nothing else is on stage).
             if (_welcome == null && _model.PendingCelebration is { } pc)
@@ -150,6 +167,32 @@ static class Program
     }
 
     static (StageScene scene, Gpu gpu, nint hwnd, Action landed)? _welcome;
+    static int _stillTicks;
+
+    // ---- ISLAND_PERF=1 logs, every 3 s: ticks and frames drawn per second, and where a tick's time goes.
+    // ISLAND_BENCH=1: a fixed state for measuring (never auto-retracts or hides for other windows).
+    static readonly bool Bench = Environment.GetEnvironmentVariable("ISLAND_BENCH") == "1";
+    static readonly bool Perf = Environment.GetEnvironmentVariable("ISLAND_PERF") == "1";
+    static double _perfAt, _pUpd, _pRen, _pPres, _pBusy; static int _pFrames, _pDrawn, _pLate; static long _pBusyFrom;
+    static void PerfSample(double now, long t0, long t1, long t2)
+    {
+        double f = 1000.0 / Stopwatch.Frequency;
+        _pUpd += (t1 - t0) * f; _pRen += (t2 - t1) * f; _pFrames++;
+        if (Gpu.LastPresentMs >= 0) { _pPres += Gpu.LastPresentMs; _pDrawn++; Gpu.LastPresentMs = -1; }
+        if (now - _perfAt < 3) return;
+        double s = now - _perfAt;
+        Log($"perf ticks={_pFrames / s:0}/s drawn={_pDrawn / s:0}/s busy={_pBusy / s:0.0}ms/s late={_pLate} " +
+            $"update={_pUpd / _pFrames:0.000}ms render={(_pRen - _pPres) / _pFrames:0.000}ms present={_pPres / _pFrames:0.000}ms " +
+            $"(probe={FrameRenderer.ProbeMs / _pFrames:0.000} draw={FrameRenderer.DrawMs / _pFrames:0.000} flush={FrameRenderer.FlushMs / _pFrames:0.000}) " +
+            $"regions={(double)FrameRenderer.Regions / Math.Max(1, _pDrawn):0.0} verify={FrameRenderer.VerifyBad}/{FrameRenderer.VerifyFrames} mode={_model.Mode}");
+        if (Canvas.Stats)
+        {
+            foreach (var kv in Canvas.StatCounts.OrderByDescending(k => k.Value).Take(12)) Log($"   changed {kv.Value,4}x {kv.Key}");
+            Canvas.StatCounts.Clear();
+        }
+        FrameRenderer.ProbeMs = FrameRenderer.DrawMs = FrameRenderer.FlushMs = 0; FrameRenderer.Regions = 0;
+        _perfAt = now; _pUpd = _pRen = _pPres = _pBusy = 0; _pFrames = _pDrawn = _pLate = 0;
+    }
     static string? _demo = Environment.GetEnvironmentVariable("ISLAND_DEMO");
     static (string Id, double At)? _demoToggle;
 

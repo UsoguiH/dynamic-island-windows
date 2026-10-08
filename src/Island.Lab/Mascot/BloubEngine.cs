@@ -149,6 +149,7 @@ public sealed class BloubEngine
     /// <summary>Resting expression (customiser). Like the shape, it glides to the new value.</summary>
     public void SetExpression(BloubExpression? expression, double now = 0)
     {
+        _sampled = null;
         if (ReferenceEquals(expression, _expr)) return;
         _exprPrev = _expr;
         _expr = expression;
@@ -177,6 +178,7 @@ public sealed class BloubEngine
     /// </summary>
     public void SetShape(double[]? radii, double now = 0)
     {
+        _sampled = null;
         if (ReferenceEquals(radii, _shape)) return;
         _shapePrev = _shape;
         _shape = radii;
@@ -213,6 +215,7 @@ public sealed class BloubEngine
     /// </summary>
     public void SetLook(Look? look, double now, double morph = LookMorph)
     {
+        _sampled = null;
         if (look is { } l && !double.IsFinite(l.Yaw + l.Pitch + l.Mix + l.Spin + l.Wander)) return;
         _lookPrev = LookAtTime(now);
         _look = look ?? Look.None;
@@ -268,6 +271,7 @@ public sealed class BloubEngine
     /// </summary>
     public void Reset(BloubState id, double now)
     {
+        _sampled = null;
         _cur = id;
         _prev = null;
         _departFige = null;
@@ -307,6 +311,7 @@ public sealed class BloubEngine
     /// </summary>
     public void SetState(BloubState id, double now)
     {
+        _sampled = null;
         if (id == _cur) return;
         double morph = BloubStates.Get(_cur).Morph;
         bool enPleinFondu = _prev is not null && now - _tCur < morph;
@@ -361,7 +366,19 @@ public sealed class BloubEngine
     });
 
     /// <summary>Samples the frame at absolute time <paramref name="now"/> (seconds, same clock as the setters).</summary>
+    // Sample is a pure function of time between two setter calls: the renderer reads the same instant
+    // more than once per frame (a probe pass, then the real one), so the last result is kept.
+    BloubFrame? _sampled;
+    double _sampledAt;
+
     public BloubFrame Sample(double now)
+    {
+        if (_sampled != null && _sampledAt == now) return _sampled;
+        _sampledAt = now;
+        return _sampled = SampleNow(now);
+    }
+
+    BloubFrame SampleNow(double now)
     {
         double R = Scale;
         var def = BloubStates.Get(_cur);

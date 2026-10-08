@@ -117,12 +117,100 @@ public sealed class BloubRenderer : IDisposable
         }
     }
 
+    /// <summary>
+    /// A hash of everything <see cref="Draw"/> would put on screen for these arguments (positions in DIPs,
+    /// quantised like every other primitive), so an unchanged Bloub is not redrawn.
+    /// </summary>
+    public ulong Hash(BloubFrame f, Vector2 center, float ballRadiusPx, Color4 bodyColor, float opacity)
+    {
+        float s = ballRadiusPx / EngineScale;
+        var h = new Render.FrameHash(70).P(center.X).P(center.Y).P(ballRadiusPx).C(bodyColor).A(opacity)
+            .C(PaperColor).C(NotifColor).A(ShadeHighlight).C(ShadeBottom ?? default).A(f.BodyAlpha).I(f.DotsBehind ? 1 : 0);
+        foreach (var p in f.Body) h = h.P(p.X * s).P(p.Y * s);
+        foreach (var e in f.Eyes)
+            h = h.P(e.W * s).P(e.H * s).A(e.Matrix.M11).A(e.Matrix.M12).A(e.Matrix.M21).A(e.Matrix.M22).P(e.Matrix.M31 * s).P(e.Matrix.M32 * s).A(e.Alpha);
+        foreach (var d in f.Dots)
+            h = h.P(d.X * s).P(d.Y * s).P(d.R * s).A(d.Opacity).A(float.IsNaN(d.Depth) ? -1 : d.Depth).A(d.RotDeg)
+                 .I(d.Shape is null ? 0 : System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(d.Shape));
+        foreach (var a in f.Arcs)
+        {
+            h = h.S(a.Id).P(a.Width * s).A(a.Opacity).P(a.GradStart.X * s).P(a.GradStart.Y * s).P(a.GradEnd.X * s).P(a.GradEnd.Y * s);
+            foreach (var c in a.GradStops) h = h.I(c);
+            foreach (var run in a.Front) { h = h.I(1); foreach (var p in run) h = h.P(p.X * s).P(p.Y * s); }
+            foreach (var run in a.Back) { h = h.I(2); foreach (var p in run) h = h.P(p.X * s).P(p.Y * s); }
+        }
+        if (f.Notif is { } n) h = h.P(n.X * s).P(n.Y * s).P(n.R * s);
+        if (f.Notch is { } k) h = h.P(k.X * s).P(k.Y * s).P(k.R * s);
+        return h.V;
+    }
+
+    /// <summary>
+    /// Everything <see cref="Draw"/> puts on screen except the outline and the eyes' shapes, which
+    /// <see cref="Outline"/> gives as points so the caller can tell how far they moved.
+    /// </summary>
+    public ulong StyleHash(BloubFrame f, float ballRadiusPx, Color4 bodyColor)
+    {
+        float s = ballRadiusPx / EngineScale;
+        var h = new Render.FrameHash(72).C(bodyColor)
+            .C(PaperColor).C(NotifColor).A(ShadeHighlight).C(ShadeBottom ?? default).A(f.BodyAlpha).I(f.DotsBehind ? 1 : 0)
+            .I(f.Body.Length).I(f.Eyes.Length);
+        foreach (var e in f.Eyes) h = h.A(e.Alpha);
+        foreach (var d in f.Dots)
+            h = h.P(d.X * s).P(d.Y * s).P(d.R * s).A(d.Opacity).A(float.IsNaN(d.Depth) ? -1 : d.Depth).A(d.RotDeg)
+                 .I(d.Shape is null ? 0 : System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(d.Shape));
+        foreach (var a in f.Arcs)
+        {
+            h = h.S(a.Id).P(a.Width * s).A(a.Opacity).P(a.GradStart.X * s).P(a.GradStart.Y * s).P(a.GradEnd.X * s).P(a.GradEnd.Y * s);
+            foreach (var c in a.GradStops) h = h.I(c);
+            foreach (var run in a.Front) { h = h.I(1); foreach (var p in run) h = h.P(p.X * s).P(p.Y * s); }
+            foreach (var run in a.Back) { h = h.I(2); foreach (var p in run) h = h.P(p.X * s).P(p.Y * s); }
+        }
+        if (f.Notif is { } n) h = h.P(n.X * s).P(n.Y * s).P(n.R * s);
+        if (f.Notch is { } k) h = h.P(k.X * s).P(k.Y * s).P(k.R * s);
+        return h.V;
+    }
+
+    /// <summary>The outline points and the eyes' corners, in DIPs.</summary>
+    public void Outline(BloubFrame f, Vector2 center, float ballRadiusPx, List<Vector2> into)
+    {
+        float s = ballRadiusPx / EngineScale;
+        into.Clear();
+        foreach (var p in f.Body) into.Add(center + p * s);
+        foreach (var e in f.Eyes)
+        {
+            float hw = e.W / 2, hh = e.H / 2;
+            into.Add(center + Vector2.Transform(new(-hw, -hh), e.Matrix) * s);
+            into.Add(center + Vector2.Transform(new(hw, -hh), e.Matrix) * s);
+            into.Add(center + Vector2.Transform(new(-hw, hh), e.Matrix) * s);
+            into.Add(center + Vector2.Transform(new(hw, hh), e.Matrix) * s);
+        }
+    }
+
     void DrawBody(ID2D1DeviceContext ctx, ID2D1Factory1 factory, BloubFrame f, Color4 ink, float tol)
     {
         float alpha = f.BodyAlpha;
         if (alpha <= 0.002f || f.Body.Length < 3) return;
 
         using var body = BuildBody(factory, f.Body);
+
+        // Fast path, same pixels: with an opaque paper and an opaque body, a hole showing the paper looks
+        // exactly like the paper painted over the body, as long as the eyes lie inside the body. That
+        // skips the geometry boolean and the masked layer, the costliest part of drawing Bloub.
+        if (PaperColor.A >= 0.999f && alpha >= 0.998f && ink.A >= 0.998f && f.Notch is null && EyesInside(f))
+        {
+            ctx.FillGeometry(body, InkBrush(ctx, ink, alpha), null);
+            var world = ctx.Transform;
+            foreach (var e in f.Eyes)
+            {
+                if (e.Alpha <= 0.002f) continue;
+                float hw = e.W / 2, hh = e.H / 2, r = MathF.Min(hw, hh);
+                ctx.Transform = e.Matrix * world;
+                ctx.FillRoundedRectangle(new RoundedRectangle(new System.Drawing.RectangleF(-hw, -hh, e.W, e.H), r, r),
+                    Brush(WithA(PaperColor, MathF.Min(1, e.Alpha))));
+            }
+            ctx.Transform = world;
+            return;
+        }
 
         var inkBrushColor = WithA(ink, ink.A * alpha);
 
@@ -195,6 +283,29 @@ public sealed class BloubRenderer : IDisposable
             foreach (var g in _holes) g.Dispose();
             _holes.Clear();
         }
+    }
+
+    /// <summary>Whether every eye lies well inside the body outline (inside its inscribed circle).</summary>
+    static bool EyesInside(BloubFrame f)
+    {
+        var pts = f.Body;
+        var c = Vector2.Zero;
+        foreach (var p in pts) c += p;
+        c /= pts.Length;
+        float min = float.MaxValue;
+        foreach (var p in pts) min = MathF.Min(min, Vector2.DistanceSquared(p, c));
+        float lim = MathF.Sqrt(min) * 0.92f; // the spline can dip a little between its points
+        lim *= lim;
+        foreach (var e in f.Eyes)
+        {
+            if (e.Alpha <= 0.002f) continue;
+            float hw = e.W / 2, hh = e.H / 2;
+            if (Vector2.DistanceSquared(Vector2.Transform(new(-hw, -hh), e.Matrix), c) > lim ||
+                Vector2.DistanceSquared(Vector2.Transform(new(hw, -hh), e.Matrix), c) > lim ||
+                Vector2.DistanceSquared(Vector2.Transform(new(-hw, hh), e.Matrix), c) > lim ||
+                Vector2.DistanceSquared(Vector2.Transform(new(hw, hh), e.Matrix), c) > lim) return false;
+        }
+        return true;
     }
 
     /// <summary>A capsule (stadium) centred on the origin, transformed by the eye matrix.</summary>

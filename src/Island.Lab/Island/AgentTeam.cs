@@ -835,7 +835,6 @@ public sealed class AgentTeam
 
     public void DrawBalls(Canvas c, IslandModel m, BloubRenderer r, float opacity)
     {
-        var ctx = c.Ctx;
         foreach (var a in Agents.OrderBy(a => a.R.Value))
         {
             float rad = MathF.Max(0, a.R) * a.Grow;
@@ -855,7 +854,7 @@ public sealed class AgentTeam
             var bottom = Lerp(Lerp(col, new Color4(0, 0, 0, 1), 0.45f), new Color4(a.TintR, a.TintG, a.TintB, 1), wt);
             r.ShadeBottom = bottom;
             r.ShadeHighlight = 0.42f + 0.43f * wt;
-            r.Draw(ctx, c.Factory, a.Engine.Sample(m.Clock), center, rad, ink, op);
+            c.Bloub(r, a.Engine.Sample(m.Clock), center, rad, ink, op);
 
             Badge(c, m, a, center, rad, op);
         }
@@ -1109,14 +1108,14 @@ public sealed class AgentTeam
         float askH = a.Status == AgentStatus.NeedsYou ? 84 : 0;
         float bodyTop = fy + 8, bodyH = fh - 16 - askH;
         float k = p2 * Math.Clamp(PanelT, 0, 1);
-        c.Ctx.PushAxisAlignedClip(new Rect(fx + 2, bodyTop, fw - 4, bodyH), Vortice.Direct2D1.AntialiasMode.Aliased);
+        c.PushClip(fx + 2, bodyTop, fw - 4, bodyH);
         float content = Panel switch
         {
             TeamPanel.Plan => PlanPanel(c, a, fx + 14, bodyTop + 4, fw - 28, bodyH - 4, k) + 4,
             TeamPanel.Files => ChangesPanel(c, m, a, fx + 12, bodyTop, fw - 24, bodyH, k),
             _ => ActivityFeed(c, m, a, fx + 14, bodyTop, fw - 28, bodyH, k),
         };
-        c.Ctx.PopAxisAlignedClip();
+        c.PopClip();
         _scrollMax = MathF.Max(0, content - bodyH);
         if (_scrollMax > 0)
         {
@@ -1468,7 +1467,7 @@ public sealed class AgentTeam
         c.Round(x, y, w, h, h / 2, WhiteA((focused ? 0.13f : hov ? 0.1f : 0.075f) * k));
         if (focused) c.StrokeRound(x + 0.5f, y + 0.5f, w - 1, h - 1, h / 2, 1.2f, WithA(Rgba(0x0A84FF), 0.8f * k));
         float tx = x + 18, avail = w - 36 - (send ? 40 : 0), ty = y + h / 2 - 10;
-        c.Ctx.PushAxisAlignedClip(new Rect(x + 10, y, avail + 10, h), Vortice.Direct2D1.AntialiasMode.Aliased);
+        c.PushClip(x + 10, y, avail + 10, h);
         bool blink = focused && (m.Clock - f.ChangedAt) % 1.06 < 0.6;
         if (f.Text.Length == 0)
         {
@@ -1482,7 +1481,7 @@ public sealed class AgentTeam
             c.Text(f.Text, tx - shift, ty, 14, WhiteA(0.95f * k));
             if (blink) c.Round(tx - shift + caretX, y + 11, 1.6f, h - 22, 0.8f, WithA(Rgba(0x0A84FF), k));
         }
-        c.Ctx.PopAxisAlignedClip();
+        c.PopClip();
 
         if (send)
         {

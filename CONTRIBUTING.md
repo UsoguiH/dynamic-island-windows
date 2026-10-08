@@ -42,8 +42,9 @@ Clicks are ids like `"yourid:action:3"`, which `IslandModel.ActTabs` routes. Try
 
 1. **Motion quality first.** Use springs (`SpringSpec.Island`, `.Bounce`, `.Content`…), never fixed durations, and make sure an animation can be interrupted midway without jumping.
 2. **Never steal focus and never block clicks** outside the black shape.
-3. **Local-only.** Don't add network calls, telemetry or writes to `~/.claude`.
-4. **Match the surrounding code:** the same naming, comment density and idioms.
+3. **Draw only through `Canvas`.** The island redraws just what changed: each frame, a probe pass hashes every `Canvas` primitive and only the changed areas are drawn again. Anything drawn on the D2D context directly is invisible to that probe and leaves stale pixels. Add a `Canvas` method instead, and check with `ISLAND_VERIFY=1`, which compares every partial redraw with a full one and logs any mismatch to `%TEMP%\islandlab.log`.
+4. **Local-only.** Don't add network calls, telemetry or writes to `~/.claude`.
+5. **Match the surrounding code:** the same naming, comment density and idioms.
 
 ## Pull requests
 

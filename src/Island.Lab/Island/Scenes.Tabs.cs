@@ -116,10 +116,10 @@ public static partial class Scenes
             float full = FullW(def.Id);
             float label = Math.Clamp((tw - IconTabW) / MathF.Max(1, full - IconTabW), 0, 1);
             var ink = selected ? White : WhiteA(hover ? 0.75f : 0.42f);
-            c.Ctx.PushAxisAlignedClip(new Rect(x, y0, MathF.Max(0, tw), 60), Vortice.Direct2D1.AntialiasMode.Aliased);
+            c.PushClip(x, y0, MathF.Max(0, tw), 60);
             if (label > 0.01f) c.Text(def.Name, x + 12, y + 4, 13, WithA(ink, ink.A * label * a), FontWeight.SemiBold);
             if (label < 0.99f) c.Icon(def.Icon, x + tw / 2, y + TabH / 2, 13, WithA(selected ? Rgba(def.Color) : ink, ink.A * (1 - label) * a));
-            c.Ctx.PopAxisAlignedClip();
+            c.PopClip();
             if (hover && label < 0.5f && tb.Dragging == null) Tooltip(c, def.Name, x + tw / 2, y0 + 54);
         }
     }
@@ -188,7 +188,7 @@ public static partial class Scenes
         float tw = (gw - gap * (cols - 1)) / cols, th = MathF.Min(54, (h - gap * (rows - 1)) / rows);
         float top = y + (h - (rows * th + gap * (rows - 1))) / 2;
         bool full = tb.Enabled.Count >= TabBar.MaxTabs;
-        var old = c.Ctx.Transform;
+        var old = c.Transform;
         for (int i = 0; i < n; i++)
         {
             var def = TabBar.Catalogue[i];
@@ -200,7 +200,7 @@ public static partial class Scenes
             // tiles cascade in when the library opens
             float enter = Math.Clamp((tb.EditT.Value - i * 0.02f) / 0.6f, 0, 1);
             float pop = s.Pop.Value * (0.9f + 0.1f * enter);
-            c.Ctx.Transform = Matrix3x2.CreateScale(pop, new Vector2(tx + tw / 2, ty + th / 2)) * old;
+            c.Transform = Matrix3x2.CreateScale(pop, new Vector2(tx + tw / 2, ty + th / 2)) * old;
             bool hover = m.Hit("tabs:toggle:" + def.Id, tx, ty, tw, th);
             float alpha = enter * (full && !pinned ? 0.42f : 1);
             float r = th / 2 + (16 - th / 2) * on;      // a pill when off, rounder-square when on
@@ -216,17 +216,9 @@ public static partial class Scenes
                     // the colour spreads out from where you clicked, clipped to the tile
                     var at = s.FillAt is { } f ? new Vector2(Math.Clamp(f.X, tx, tx + tw), Math.Clamp(f.Y, ty, ty + th)) : new Vector2(tx + tw / 2, ty + th / 2);
                     float far = MathF.Sqrt(MathF.Pow(MathF.Max(at.X - tx, tx + tw - at.X), 2) + MathF.Pow(MathF.Max(at.Y - ty, ty + th - at.Y), 2));
-                    using var clip = c.Factory.CreateRoundedRectangleGeometry(new Vortice.Direct2D1.RoundedRectangle(new System.Drawing.RectangleF(tx, ty, tw, th), r, r));
-                    c.Ctx.PushLayer(new Vortice.Direct2D1.LayerParameters1
-                    {
-                        ContentBounds = new Vortice.RawRectF(-1e6f, -1e6f, 1e6f, 1e6f),
-                        GeometricMask = clip,
-                        MaskAntialiasMode = Vortice.Direct2D1.AntialiasMode.PerPrimitive,
-                        MaskTransform = Matrix3x2.Identity,
-                        Opacity = 1,
-                    }, null!);
+                    c.PushRoundClip(tx, ty, tw, th, r);
                     c.Circle(at.X, at.Y, far * fill, WithA(t80, alpha));
-                    c.Ctx.PopLayer();
+                    c.PopLayer();
                 }
             }
             var title = Lerp(Rgba(0xE6E0E9), t20, fill);
@@ -236,7 +228,7 @@ public static partial class Scenes
             c.Text(def.Name, tx + 48, ty + th / 2 - 17, 13.5f, WithA(title, alpha), FontWeight.SemiBold, 0, tw - 58);
             c.Text(pinned ? $"Pinned · {order + 1}" : "Off", tx + 48, ty + th / 2 + 1, 11.5f, WithA(sub, alpha * 0.9f), FontWeight.Regular, 0, tw - 58);
         }
-        c.Ctx.Transform = old;
+        c.Transform = old;
     }
 
     /// <summary>
@@ -352,8 +344,7 @@ public static partial class Scenes
             float ry = y + 44 + (i - 1) * 56;
             bool hov = m.Hit("song:" + ((m.SongIndex + i) % IslandModel.Songs.Length), ux + 8, ry, uw - 16, 50);
             if (hov) c.Round(ux + 8, ry, uw - 16, 50, 14, WhiteA(0.07f));
-            using (var g = c.Gradient(new(ux + 18, ry + 7), new(ux + 54, ry + 43), Rgba(song.C0), Rgba(song.C1)))
-                c.Ctx.FillRoundedRectangle(new Vortice.Direct2D1.RoundedRectangle(new System.Drawing.RectangleF(ux + 18, ry + 7, 36, 36), 9, 9), g);
+            c.GradientRound(ux + 18, ry + 7, 36, 36, 9, new(ux + 18, ry + 7), new(ux + 54, ry + 43), Rgba(song.C0), Rgba(song.C1));
             c.Text(song.Title, ux + 66, ry + 7, 13.5f, White, FontWeight.SemiBold, 0, uw - 130);
             c.Text(song.Artist, ux + 66, ry + 26, 11.5f, Tertiary, FontWeight.Regular, 0, uw - 130);
             c.Text(Time(song.Length), ux + uw - 20, ry + 16, 11.5f, Tertiary, FontWeight.SemiBold, 1f);
@@ -525,9 +516,9 @@ public static partial class Scenes
             float nx = x + (i % 2) * (cw + gap), ny = y + 54 + (i / 2) * (ch + gap);
             bool hov = m.Hit("note:copy:" + i, nx, ny, cw - 40, ch);
             c.Round(nx, ny, cw, ch, 18, Rgba(0xFFD60A, hov ? 0.16f : 0.1f));
-            c.Ctx.PushAxisAlignedClip(new Rect(nx, ny + 10, cw - 36, ch - 44), Vortice.Direct2D1.AntialiasMode.Aliased);
+            c.PushClip(nx, ny + 10, cw - 36, ch - 44);
             c.Wrapped(n.Text, nx + 16, ny + 14, cw - 52, 13, WhiteA(0.92f), FontWeight.SemiBold);
-            c.Ctx.PopAxisAlignedClip();
+            c.PopClip();
             c.Text(hov ? "Click to copy" : Since(n.At), nx + 16, ny + ch - 26, 11.5f, hov ? Rgba(0xFFD60A) : Tertiary, FontWeight.SemiBold);
             bool dh = m.Hit("note:del:" + i, nx + cw - 36, ny + 8, 28, 28);
             if (hov || dh)
@@ -575,9 +566,9 @@ public static partial class Scenes
             {
                 float t = (m.Clock * 0.6f) % 1.4f - 0.2f, bw = w - 300;
                 c.Round(x + 52, ry + bh / 2 + 6, bw, 4, 2, WhiteA(0.1f));
-                c.Ctx.PushAxisAlignedClip(new Rect(x + 52, ry, bw, bh), Vortice.Direct2D1.AntialiasMode.Aliased);
+                c.PushClip(x + 52, ry, bw, bh);
                 c.Round(x + 52 + bw * t, ry + bh / 2 + 6, bw * 0.3f, 4, 2, Rgba(Blue));
-                c.Ctx.PopAxisAlignedClip();
+                c.PopClip();
                 c.Text("downloading…", x + w - 108, ry + bh / 2 - 9, 12, Rgba(Blue), FontWeight.SemiBold, 1f);
             }
             else
