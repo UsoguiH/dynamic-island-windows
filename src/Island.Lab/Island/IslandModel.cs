@@ -116,6 +116,8 @@ public sealed class IslandModel
     // ---- Workspace (Full) state
     /// <summary>Your dashboard tabs (which, in what order, customize mode) and the state the tabs keep.</summary>
     public readonly TabBar Tabs = new();
+    /// <summary>"New tab · Describe it": Bloub becomes the line you type in, then builds the tab with Claude Code.</summary>
+    public readonly TabMaker Maker = new();
     public readonly Spring TabFade = new(1, SpringSpec.Content, 0.002f);
     public readonly Spring TabPillX = new(0, SpringSpec.Bounce, 0.05f);
     public readonly Spring TabPillW = new(0, SpringSpec.Bounce, 0.05f);
@@ -327,7 +329,7 @@ public sealed class IslandModel
         var (ow, oh, _) = Geometry(Mode);
         var old = Mode;
         Mode = m;
-        if (old == Mode.Full && m != Mode.Full) { Tabs.Editing = false; Tabs.EditT.To(0); Tabs.Release(); }
+        if (old == Mode.Full && m != Mode.Full) { Maker.Reset(this); Tabs.Editing = false; Tabs.EditT.To(0); Tabs.Release(); }
         ModeTime = 0;
         _enteredThisMode = false;
         // Going straight to the retracted line (e.g. leaving Full over Chrome) is ONE continuous motion.
@@ -403,6 +405,8 @@ public sealed class IslandModel
         else { _outTime += dt; _hoverTime = 0; IdleTime += dt; }
         // While you're typing into the island it stays open, wherever the cursor wanders.
         if (Focused != null && Mode is Mode.Agents or Mode.Full) _outTime = 0;
+        // …and while Bloub builds a tab you described (Cancel or Esc leave)
+        if (Mode == Mode.Full && Maker.KeepsOpen) _outTime = 0;
         if (Mode is not (Mode.Agents or Mode.Full)) Focused = null;
 
         HoverGrow.To(Hovered && Mode == Mode.Dormant ? 1 : 0);
@@ -502,8 +506,10 @@ public sealed class IslandModel
             Mode.Gallery => (left + 118, Top + h / 2, 5.2f),
             _ => (CX, Top + h / 2, 1f),
         };
-        Face.X.To(ax); Face.Y.To(ay); Face.Size.To(s);
-        if (Hidden || Welcoming || (Retracted && !Peeking)) Face.Opacity.To(0, new SpringSpec(0.12f, 1f)); else Face.Opacity.To(1, new SpringSpec(0.2f, 1f));
+        if (Mode == Mode.Full && Maker.Pose is { } pose) { Face.X.Snap(left + pose.X); Face.Y.Snap(Top + pose.Y); Face.Size.Snap(pose.Z / 11); }
+        else { Face.X.To(ax); Face.Y.To(ay); Face.Size.To(s); }
+        if (Mode == Mode.Full && Maker.HidesBloub) Face.Opacity.Snap(0);
+        else if (Hidden || Welcoming || (Retracted && !Peeking)) Face.Opacity.To(0, new SpringSpec(0.12f, 1f)); else Face.Opacity.To(1, new SpringSpec(0.2f, 1f));
 
         if (Mode == Mode.Command) { Face.GazeX.To(0.9f); Face.GazeY.To(0.1f); }
         else if (Hovered || Vector2.Distance(cursor, new(CX, Top)) < 420) Face.Look(cursor, dt);
@@ -532,6 +538,7 @@ public sealed class IslandModel
             SetGlow(Team.View == TeamView.Focus && Team.Selected != null ? Team.Selected.StatusColor : 0x5E5CE6u, Team.View == TeamView.Focus ? 0.34f : 0.2f);
         Face.Step(dt);
         Tabs.Update(this, dt);
+        Maker.Update(this, dt);
         Team.Update(this, dt);
         WatchLimits();
         DeliverDone();
@@ -598,7 +605,7 @@ public sealed class IslandModel
                 SetMode(_beforeAlert == Mode.Alert ? Base : _beforeAlert);
                 break;
             case Mode.Full:
-                FocusField(null);
+                if (!Maker.Active) FocusField(null);
                 break; // stays open while you use it; collapses when the cursor leaves
             case Mode.Command:
                 SetMode(Mode.Dormant);
@@ -609,15 +616,23 @@ public sealed class IslandModel
     public void Act(string id)
     {
         var parts = id.Split(':');
+        if (parts[0] == "mk") { Maker.Act(this, parts); return; }
         if (Mode == Mode.Full && parts[0] != "tf") FocusField(null);
         if (Team.Act(this, parts)) return;
         if (ActTabs(parts)) return;
+        // a row or poster of a tab you described: its "link", in the browser
+        if (parts is ["cx", var tabId, var row] && CustomTabs.Get(tabId) is { } ct && int.TryParse(row, out int ri)
+            && ct.Data.Rows.ElementAtOrDefault(ri)?.GetValueOrDefault("link") is { } link && link.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+        {
+            TabBar.Open(link);
+            return;
+        }
         switch (parts[0])
         {
             case "tab":
                 // "tab:usage", or an index into your tabs ("tab:2")
                 string tab = int.TryParse(parts[1], out int ti) ? Tabs.Enabled[Math.Clamp(ti, 0, Tabs.Enabled.Count - 1)] : parts[1];
-                if (TabBar.Catalogue.Any(d => d.Id == tab)) Tabs.Select(this, tab);
+                if (TabBar.All.Any(d => d.Id == tab)) Tabs.Select(this, tab);
                 break;
             case "play": Playing = !Playing; Face.Blink(); break;
             case "prev": NextSong(-1); break;
@@ -685,7 +700,7 @@ public sealed class IslandModel
             case "tabs":
                 switch (p[1])
                 {
-                    case "edit": tb.SetEditing(this, !tb.Editing); break;
+                    case "edit": if (Maker.Active) Maker.Cancel(this); else tb.SetEditing(this, !tb.Editing); break;
                     case "team": Bloub.React(Mascot.BloubState.Wink, Clock, 1.0, Mascot.BloubExpressionId.Heureux); OpenTeam(); break;
                     case "toggle": tb.Toggle(this, p[2]); break;
                     case "preset": tb.ApplyPreset(this, N(2)); break;
@@ -695,8 +710,13 @@ public sealed class IslandModel
                 FocusField(p[1] == "task" ? tb.TaskField : tb.NoteField);
                 return true;
             case "tasks":
-                if (p[1] == "clear") { if (tb.Tasks.Any(t => t.Done)) { tb.ClearDone(); ShowToast("Cleared"); } }
-                else tb.ToggleTask(this, N(2));
+                switch (p[1])
+                {
+                    case "clear": tb.ClearDone(); break;
+                    case "add": tb.Submit(this, tb.TaskField); FocusField(tb.TaskField); break;
+                    case "del": tb.DeleteTask(N(2)); break;
+                    default: tb.ToggleTask(this, N(2)); break;
+                }
                 return true;
             case "note" when N(2) is int ni && ni >= 0 && ni < tb.Notes.Count:
                 if (p[1] == "del") { tb.DeleteNote(ni); ShowToast("Note deleted"); }
@@ -740,10 +760,10 @@ public sealed class IslandModel
                 }
                 return true;
             }
-            case "srv" when N(2) is int si && si >= 0 && si < tb.Servers.Count:
+            case "srv" when N(2) is int port && tb.Servers.FirstOrDefault(x => x.Port == port) is { } s:
             {
-                var s = tb.Servers[si];
-                if (p[1] == "stop") tb.StopServer(this, si);
+                if (p[1] == "stop") tb.StopServer(this, s);
+                else if (!s.Web) return true;
                 else if (Showcase.On) ShowToast("Showcase mode: nothing opens");
                 else { TabBar.Open($"http://localhost:{s.Port}"); ShowToast($"Opening localhost:{s.Port}"); }
                 return true;

@@ -189,7 +189,13 @@ public static partial class Scenes
         float py = y0 + 62 + (1 - f) * 10;
         c.PushLayer(f);
         float pw = w - 32, ph = h - 62 - 16, px = x0 + 16;
-        if (m.Tabs.Editing) Library(c, m, px, py, pw, ph);
+        var mk = m.Maker;
+        if (m.Tabs.Editing || mk.Now == TabMaker.Stage.Adding)
+        {
+            // the library steps back while Bloub stretches out of it; the describe flow takes the panel
+            if (m.Tabs.Editing && (mk.Now == TabMaker.Stage.Off || mk.Now == TabMaker.Stage.Line && m.Clock - mk.OpenedAt < 0.8f)) Library(c, m, px, py, pw, ph);
+            if (mk.Active) MakerPanel(c, m, x0, y0);
+        }
         else switch (m.Tabs.Selected)
         {
             case "overview": Overview(c, m, px, py, pw, ph); break;
@@ -209,6 +215,7 @@ public static partial class Scenes
             case "network": NetworkPanel(c, m, px, py, pw, ph); break;
             case "battery": BatteryPanel(c, m, px, py, pw, ph); break;
             case "servers": ServersPanel(c, m, px, py, pw, ph); break;
+            case var id when TabBar.IsCustom(id): CustomPanel(c, m, id, px, py, pw, ph); break;
         }
         c.PopLayer();
 

@@ -13,7 +13,7 @@ public static class Terminal
     {
         try
         {
-            var parents = ParentMap();
+            var parents = Processes.Parents();
             int p = pid;
             var chain = new List<int>();
             for (int depth = 0; depth < 8 && p > 4; depth++)
@@ -93,37 +93,7 @@ public static class Terminal
         return found;
     }
 
-    static Dictionary<int, int> ParentMap()
-    {
-        var map = new Dictionary<int, int>();
-        var snap = CreateToolhelp32Snapshot(2 /* TH32CS_SNAPPROCESS */, 0);
-        if (snap == -1) return map;
-        try
-        {
-            var e = new PROCESSENTRY32W { dwSize = (uint)Marshal.SizeOf<PROCESSENTRY32W>() };
-            if (Process32FirstW(snap, ref e))
-                do map[(int)e.th32ProcessID] = (int)e.th32ParentProcessID;
-                while (Process32NextW(snap, ref e));
-        }
-        finally { CloseHandle(snap); }
-        return map;
-    }
-
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    struct PROCESSENTRY32W
-    {
-        public uint dwSize, cntUsage, th32ProcessID;
-        public nint th32DefaultHeapID;
-        public uint th32ModuleID, cntThreads, th32ParentProcessID;
-        public int pcPriClassBase;
-        public uint dwFlags;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string szExeFile;
-    }
-
     delegate bool EnumProc(nint hwnd, nint lParam);
-    [DllImport("kernel32")] static extern nint CreateToolhelp32Snapshot(uint flags, uint pid);
-    [DllImport("kernel32", CharSet = CharSet.Unicode)] static extern bool Process32FirstW(nint snap, ref PROCESSENTRY32W e);
-    [DllImport("kernel32", CharSet = CharSet.Unicode)] static extern bool Process32NextW(nint snap, ref PROCESSENTRY32W e);
     [DllImport("kernel32")] static extern bool CloseHandle(nint h);
     [DllImport("kernel32")] static extern nint OpenProcess(uint access, bool inherit, uint pid);
     [DllImport("kernel32", CharSet = CharSet.Unicode)] static extern bool QueryFullProcessImageNameW(nint h, uint flags, System.Text.StringBuilder name, ref uint size);

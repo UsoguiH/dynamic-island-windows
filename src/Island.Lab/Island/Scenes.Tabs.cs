@@ -39,9 +39,10 @@ public static partial class Scenes
             float pulse = (m.Clock * 0.8f) % 1;
             c.StrokeCircle(ex + 16, y0 + 32, 16 + pulse * 9, 1.5f, WithA(Rgba(0x0A84FF), 0.6f * (1 - pulse)));
         }
-        c.Round(ex, y0 + 16, ew, 32, 16, edit > 0.5f ? Rgba(0x0A84FF, eh ? 1 : 0.9f) : WhiteA(eh ? 0.18f : 0.1f));
+        bool cancel = m.Maker.Active && m.Maker.Now != TabMaker.Stage.Adding;
+        c.Round(ex, y0 + 16, ew, 32, 16, cancel ? WhiteA(eh ? 0.2f : 0.14f) : edit > 0.5f ? Rgba(0x0A84FF, eh ? 1 : 0.9f) : WhiteA(eh ? 0.18f : 0.1f));
         c.Icon('', ex + 16, y0 + 32, 13, WhiteA(1 - edit));
-        if (edit > 0.05f) c.Text("Done", ex + ew / 2, y0 + 23, 13, WhiteA(edit), FontWeight.SemiBold, 0.5f);
+        if (edit > 0.05f) c.Text(cancel ? "Cancel" : "Done", ex + ew / 2, y0 + 23, 13, WhiteA(edit), FontWeight.SemiBold, 0.5f);
         if (eh && edit < 0.5f) Tooltip(c, "Customize tabs", ex + ew / 2, y0 + 54);
 
         // ---- right: your team (the mini Bloubs are drawn on top by the team itself)
@@ -87,7 +88,7 @@ public static partial class Scenes
         }
 
         // selection pill
-        if (ids.Contains(tb.Selected))
+        if (ids.Contains(tb.Selected) && tb.Selected != tb.HiddenTab)
         {
             var sel = tb[tb.Selected];
             float px = tb.Dragging == tb.Selected ? sel.X.Value : targetX[tb.Selected];
@@ -97,11 +98,11 @@ public static partial class Scenes
         }
 
         int i = 0;
-        foreach (var def in TabBar.Catalogue)
+        foreach (var def in TabBar.All)
         {
             var s = tb[def.Id];
             float a = Math.Clamp(s.A.Value, 0, 1);
-            if (a < 0.01f) continue;
+            if (a < 0.01f || def.Id == tb.HiddenTab) continue;
             bool on = ids.Contains(def.Id);
             float x = x0 + s.X.Value, tw = MathF.Max(0, s.W.Value) * (on ? 1 : a);
             float wob = edit * MathF.Sin(m.Clock * 9 + i++ * 1.7f) * 0.9f;
@@ -160,38 +161,52 @@ public static partial class Scenes
 
         // ---- left: caption, the orb's glow and floor, status, Done
         float cx = x + LibCol / 2, cy = y + 128;
+        bool idle = m.Maker.Now == TabMaker.Stage.Off;
+        float f0 = LibSideFade(m, 0), f1 = LibSideFade(m, 1), f2 = LibSideFade(m, 2);
         string cap = "Tab library", cnt = $"{tb.Enabled.Count} / {TabBar.MaxTabs}";
         float capW = c.Measure(cap, 13, FontWeight.SemiBold), cntW = c.Measure(cnt, 11, FontWeight.SemiBold) + 16;
         float gx0 = cx - (capW + 8 + cntW) / 2;
-        c.Text(cap, gx0, y + 12, 13, WhiteA(0.62f), FontWeight.SemiBold);
-        c.Round(gx0 + capW + 8, y + 13, cntW, 19, 9.5f, WhiteA(0.1f));
-        c.Text(cnt, gx0 + capW + 8 + cntW / 2, y + 14.5f, 11, WhiteA(0.62f), FontWeight.SemiBold, 0.5f);
+        c.Text(cap, gx0, y + 12, 13, WhiteA(0.62f * f0), FontWeight.SemiBold);
+        c.Round(gx0 + capW + 8, y + 13, cntW, 19, 9.5f, WhiteA(0.1f * f0));
+        c.Text(cnt, gx0 + capW + 8 + cntW / 2, y + 14.5f, 11, WhiteA(0.62f * f0), FontWeight.SemiBold, 0.5f);
 
-        c.Glow(cx, cy + 4, 96, 86, tb.GlowColor, 0.26f * edit);
-        c.Glow(cx, cy + LibOrbR + 10, 68, 9, tb.GlowColor, 0.6f * edit);
-        m.Hit("bloub", cx - LibOrbR, cy - LibOrbR, LibOrbR * 2, LibOrbR * 2);
+        c.Glow(cx, cy + 4, 96, 86, tb.GlowColor, 0.26f * edit * f0);
+        c.Glow(cx, cy + LibOrbR + 10, 68, 9, tb.GlowColor, 0.6f * edit * f0);
+        // tapping Bloub starts a new tab you describe
+        if (idle) m.Hit("mk:orb", cx - LibOrbR, cy - LibOrbR, LibOrbR * 2, LibOrbR * 2);
 
-        float st = Math.Clamp(tb.StatusT.Value, 0, 1);
+        float st = Math.Clamp(tb.StatusT.Value, 0, 1) * f1;
         var ink = tb.StatusWarn ? Rgba(Orange, st) : WhiteA(0.55f * st);
         float sw = c.Measure(tb.Status, 12.5f, FontWeight.SemiBold) + 20, sy = y + 206 + (1 - st) * 5;
         c.Icon(tb.StatusIcon, cx - sw / 2 + 7, sy + 9, 12, ink);
         c.Text(tb.Status, cx - sw / 2 + 20, sy, 12.5f, ink, FontWeight.SemiBold);
 
-        bool dh = m.Hit("tabs:edit", cx - 42, y + 242, 84, 32);
-        c.Round(cx - 42, y + 242, 84, 32, 16, Rgba(dh ? 0x3D9BFFu : 0x0A84FFu));
-        c.Text("Done", cx, y + 249, 13, White, FontWeight.SemiBold, 0.5f);
+        bool dh = idle && m.Hit("tabs:edit", cx - 42, y + 242, 84, 32);
+        c.Round(cx - 42, y + 242, 84, 32, 16, Rgba(dh ? 0x3D9BFFu : 0x0A84FFu, f2));
+        c.Text("Done", cx, y + 249, 13, WhiteA(f2), FontWeight.SemiBold, 0.5f);
 
-        // ---- right: the tiles, 3 per row
+        // ---- right: the tiles, 3 per row, and last "New tab · Describe it"
         const int cols = 3;
-        int n = TabBar.Catalogue.Length, rows = (n + cols - 1) / cols;
+        int n = TabBar.All.Length + 1, rows = (n + cols - 1) / cols;
         float gap = 8, left = x + LibCol + 16, gw = w - LibCol - 16;
         float tw = (gw - gap * (cols - 1)) / cols, th = MathF.Min(54, (h - gap * (rows - 1)) / rows);
         float top = y + (h - (rows * th + gap * (rows - 1))) / 2;
         bool full = tb.Enabled.Count >= TabBar.MaxTabs;
         var old = c.Transform;
+        var newAt = new Vector2(left + ((n - 1) % cols) * (tw + gap), top + ((n - 1) / cols) * (th + gap));
         for (int i = 0; i < n; i++)
         {
-            var def = TabBar.Catalogue[i];
+            var (fa, fs) = LibFade(m, i, left + (i % cols) * (tw + gap), top + (i / cols) * (th + gap), newAt);
+            if (fa < 0.01f) continue;
+            if (i == n - 1)
+            {
+                float nx = left + (i % cols) * (tw + gap), ny = top + (i / cols) * (th + gap);
+                float ne = Math.Clamp((tb.EditT.Value - i * 0.02f) / 0.6f, 0, 1) * fa;
+                c.Transform = Matrix3x2.CreateScale((0.9f + 0.1f * ne) * fs, new Vector2(nx + tw / 2, ny + th / 2)) * old;
+                NewTile(c, m, nx, ny, tw, th, ne, idle);
+                continue;
+            }
+            var def = TabBar.All[i];
             var s = tb[def.Id];
             float on = Math.Clamp(s.On.Value, 0, 1), fill = Math.Clamp(s.Fill.Value, 0, 1);
             int order = tb.Enabled.IndexOf(def.Id);
@@ -200,9 +215,9 @@ public static partial class Scenes
             // tiles cascade in when the library opens
             float enter = Math.Clamp((tb.EditT.Value - i * 0.02f) / 0.6f, 0, 1);
             float pop = s.Pop.Value * (0.9f + 0.1f * enter);
-            c.Transform = Matrix3x2.CreateScale(pop, new Vector2(tx + tw / 2, ty + th / 2)) * old;
-            bool hover = m.Hit("tabs:toggle:" + def.Id, tx, ty, tw, th);
-            float alpha = enter * (full && !pinned ? 0.42f : 1);
+            c.Transform = Matrix3x2.CreateScale(pop * fs, new Vector2(tx + tw / 2, ty + th / 2)) * old;
+            bool hover = idle && m.Hit("tabs:toggle:" + def.Id, tx, ty, tw, th);
+            float alpha = enter * fa * (full && !pinned ? 0.42f : 1);
             float r = th / 2 + (16 - th / 2) * on;      // a pill when off, rounder-square when on
 
             Color4 bg = Mix(def.Color, 0x2A292F, 0.93f), t80 = Mix(def.Color, 0xFFFFFF, 0.45f), t20 = Mix(def.Color, 0x000000, 0.7f);
@@ -226,7 +241,17 @@ public static partial class Scenes
             var icon = Lerp(t80, t20, fill);
             c.Icon(def.Icon, tx + 27, ty + th / 2, 16, WithA(icon, alpha));
             c.Text(def.Name, tx + 48, ty + th / 2 - 17, 13.5f, WithA(title, alpha), FontWeight.SemiBold, 0, tw - 58);
-            c.Text(pinned ? $"Pinned · {order + 1}" : "Off", tx + 48, ty + th / 2 + 1, 11.5f, WithA(sub, alpha * 0.9f), FontWeight.Regular, 0, tw - 58);
+            bool armed = tb.DeleteArmed == def.Id && m.Clock - tb.DeleteArmedAt < 3;
+            c.Text(armed ? "Tap × to delete" : pinned ? $"Pinned · {order + 1}" : "Off", tx + 48, ty + th / 2 + 1, 11.5f,
+                armed ? Rgba(Red, alpha) : WithA(sub, alpha * 0.9f), FontWeight.Regular, 0, tw - 58);
+            // a tab you described can be deleted: its × shows on hover, red once tapped
+            if (TabBar.IsCustom(def.Id) && idle && (hover || armed || m.HoverHit == "mk:del:" + def.Id))
+            {
+                float xr = MathF.Min(10, th / 2 - 4), xcx = tx + tw - xr - 7, xcy = ty + th / 2;
+                bool xh = m.Hit("mk:del:" + def.Id, xcx - xr - 3, xcy - xr - 3, xr * 2 + 6, xr * 2 + 6);
+                c.Circle(xcx, xcy, xr, armed ? Rgba(Red, alpha) : xh ? Rgba(0x000000, 0.45f * alpha) : Rgba(0x000000, 0.28f * alpha));
+                c.Icon('\uE711', xcx, xcy, xr * 0.9f, WhiteA(alpha));
+            }
         }
         c.Transform = old;
     }
@@ -239,8 +264,9 @@ public static partial class Scenes
     public static void LibraryMoons(Canvas c, IslandModel m, bool front, float opacity)
     {
         var tb = m.Tabs;
-        float edit = Math.Clamp(tb.EditT.Value, 0, 1) * opacity;
+        float edit = Math.Clamp(tb.EditT.Value, 0, 1) * opacity * Math.Clamp(m.Maker.MoonShow.Value, 0, 1);
         if (m.Mode != Mode.Full || edit < 0.01f) return;
+        float pull = Math.Clamp(m.Maker.MoonPull.Value, 0, 1);
         float k = 11f * m.Face.Size.Value / 56f;
         float ox = m.Face.X, oy = m.Face.Y;
         float su = (float)(m.Clock - tb.ShrugAt) / 0.95f;
@@ -262,6 +288,7 @@ public static partial class Scenes
                 near = near || mb > 0.5f;
             }
             if (near != front) continue;
+            x += (ox - x) * pull; y += (oy - y) * pull; sc *= 1 - pull;
             float r = 7.5f * k * sc, dim = near ? 1 : 0.75f;
             c.Circle(x, y, r, WithA(new Color4(0.55f * dim, 0.6f * dim, 0.67f * dim, 1), edit));
             c.Circle(x - r * 0.12f, y - r * 0.12f, r * 0.84f, WithA(new Color4(0.83f * dim, 0.86f * dim, 0.9f * dim, 1), edit));
@@ -387,26 +414,189 @@ public static partial class Scenes
 
     // ---------------------------------------------------------------- Tasks
 
+    static readonly string[] TaskHints = ["Buy oat milk", "Call the dentist", "Send the invoice", "Water the plants", "Book flights for May"];
+
+    /// <summary>
+    /// "+ New task" opens into the field in one calm motion; Enter makes room at the top of the list and the task
+    /// rises into it. Ticking pops a green dot, draws the tick and strikes the text, then the row sinks to "Done".
+    /// </summary>
     static void TasksPanel(Canvas c, IslandModel m, float x, float y, float w, float h)
     {
         var tb = m.Tabs;
-        AgentTeam.Field(c, m, tb.TaskField, "tf:task", x, y, w - 120, 40, 1, false);
-        int done = tb.Tasks.Count(t => t.Done);
-        PillButton(c, m, "tasks:clear", done > 0 ? $"Clear {done} done" : "All clear", x + w - 110, y + 4, 110, 32, null);
-        if (tb.Tasks.Count == 0) { Empty(c, x, y + 40, w, h - 40, '', "Nothing to do", "Type a task above and press Enter"); return; }
-        float rowH = 40;
-        int max = (int)((h - 54) / rowH);
-        for (int i = 0; i < Math.Min(max, tb.Tasks.Count); i++)
+        var tasks = tb.Tasks;
+        TaskBar(c, m, x, y, w);
+        float top = y + 56, bottom = y + h;
+        if (tasks.Count == 0) { Empty(c, x, top, w, bottom - top, '', "Nothing to do", "Click + New task and type what needs doing"); tb.TaskScrollMax = 0; return; }
+
+        // slots: the open tasks, the "Done" header, the done tasks (a ticked task keeps its slot until it sinks)
+        const float rowH = 40, gap = 6, hdH = 26;
+        int first = tasks.Count;
+        while (first > 0 && tasks[first - 1].Done) first--;
+        float sy = 0;
+        for (int i = 0; i < tasks.Count; i++)
         {
-            var t = tb.Tasks[i];
-            float ry = y + 54 + i * rowH;
-            bool hov = m.Hit("tasks:toggle:" + i, x, ry, w, rowH - 6);
-            c.Round(x, ry, w, rowH - 6, 13, WhiteA(hov ? 0.09f : 0.05f));
-            Check(c, x + 20, ry + (rowH - 6) / 2, t.Done, hov);
-            c.Text(t.Text, x + 38, ry + 7, 13.5f, t.Done ? Tertiary : White, t.Done ? FontWeight.Regular : FontWeight.SemiBold, 0, w - 60);
-            if (t.Done) c.Line(x + 38, ry + 17, x + 38 + MathF.Min(w - 60, c.Measure(t.Text, 13.5f)), ry + 17, 1.2f, Tertiary);
+            if (i == first) { tb.PlaceDoneHeader(sy); sy += hdH + gap; }
+            tasks[i].Place(sy);
+            sy += rowH + gap;
         }
-        if (tb.Tasks.Count > max) c.Text($"+ {tb.Tasks.Count - max} more", x + w / 2, y + h - 16, 11.5f, Tertiary, FontWeight.SemiBold, 0.5f);
+        if (first == tasks.Count) tb.PlaceDoneHeader(sy);
+        tb.TaskScrollMax = MathF.Max(0, sy - gap - (bottom - top));
+
+        float oy = top - tb.TaskScroll.Value;
+        c.PushClip(x - 4, top - 4, w + 8, bottom - top + 8);
+        float hd = Math.Clamp(tb.DoneHeader.Value, 0, 1);
+        if (hd > 0.01f)
+        {
+            float hy = oy + tb.DoneHeaderY.Value;
+            int done = tasks.Count(t => t.Done && !t.Leaving);
+            c.PushLayer(hd);
+            c.Text($"Done · {Math.Max(1, done)}", x + 4, hy + 6, 11.5f, Tertiary, FontWeight.SemiBold);
+            bool hot = done > 0 && Visible(hy, hdH, top, bottom) && m.Hit("tasks:clear", x + w - 56, hy + 1, 54, 24);
+            c.Round(x + w - 56, hy + 1, 54, 24, 12, WhiteA(hot ? 0.14f : 0.07f));
+            c.Text("Clear", x + w - 29, hy + 5, 11.5f, hot ? White : WhiteA(0.55f), FontWeight.SemiBold, 0.5f);
+            c.PopLayer();
+        }
+        for (int i = 0; i < tasks.Count; i++) TaskRow(c, m, tasks[i], i, x, oy + tasks[i].Y.Value, w, top, bottom);
+        c.PopClip();
+    }
+
+    /// <summary>"Today · 3 to do" and the blue "+ New task" pill, which grows left into the field (its blue drains into the outline).</summary>
+    static void TaskBar(Canvas c, IslandModel m, float x, float y, float w)
+    {
+        var tb = m.Tabs;
+        var f = tb.TaskField;
+        float ov = tb.TaskOpen.Value;
+        float pw = Math.Clamp(132 + (w - 132) * ov, 120, w), px = x + w - pw;
+
+        // the heading fades and slips left as the pill covers it
+        float head = 1 - Smooth(0, 0.45f, ov);
+        if (head > 0.01f)
+        {
+            int open = tb.Tasks.Count(t => !t.Done);
+            string sub = tb.Tasks.Count == 0 ? "nothing yet" : open == 0 ? "all done" : $"{open} to do";
+            float hx = x + 4 - 10 * Math.Clamp(ov, 0, 1);
+            c.PushLayer(head);
+            c.Text("Today", hx, y + 9, 20, White, FontWeight.SemiBold);
+            c.Text(sub, hx + c.Measure("Today", 20, FontWeight.SemiBold) + 8, y + 16, 12, Tertiary);
+            c.PopLayer();
+        }
+
+        bool hov = m.Hit("tf:task", px, y, pw - (ov > 0.5f ? 44 : 0), 44);
+        float cp = Smooth(0, 0.75f, ov); // the colour turns a little ahead of the width
+        c.Round(px, y, pw, 44, 22, Lerp(Rgba(hov && ov < 0.05f ? 0x2B93FFu : Blue), Rgba(0x1C1C20), cp));
+        if (cp > 0.01f) c.StrokeRound(px + 0.75f, y + 0.75f, pw - 1.5f, 42.5f, 21.25f, 1.5f, Rgba(Blue, 0.7f * cp));
+        c.PushClip(px, y, pw, 44);
+        // the + turns half a turn and goes blue
+        PlusGlyph(c, px + 23, y + 22, 6.5f, MathF.PI * ov, Lerp(White, Rgba(Blue), cp));
+        float label = 1 - Smooth(0, 0.3f, ov);
+        if (label > 0.01f) c.Text("New task", px + 42 + 14 * (1 - label), y + 12.5f, 13.5f, WhiteA(label), FontWeight.SemiBold);
+
+        // the field: comes in just after the pill starts to open; after Enter its text slips back in
+        float back = Math.Clamp(tb.TaskFieldIn.Value, 0, 1);
+        float fin = Smooth(0.17f, 0.6f, ov) * back;
+        if (fin > 0.01f)
+        {
+            float tx = px + 42 - 6 * (1 - Smooth(0.17f, 1, ov)), ty = y + 12 - 5 * (1 - back), avail = pw - 42 - 50;
+            bool focused = m.Focused == f;
+            bool blink = focused && (m.Clock - f.ChangedAt) % 1.06 < 0.6;
+            c.PushClip(px + 38, y, MathF.Max(0, avail + 6), 44);
+            if (f.Text.Length == 0)
+            {
+                // while it stays empty, the placeholder suggests a few tasks
+                double idle = m.Clock - f.ChangedAt;
+                string ph = focused && idle > 2.4 ? TaskHints[(int)(idle / 2.4 - 1) % TaskHints.Length] + "…" : f.Placeholder;
+                c.Text(ph, tx, ty, 14, WhiteA(0.38f * fin), FontWeight.Medium, 0, avail);
+                if (blink) c.Round(tx, y + 12, 1.6f, 20, 0.8f, Rgba(Blue, fin));
+            }
+            else
+            {
+                float caret = c.Measure(f.Text[..f.Caret], 14, FontWeight.SemiBold);
+                float shift = MathF.Max(0, caret - avail + 4);
+                c.Text(f.Text, tx - shift, ty, 14, WhiteA(0.95f * fin), FontWeight.SemiBold);
+                if (blink) c.Round(tx - shift + caret, y + 12, 1.6f, 20, 0.8f, Rgba(Blue, fin));
+            }
+            c.PopClip();
+        }
+
+        // send grows in last, and turns blue once there's something to add
+        float sk = Smooth(0.28f, 1, ov);
+        if (sk > 0.01f)
+        {
+            bool can = f.Text.Trim().Length > 0;
+            float sx = px + pw - 22, sy = y + 22, k = 0.6f + 0.4f * sk;
+            bool hot = sk > 0.5f && m.Hit("tasks:add", sx - 16, sy - 16, 32, 32);
+            var ink = can ? White : WhiteA(0.4f);
+            c.PushLayer(Math.Clamp(sk, 0, 1));
+            c.Circle(sx, sy, 16 * k, can ? Rgba(hot ? 0x3D9BFFu : Blue) : WhiteA(0.1f));
+            c.Line(sx, sy + 5 * k, sx, sy - 5 * k, 1.8f, ink);
+            c.Line(sx - 4.5f * k, sy - 0.5f * k, sx, sy - 5 * k, 1.8f, ink);
+            c.Line(sx + 4.5f * k, sy - 0.5f * k, sx, sy - 5 * k, 1.8f, ink);
+            c.PopLayer();
+        }
+        c.PopClip();
+    }
+
+    static void TaskRow(Canvas c, IslandModel m, TaskItem t, int i, float x, float y, float w, float top, float bottom)
+    {
+        const float h = 40;
+        float show = Math.Clamp(t.Show.Value, 0, 1);
+        if (show < 0.01f || y > bottom || y + h < top) return;
+        // arriving, it rises a little into its slot; leaving, it settles down and shrinks away
+        float rise = t.Leaving ? 8 * (1 - show) : -10 * (1 - show);
+        float sc = t.Leaving ? 0.95f + 0.05f * show : 0.985f + 0.015f * show;
+        var xf = c.Transform;
+        c.Transform = Matrix3x2.CreateScale(sc, new Vector2(x + w / 2, y + h / 2)) * Matrix3x2.CreateTranslation(0, rise) * xf;
+        c.PushLayer(show);
+
+        bool live = !t.Leaving && Visible(y, h, top, bottom);
+        bool hov = live && m.Hit("tasks:toggle:" + i, x, y, w, h);
+        bool xhov = hov && m.Hit("tasks:del:" + i, x + w - 38, y + 7, 26, 26);
+        c.Round(x, y, w, h, 14, WhiteA(hov ? 0.09f : 0.055f));
+
+        float cx = x + 22, cy = y + h / 2;
+        c.StrokeCircle(cx, cy, 8.6f, 1.6f, WhiteA(hov ? 0.75f : 0.4f));
+        float dot = MathF.Max(0, t.Dot.Value);
+        if (dot > 0.01f) c.Circle(cx, cy, 10 * dot, Rgba(Green));
+        float mark = Math.Clamp(t.Mark.Value, 0, 1);
+        if (mark > 0.01f) TickMark(c, cx - 10, cy - 10, mark);
+
+        float st = Math.Clamp(t.Strike.Value, 0, 1), room = w - 44 - 46;
+        var weight = t.Done ? FontWeight.Medium : FontWeight.SemiBold;
+        c.Text(t.Text, x + 44, y + 11, 13.5f, Lerp(White, WhiteA(0.38f), st), weight, 0, room);
+        if (st > 0.01f)
+        {
+            float tw = MathF.Min(room, c.Measure(t.Text, 13.5f, weight));
+            c.Line(x + 44, y + 20.5f, x + 44 + tw * st, y + 20.5f, 1.3f, WhiteA(0.4f));
+        }
+
+        if (hov)
+        {
+            float dx = x + w - 25;
+            if (xhov) c.Circle(dx, cy, 13, Rgba(Red, 0.25f));
+            var ink = xhov ? Rgba(0xFF8A80) : WhiteA(0.6f);
+            c.Line(dx - 3.5f, cy - 3.5f, dx + 3.5f, cy + 3.5f, 1.6f, ink);
+            c.Line(dx + 3.5f, cy - 3.5f, dx - 3.5f, cy + 3.5f, 1.6f, ink);
+        }
+        c.PopLayer();
+        c.Transform = xf;
+    }
+
+    /// <summary>The tick inside a 20×20 box, drawn up to <paramref name="k"/> (0..1) of its length.</summary>
+    static void TickMark(Canvas c, float x, float y, float k)
+    {
+        Vector2 a = new(x + 6, y + 10.4f), b = new(x + 8.7f, y + 13), e = new(x + 14.2f, y + 7.4f);
+        const float l1 = 3.75f, l2 = 7.85f;
+        float d = k * (l1 + l2);
+        var end = d < l1 ? Vector2.Lerp(a, b, d / l1) : b;
+        c.Line(a.X, a.Y, end.X, end.Y, 2, White);
+        if (d > l1) { end = Vector2.Lerp(b, e, (d - l1) / l2); c.Line(b.X, b.Y, end.X, end.Y, 2, White); }
+    }
+
+    static void PlusGlyph(Canvas c, float cx, float cy, float r, float angle, Color4 color)
+    {
+        float s = MathF.Sin(angle) * r, k = MathF.Cos(angle) * r;
+        c.Line(cx - k, cy - s, cx + k, cy + s, 2, color);
+        c.Line(cx + s, cy - k, cx - s, cy + k, 2, color);
     }
 
     // ---------------------------------------------------------------- Calendar
@@ -732,46 +922,224 @@ public static partial class Scenes
 
     // ---------------------------------------------------------------- Dev servers
 
-    static uint ServerColor(TabBar.ServerItem s) => s.Port switch
+    /// <summary>The renderer the agents' Bloubs are drawn with (set by the frame renderer).</summary>
+    public static Mascot.BloubRenderer? Bloubs;
+
+    static readonly Dictionary<string, uint> KindColors = new()
     {
-        5432 or 3306 or 27017 => 0x64D2FF,
-        6379 => Red,
-        _ => s.Process.ToLowerInvariant() switch
-        {
-            "node" or "bun" or "deno" => Green,
-            "python" or "python3" or "pythonw" or "uvicorn" => 0xFFD60A,
-            "dotnet" => 0x5E5CE6,
-            "java" or "javaw" => Orange,
-            _ => 0xFF6482,
-        },
+        ["Vite"] = 0xA47BFF, ["Vite preview"] = 0xA47BFF, ["Storybook"] = 0xFF4785, ["Astro"] = 0xFF7A3D, ["Next.js"] = 0xE8E8EE,
+        ["uvicorn"] = 0x2FBF98, ["Django / uvicorn"] = 0x2FBF98, ["Flask / dev server"] = 0x2FBF98, ["Angular"] = 0xFF4A6E,
+        ["PostgreSQL"] = 0x5B9BFF, ["MySQL"] = 0x5B9BFF, ["MongoDB"] = 0x3FBF6F, ["Redis"] = 0xFF5A4E, ["Ollama"] = 0xF2F2F7,
     };
 
+    static uint ServerColor(TabBar.ServerItem s) => KindColors.TryGetValue(s.Kind, out var k) ? k : s.Process.ToLowerInvariant() switch
+    {
+        "node" or "bun" or "deno" => Green,
+        "python" or "python3" or "pythonw" or "uvicorn" => 0xFFD60A,
+        "dotnet" => 0x5E5CE6,
+        "java" or "javaw" => Orange,
+        _ => 0xFF6482,
+    };
+
+    /// <summary>The live agent behind a server's Claude session, if it's still around.</summary>
+    static Agent? ServerOwner(IslandModel m, TabBar.ServerItem s)
+    {
+        if (s.Session == null) return null;
+        foreach (var a in m.Team.Agents) if (a.SessionId == s.Session && a.Name.Length > 0) return a;
+        return null;
+    }
+
+    readonly record struct ServerGroup(Agent? Owner, List<TabBar.ServerAnim> Items);
+    static readonly List<ServerGroup> _groups = new();
+    static readonly List<TabBar.ServerAnim> _background = new();
+
+    /// <summary>
+    /// What's listening on localhost, grouped by the Claude session that started it: each session's Bloub with
+    /// its servers beside it as tiles (Open and Stop show on hover), web servers no session started under
+    /// "Other", and databases and other services as small chips on one "Background" line.
+    /// </summary>
     static void ServersPanel(Canvas c, IslandModel m, float x, float y, float w, float h)
     {
         var tb = m.Tabs;
-        var list = tb.Servers;
-        c.Text("Listening on this PC", x + 4, y + 2, 13, Secondary, FontWeight.SemiBold);
+        c.Text("Running on this PC", x + 6, y + 2, 13, Secondary, FontWeight.SemiBold);
         if (!tb.ServersLoaded) { Empty(c, x, y, w, h, '', "Looking for servers…", "Checking what's listening on localhost"); return; }
-        if (list.Count == 0) { Empty(c, x, y, w, h, '', "No dev servers running", "Start one (npm run dev, uvicorn, dotnet run…) and it shows up here"); return; }
-        float rowH = MathF.Min(54, (h - 28) / list.Count);
-        for (int i = 0; i < list.Count; i++)
+        if (tb.ServersShown.Count == 0) { Empty(c, x, y, w, h, '', "No dev servers running", "Start one (npm run dev, uvicorn, dotnet run…) and it shows up here"); return; }
+
+        // sessions in the order their first server appears, then "Other", then the background services
+        _groups.Clear(); _background.Clear();
+        int own = 0;
+        foreach (var a in tb.ServersShown)
         {
-            var s = list[i];
-            float ry = y + 28 + i * rowH, bh = rowH - 8;
-            bool hov = s.Web && m.Hit("srv:open:" + i, x, ry, w - 190, bh);
-            c.Round(x, ry, w, bh, MathF.Min(16, bh / 2), WhiteA(hov ? 0.1f : 0.06f));
-            uint col = ServerColor(s);
-            c.Round(x + 12, ry + bh / 2 - 14, 28, 28, 9, Rgba(col, 0.22f));
-            // a live dot: these are running right now
-            float pulse = 0.55f + 0.45f * MathF.Sin(m.Clock * 3 + i);
-            c.Circle(x + 26, ry + bh / 2, 4.5f, Rgba(col, pulse));
-            c.Text($"localhost:{s.Port}", x + 52, ry + bh / 2 - 17, 14, White, FontWeight.SemiBold);
-            string up = s.Started is { } at ? "  ·  up " + Since(at).Replace("now", "just now") : "";
-            string kind = string.Equals(s.Kind, s.Process, StringComparison.OrdinalIgnoreCase) ? s.Process : $"{s.Kind}  ·  {s.Process}";
-            c.Text(kind + up, x + 52, ry + bh / 2 + 1, 11.5f, Tertiary, FontWeight.Regular, 0, w - 260);
-            bool confirm = tb.ConfirmStop.Pid == s.Pid && m.Clock < tb.ConfirmStop.Until && s.Pid != 0;
-            PillButton(c, m, "srv:stop:" + i, confirm ? "Sure?" : "Stop", x + w - 84, ry + bh / 2 - 14, 72, 28, confirm ? Red : null);
-            if (s.Web) PillButton(c, m, "srv:open:" + i, "Open", x + w - 164, ry + bh / 2 - 14, 72, 28, Blue);
+            var owner = ServerOwner(m, a.Item);
+            if (owner == null && !a.Item.Web) { _background.Add(a); continue; }
+            if (owner != null && a.Show.Target > 0) own++;
+            int g = _groups.FindIndex(x => x.Owner == owner);
+            if (g < 0) { _groups.Add(new(owner, new())); g = _groups.Count - 1; }
+            _groups[g].Items.Add(a);
         }
+        int other = _groups.FindIndex(g => g.Owner == null);
+        if (other >= 0 && other != _groups.Count - 1) { var o = _groups[other]; _groups.RemoveAt(other); _groups.Add(o); }
+        c.Text($"{tb.Servers.Count} listening  ·  {own} started by Claude", x + w - 6, y + 4, 11.5f, Tertiary, FontWeight.Regular, 1f);
+
+        const float gap = 8, pad = 10, who = 128, tileH = 52, minTile = 150, maxTile = 250;
+        float top = y + 26, bottom = y + h;
+        float cy = top - tb.ServerScroll.Value;
+        c.PushClip(x - 4, top - 4, w + 8, bottom - top + 8);
+
+        foreach (var g in _groups)
+        {
+            float gs = 0;
+            foreach (var a in g.Items) gs = MathF.Max(gs, a.Show.Value);
+            gs = Math.Clamp(gs, 0, 1);
+            int n = g.Items.Count;
+            float area = w - pad * 2 - who - 12;
+            int cols = Math.Clamp((int)((area + gap) / (minTile + gap)), 1, n);
+            float tw = MathF.Min(maxTile, (area - gap * (cols - 1)) / cols);
+            int rows = (n + cols - 1) / cols;
+            float gh = pad * 2 + rows * tileH + (rows - 1) * gap;
+
+            c.PushLayer(gs);
+            c.Round(x, cy, w, gh, 22, WhiteA(0.055f));
+            // who started them: the agent's own Bloub (it blinks and reacts like everywhere else), name and status
+            float fy = cy + pad + tileH / 2;
+            if (g.Owner is { } ag)
+            {
+                ServerBloub(c, m, ag, x + 12 + 15, fy, 15);
+                var (status, sc) = ag.Status switch
+                {
+                    AgentStatus.Working => ("working", Tertiary),
+                    AgentStatus.NeedsYou => ("needs you", Rgba(Orange)),
+                    AgentStatus.Done => ("done", Rgba(Green, 0.85f)),
+                    _ => ("idle", Tertiary),
+                };
+                c.Text(ag.Name, x + 51, fy - 17, 13, White, FontWeight.SemiBold, 0, who - 41);
+                c.Text(status, x + 51, fy + 1, 11, sc);
+            }
+            else
+            {
+                c.Circle(x + 27, fy, 15, WhiteA(0.1f));
+                c.Icon('', x + 27, fy, 13, Secondary);
+                c.Text("Other", x + 51, fy - 17, 13, White, FontWeight.SemiBold);
+                c.Text("not from Claude", x + 51, fy + 1, 11, Tertiary, FontWeight.Regular, 0, who - 41);
+            }
+
+            for (int i = 0; i < n; i++)
+            {
+                var a = g.Items[i];
+                a.Place(i % cols * (tw + gap), i / cols * (tileH + gap), tw);
+                ServerTile(c, m, a, x + pad + who + 12 + a.X.Value, cy + pad + a.Y.Value, a.W.Value, tileH, top, bottom);
+            }
+            c.PopLayer();
+            cy += (gh + gap) * gs;
+        }
+
+        if (_background.Count > 0)
+        {
+            float bx = x + 8, by = cy + 2;
+            c.Icon('', bx + 7, by + 13, 13, WhiteA(0.35f));
+            c.Text("Background", bx + 20, by + 5, 12, Tertiary);
+            bx += 20 + c.Measure("Background", 12) + 10;
+            foreach (var a in _background)
+            {
+                var s = a.Item;
+                string port = $":{s.Port}";
+                float kw = c.Measure(s.Kind, 12, FontWeight.Medium), pw = c.Measure(port, 12);
+                float cw = 26 + kw + 4 + pw + 4 + 22 + 4 + 34 * a.Confirm.Value;
+                if (bx + cw > x + w - 4) { bx = x + 8 + 20 + c.Measure("Background", 12) + 10; by += 32; }
+                float op = Math.Clamp(a.Show.Value, 0, 1);
+                c.PushLayer(op);
+                c.Round(bx, by, cw, 26, 13, WhiteA(0.05f + 0.04f * a.Hover.Value));
+                c.Circle(bx + 13, by + 13, 3, Rgba(ServerColor(s)));
+                c.Text(s.Kind, bx + 22, by + 5, 12, WhiteA(0.7f), FontWeight.Medium);
+                c.Text(port, bx + 22 + kw + 4, by + 5, 12, WhiteA(0.4f));
+                StopButton(c, m, a, bx + cw - 25 - 34 * a.Confirm.Value, by + 2, 22, top, bottom);
+                c.PopLayer();
+                bx += (cw + 6) * op;
+            }
+            cy = by + 26 + 8;
+        }
+        c.PopClip();
+        tb.ServerScrollMax = MathF.Max(0, cy + tb.ServerScroll.Value - bottom);
+    }
+
+    /// <summary>One server: a live dot, its port, what it is and how long it has run; Open and Stop slide in on hover.</summary>
+    static void ServerTile(Canvas c, IslandModel m, TabBar.ServerAnim a, float x, float y, float w, float h, float top, float bottom)
+    {
+        var s = a.Item;
+        float show = Math.Clamp(a.Show.Value, 0, 1), hv = Math.Clamp(a.Hover.Value, 0, 1);
+        // springs in from a little smaller and eases out the same way
+        var xf = c.Transform;
+        float sc = 0.92f + 0.08f * a.Show.Value;
+        c.Transform = Matrix3x2.CreateScale(sc, new Vector2(x + w / 2, y + h / 2)) * xf;
+        c.PushLayer(show);
+        if (Visible(y, h, top, bottom)) m.Hit("srv:row:" + s.Port, x, MathF.Max(y, top), w, MathF.Min(y + h, bottom) - MathF.Max(y, top));
+        c.Round(x, y, w, h, 16, WhiteA(0.06f + 0.05f * hv));
+
+        uint col = ServerColor(s);
+        float pulse = 0.6f + 0.4f * MathF.Sin(m.Clock * 2.6f + s.Port);
+        c.Circle(x + 15, y + h / 2, 3.5f + 2.5f * (1 - pulse), Rgba(col, 0.25f * pulse));
+        c.Circle(x + 15, y + h / 2, 3.5f, Rgba(col, pulse));
+
+        float acts = (s.Web ? 34 : 0) + 30 + 40 * a.Confirm.Value;
+        float room = w - 27 - 10 - acts * hv;
+        float cw = c.Measure(":", 16, FontWeight.SemiBold);
+        c.Text(":", x + 27, y + 7, 16, WhiteA(0.35f), FontWeight.SemiBold);
+        c.Text(s.Port.ToString(), x + 27 + cw, y + 7, 16, White, FontWeight.SemiBold);
+        string up = s.Started is { } at ? "  ·  up " + Since(at).Replace("now", "just now") : "";
+        c.Text(s.Kind + up, x + 27, y + 29, 11.5f, Tertiary, FontWeight.Regular, 0, room);
+
+        if (hv > 0.01f)
+        {
+            c.PushLayer(hv);
+            float bx = x + w - 8 - acts + (1 - hv) * 6, by = y + h / 2 - 15;
+            if (s.Web)
+            {
+                bool hot = hv > 0.5f && Visible(by, 30, top, bottom) && m.Hit("srv:open:" + s.Port, bx, by, 30, 30);
+                c.Circle(bx + 15, by + 15, 15, hot ? Rgba(Blue) : WhiteA(0.1f));
+                // ↗, drawn: the font's "open in new window" glyph reads as a box
+                float ax = bx + 15.5f, ay = by + 14.5f;
+                c.Line(ax - 3.5f, ay + 3.5f, ax + 3.5f, ay - 3.5f, 1.8f, White);
+                c.Line(ax - 1.5f, ay - 3.5f, ax + 3.5f, ay - 3.5f, 1.8f, White);
+                c.Line(ax + 3.5f, ay - 3.5f, ax + 3.5f, ay + 1.5f, 1.8f, White);
+                bx += 34;
+            }
+            StopButton(c, m, a, bx, by, 30, top, bottom);
+            c.PopLayer();
+        }
+        c.PopLayer();
+        c.Transform = xf;
+    }
+
+    /// <summary>Stop: a round button (a stop square, or × on a chip) that widens into a red "Stop?" for the second click.</summary>
+    static void StopButton(Canvas c, IslandModel m, TabBar.ServerAnim a, float x, float y, float d, float top, float bottom)
+    {
+        float k = Math.Clamp(a.Confirm.Value, 0, 1.2f), extra = (d > 24 ? 40 : 34) * a.Confirm.Value;
+        float bw = d + extra;
+        bool hot = Visible(y, d, top, bottom) && m.Hit("srv:stop:" + a.Item.Port, x, y, bw, d);
+        var idle = d > 24 ? WhiteA(0.1f) : WhiteA(0);
+        var fill = hot ? Rgba(Red, 0.28f) : idle;
+        c.Round(x, y, bw, d, d / 2, Lerp(fill, Rgba(Red), MathF.Min(k, 1)));
+        var ink = Lerp(hot ? Rgba(0xFF8A80) : WhiteA(0.85f), White, MathF.Min(k, 1));
+        float cx = x + d / 2, cy = y + d / 2;
+        if (d > 24) c.Round(cx - 4.5f, cy - 4.5f, 9, 9, 2.5f, ink);
+        else
+        {
+            c.Line(cx - 3, cy - 3, cx + 3, cy + 3, 1.6f, ink);
+            c.Line(cx + 3, cy - 3, cx - 3, cy + 3, 1.6f, ink);
+        }
+        if (k > 0.05f) c.Text("Stop?", x + d - 3, y + d / 2 - 8.5f, 12, WhiteA(MathF.Min(k, 1)), FontWeight.SemiBold);
+    }
+
+    static bool Visible(float y, float h, float top, float bottom) => y + h > top + 2 && y < bottom - 2;
+
+    static void ServerBloub(Canvas c, IslandModel m, Agent a, float cx, float cy, float r)
+    {
+        if (Bloubs is not { } br) return;
+        var col = Rgba(a.Color);
+        br.ShadeBottom = Lerp(col, new Color4(0, 0, 0, 1), 0.45f);
+        br.ShadeHighlight = 0.42f;
+        c.Bloub(br, a.Engine.Sample(m.Clock), new Vector2(cx, cy), r, col, 1);
+        br.ShadeBottom = null;
+        br.ShadeHighlight = 0.85f;
     }
 }

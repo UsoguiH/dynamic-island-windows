@@ -11,7 +11,32 @@ namespace Island.Lab.Island;
 public sealed record TabDef(string Id, string Name, char Icon, uint Color, string Blurb);
 
 public sealed record NoteItem(string Text, DateTime At);
-public sealed record TaskItem(string Text, bool Done);
+/// <summary>A task, and how its row moves: its slot in the list, arriving and leaving, the tick and the strike line.</summary>
+public sealed class TaskItem(string text, bool done)
+{
+    public string Text = text;
+    public bool Done = done;
+    /// <summary>Its place in the list (from the top of the list), so rows glide when others come and go.</summary>
+    public readonly Spring Y = new(0, TabBar.Calm, 0.05f);
+    /// <summary>0 → 1 as it arrives, back to 0 as it leaves.</summary>
+    public readonly Spring Show = new(1, TabBar.Calm, 0.004f);
+    /// <summary>The green dot pops, then the tick draws itself and the line strikes through.</summary>
+    public readonly Spring Dot = new(done ? 1 : 0, SpringSpec.Bounce, 0.004f), Mark = new(done ? 1 : 0, SpringSpec.Quick, 0.004f), Strike = new(done ? 1 : 0, TabBar.Calm, 0.004f);
+    public bool Placed, Leaving;
+    /// <summary>When it moves to its section (ticked tasks sink below the open ones once the tick has played).</summary>
+    public double SinkAt = -1;
+
+    public void Place(float y)
+    {
+        if (!Placed) { Y.Snap(y); Placed = true; return; }
+        Y.To(y);
+    }
+
+    public void Step(float dt)
+    {
+        Y.Step(dt); Show.Step(dt); Dot.Step(dt); Mark.Step(dt); Strike.Step(dt);
+    }
+}
 public sealed record FileItem(string Path, string Name, long Size, DateTime At, bool Partial);
 
 /// <summary>
@@ -41,7 +66,12 @@ public sealed class TabBar
         new("battery",   "Battery",   '', 0x66D4CF, "Charge, time left, power"),
         new("servers",   "Servers",   '', 0xFF6482, "Your localhost dev servers"),
     ];
-    public static TabDef Def(string id) => Catalogue.FirstOrDefault(d => d.Id == id) ?? Catalogue[0];
+    /// <summary>Every tab you can pin: the built-in ones, then the ones you described (custom recipes).</summary>
+    public static TabDef[] All { get; private set; } = Catalogue;
+    public static void RefreshAll() =>
+        All = [.. Catalogue, .. CustomTabs.All.Select(t => new TabDef(t.Id, t.Recipe.Name, t.Recipe.Icon, t.Recipe.Color, t.Recipe.Title))];
+    public static TabDef Def(string id) => All.FirstOrDefault(d => d.Id == id) ?? Catalogue[0];
+    public static bool IsCustom(string id) => id.StartsWith("x-");
     public const int MaxTabs = 10;
 
     public static readonly (string Name, string[] Tabs)[] Presets =
@@ -77,8 +107,8 @@ public sealed class TabBar
         public bool Placed;
         public void Step(float dt) { X.Step(dt); W.Step(dt); A.Step(dt); Pop.Step(dt); On.Step(dt); Shake.Step(dt); Fill.Step(dt); }
     }
-    readonly Dictionary<string, Slot> _slots = Catalogue.ToDictionary(d => d.Id, _ => new Slot());
-    public Slot this[string id] => _slots[id];
+    readonly Dictionary<string, Slot> _slots = new();
+    public Slot this[string id] => _slots.TryGetValue(id, out var s) ? s : _slots[id] = new Slot();
 
     // ---- drag to reorder (customize mode)
     public string? Dragging;
@@ -91,8 +121,10 @@ public sealed class TabBar
 
     public TabBar()
     {
+        CustomTabs.Load();
+        RefreshAll();
         Load();
-        foreach (var id in Enabled) { _slots[id].A.Snap(1); _slots[id].On.Snap(1); _slots[id].Fill.Snap(1); }
+        foreach (var id in Enabled) { this[id].A.Snap(1); this[id].On.Snap(1); this[id].Fill.Snap(1); }
         if (!Enabled.Contains(Selected)) Selected = Enabled[0];
     }
 
@@ -119,7 +151,54 @@ public sealed class TabBar
     {
         Status = text; StatusIcon = icon; StatusWarn = warn;
         StatusT.Snap(0); StatusT.To(1);
+        _hinted = false;
     }
+
+    /// <summary>A passing hint under Bloub (hovering his orb or the New tile); null puts back what was there.</summary>
+    public void Hint(string? text, char icon)
+    {
+        if (text != null)
+        {
+            if (!_hinted) _beforeHint = (Status, StatusIcon);
+            Say(text, icon);
+            _hinted = true;
+        }
+        else if (_hinted) Say(_beforeHint.Text, _beforeHint.Icon);
+    }
+    bool _hinted;
+    (string Text, char Icon) _beforeHint;
+
+    /// <summary>The tab whose × was tapped once (a second tap within 3 s deletes it).</summary>
+    public string? DeleteArmed;
+    public double DeleteArmedAt = -10;
+
+    /// <summary>A tab you described: the first tap on its × asks, the second deletes it (recipe file and all).</summary>
+    public void Delete(IslandModel m, string id)
+    {
+        if (!IsCustom(id) || CustomTabs.Get(id) is not { } tab) return;
+        var s = this[id];
+        if (DeleteArmed != id || m.Clock - DeleteArmedAt > 3)
+        {
+            DeleteArmed = id; DeleteArmedAt = m.Clock;
+            s.Shake.Velocity = 700;
+            Say($"Tap × again to delete {tab.Recipe.Name}", '\uE74D', true);
+            m.Bloub.React(Mascot.BloubState.Wide, m.Clock, 0.9, Mascot.BloubExpressionId.Surpris);
+            return;
+        }
+        DeleteArmed = null;
+        Enabled.Remove(id);
+        if (Enabled.Count == 0) Enabled.Add("overview");
+        if (Selected == id) Selected = Enabled[0];
+        s.A.To(0); s.On.To(0); s.Fill.To(0);
+        CustomTabs.Remove(id);
+        RefreshAll();
+        Say($"Deleted {tab.Recipe.Name}", '\uE74D');
+        Shrug(m);
+        Save();
+    }
+
+    /// <summary>A tab that is in the bar but not drawn yet (its chip is still flying in).</summary>
+    public string? HiddenTab;
 
     void Boost(float p) { MoonSpin.Snap(1 + 3.2f * p); MoonSpin.To(1); }
 
@@ -138,11 +217,12 @@ public sealed class TabBar
     {
         if (id == Selected) return;
         Selected = id;
+        if (m.Focused == TaskField || m.Focused == NoteField) m.FocusField(null);
         m.TabFade.Snap(0); m.TabFade.To(1);
         m.Bloub.React(Mascot.BloubState.Swirl, m.Clock, 0.9);
         if (id is "downloads") RefreshDownloads();
         if (id is "projects") RefreshProjects();
-        if (id is "servers") { _serversAt = m.Clock; RefreshServers(); }
+        if (id is "servers") { _serversAt = m.Clock; _serversSnap = true; _showcaseStopped.Clear(); ServerScroll.Snap(0); RefreshServers(m); }
         if (id is "battery") _powerAt = -100;
     }
 
@@ -163,7 +243,7 @@ public sealed class TabBar
     /// <summary>Adds or removes a tab from the library.</summary>
     public void Toggle(IslandModel m, string id)
     {
-        var s = _slots[id];
+        var s = this[id];
         var def = Def(id);
         if (Enabled.Contains(id))
         {
@@ -207,16 +287,16 @@ public sealed class TabBar
     public void ApplyPreset(IslandModel m, int i)
     {
         var want = Presets[i].Tabs;
-        foreach (var id in Enabled.Except(want).ToList()) { Enabled.Remove(id); _slots[id].A.To(0); _slots[id].On.To(0); }
+        foreach (var id in Enabled.Except(want).ToList()) { Enabled.Remove(id); this[id].A.To(0); this[id].On.To(0); }
         Enabled.Clear();
         foreach (var id in want)
         {
-            var s = _slots[id];
+            var s = this[id];
             if (s.A.Target < 0.5f) { s.Placed = false; s.A.Snap(0); s.FillAt = null; s.Fill.Snap(0); }
             s.A.To(1); s.On.To(1); s.Fill.To(1); s.Pop.Snap(1.1f); s.Pop.To(1);
             Enabled.Add(id);
         }
-        foreach (var d in Catalogue) if (!want.Contains(d.Id)) _slots[d.Id].Fill.To(0);
+        foreach (var d in All) if (!want.Contains(d.Id)) this[d.Id].Fill.To(0);
         if (!Enabled.Contains(Selected)) Selected = Enabled[0];
         m.ShowToast($"{Presets[i].Name} — {Enabled.Count} tabs");
         m.Bloub.React(Mascot.BloubState.Burst, m.Clock, 1.6, Mascot.BloubExpressionId.Excite);
@@ -229,15 +309,15 @@ public sealed class TabBar
     {
         if (!Editing) return;
         Dragging = id;
-        _dragGrab = cursorX - _slots[id].X.Value;
+        _dragGrab = cursorX - this[id].X.Value;
         _dragStartX = cursorX;
         _dragMoved = false;
-        _slots[id].Pop.To(1.08f);
+        this[id].Pop.To(1.08f);
     }
 
     public void Release()
     {
-        if (Dragging is { } id) { _slots[id].Pop.To(1); if (_dragMoved) { SwallowClick = true; Save(); } }
+        if (Dragging is { } id) { this[id].Pop.To(1); if (_dragMoved) { SwallowClick = true; Save(); } }
         Dragging = null;
     }
 
@@ -247,7 +327,7 @@ public sealed class TabBar
         if (Dragging is not { } id) return;
         if ((GetAsyncKeyState(0x01) & 0x8000) == 0) { Release(); return; } // released outside the island
         if (MathF.Abs(cursorX - _dragStartX) > 4) _dragMoved = true;
-        var s = _slots[id];
+        var s = this[id];
         s.X.Snap(cursorX - _dragGrab);
         float mid = s.X.Value + s.W.Value / 2;
         int want = Enabled.Count(o => o != id && center(o) < mid);
@@ -261,7 +341,55 @@ public sealed class TabBar
 
     public readonly List<TaskItem> Tasks = new();
     public readonly List<NoteItem> Notes = new();
-    public readonly TextField TaskField = new("Add a task…");
+    public readonly TextField TaskField = new("What needs doing?");
+
+    /// <summary>A calm spring: about 1% overshoot, no visible bounce (the "+ New task" field, rows gliding).</summary>
+    public static readonly SpringSpec Calm = new(0.52f, 0.82f);
+    /// <summary>The "+ New task" pill opening into the field.</summary>
+    public readonly Spring TaskOpen = new(0, Calm, 0.002f);
+    /// <summary>The field's text coming back in after a task is added.</summary>
+    public readonly Spring TaskFieldIn = new(1, Calm, 0.004f);
+    public readonly Spring TaskScroll = new(0, new SpringSpec(0.3f, 1f), 0.1f), DoneHeader = new(0, Calm, 0.004f), DoneHeaderY = new(0, Calm, 0.05f);
+    public float TaskScrollMax;
+    bool _doneHeaderPlaced;
+
+    public void PlaceDoneHeader(float y)
+    {
+        if (!_doneHeaderPlaced) { DoneHeaderY.Snap(y); _doneHeaderPlaced = true; } else DoneHeaderY.To(y);
+    }
+
+    /// <summary>The mouse wheel, for the tabs that scroll. False when this tab doesn't.</summary>
+    public bool Wheel(float delta)
+    {
+        if (Selected == "servers") { ServersWheel(delta); return true; }
+        if (Selected == "tasks") { TaskScroll.To(Math.Clamp(TaskScroll.Target - delta * 0.6f, 0, TaskScrollMax)); return true; }
+        if (IsCustom(Selected) && CustomTabs.Get(Selected) is { ScrollMax: > 0 } ct) { ct.Wheel(delta); return true; }
+        return false;
+    }
+
+    void StepTasks(IslandModel m, float dt)
+    {
+        TaskOpen.To(m.Focused == TaskField || TaskField.Text.Length > 0 ? 1 : 0);
+        TaskOpen.Step(dt); TaskFieldIn.Step(dt);
+        bool changed = false;
+        foreach (var t in Tasks)
+        {
+            t.Step(dt);
+            if (t.SinkAt >= 0 && m.Clock >= t.SinkAt) { t.SinkAt = -1; changed = true; }
+        }
+        // ticked tasks sink below the open ones (and unticked ones rise back), keeping their order otherwise
+        if (changed)
+        {
+            var sorted = Tasks.Where(t => !t.Done).Concat(Tasks.Where(t => t.Done)).ToList();
+            Tasks.Clear(); Tasks.AddRange(sorted);
+            Save();
+        }
+        if (Tasks.RemoveAll(t => t.Leaving && t.Show.Value < 0.01f) > 0) Save();
+        DoneHeader.To(Tasks.Any(t => t.Done && !t.Leaving) ? 1 : 0);
+        DoneHeader.Step(dt); DoneHeaderY.Step(dt);
+        TaskScroll.To(Math.Clamp(TaskScroll.Target, 0, TaskScrollMax));
+        TaskScroll.Step(dt);
+    }
     public readonly TextField NoteField = new("Write a note — Enter saves it");
 
     public bool Submit(IslandModel m, TextField f)
@@ -270,8 +398,13 @@ public sealed class TabBar
         if (f == TaskField)
         {
             if (text.Length == 0) return true;
-            Tasks.Insert(Tasks.TakeWhile(t => !t.Done).Count(), new TaskItem(text, false));
+            // the list makes room at the top and the new task rises into it; the field stays open for the next one
+            var t = new TaskItem(text, false);
+            t.Show.Snap(0); t.Show.To(1, 0.06f);
+            Tasks.Insert(0, t);
+            TaskScroll.To(0);
             f.Clear(); Save();
+            TaskFieldIn.Snap(0); TaskFieldIn.To(1);
             m.Bloub.React(Mascot.BloubState.Comet, m.Clock, 1.4);
             return true;
         }
@@ -290,16 +423,33 @@ public sealed class TabBar
 
     public void ToggleTask(IslandModel m, int i)
     {
-        if (i < 0 || i >= Tasks.Count) return;
-        var t = Tasks[i] with { Done = !Tasks[i].Done };
-        Tasks.RemoveAt(i);
-        // done tasks sink below the open ones
-        Tasks.Insert(t.Done ? Tasks.Count : Tasks.TakeWhile(x => !x.Done).Count(), t);
-        if (t.Done) { m.ShowToast("Nice — task done"); m.Bloub.React(Mascot.BloubState.Burst, m.Clock, 2.4, Mascot.BloubExpressionId.Excite); }
+        if (i < 0 || i >= Tasks.Count || Tasks[i].Leaving) return;
+        var t = Tasks[i];
+        t.Done = !t.Done;
+        if (t.Done)
+        {
+            // the dot pops, the tick draws itself, the line strikes through; then the row sinks to "Done"
+            t.Dot.To(1); t.Mark.To(1, 0.14f); t.Strike.To(1, 0.12f);
+            t.SinkAt = m.Clock + 0.65;
+            m.Bloub.React(Mascot.BloubState.Burst, m.Clock, 2.4, Mascot.BloubExpressionId.Excite);
+        }
+        else { t.Dot.To(0); t.Mark.To(0); t.Strike.To(0); t.SinkAt = m.Clock + 0.12; }
         Save();
     }
 
-    public void ClearDone() { Tasks.RemoveAll(t => t.Done); Save(); }
+    /// <summary>The done tasks fold away one after another.</summary>
+    public void ClearDone()
+    {
+        int k = 0;
+        foreach (var t in Tasks.Where(t => t.Done && !t.Leaving)) { t.Leaving = true; t.Show.To(0, SpringSpec.Quick, k++ * 0.05f); }
+    }
+
+    public void DeleteTask(int i)
+    {
+        if (i < 0 || i >= Tasks.Count || Tasks[i].Leaving) return;
+        Tasks[i].Leaving = true;
+        Tasks[i].Show.To(0, SpringSpec.Quick);
+    }
     public void DeleteNote(int i) { if (i >= 0 && i < Notes.Count) { Notes.RemoveAt(i); Save(); } }
 
     // stopwatch
@@ -355,9 +505,17 @@ public sealed class TabBar
         MoonAngle += dt * 0.7f * MoonSpin.Value;
 
         if (m.Clock - _powerAt >= (Selected == "battery" ? 2 : 15)) { _powerAt = m.Clock; SamplePower(m); }
-        if (m.Mode == Mode.Full && Selected == "servers" && !Editing && m.Clock - _serversAt > 2.5) { _serversAt = m.Clock; RefreshServers(); }
+        if (m.Mode == Mode.Full && Selected == "servers" && !Editing && m.Clock - _serversAt > 2.5) { _serversAt = m.Clock; RefreshServers(m); }
+        StepServers(m, dt);
+        StepTasks(m, dt);
 
         if (m.Clock - _netAt >= 1) { SampleNetwork(m.Clock - _netAt); _netAt = m.Clock; }
+        // the tabs you described: each looks again at its source on its own schedule while it's pinned
+        foreach (var t in CustomTabs.All)
+        {
+            t.Tick(m.Clock, Enabled.Contains(t.Id) || Selected == t.Id, m.Mode == Mode.Full && Selected == t.Id && !Editing);
+            t.Step(dt);
+        }
         if (m.Mode == Mode.Full && Selected == "downloads" && m.Clock - _filesAt > 4) { _filesAt = m.Clock; RefreshDownloads(); }
         if (m.Mode == Mode.Full && Selected == "projects" && m.Clock - _projectsAt > 20) { _projectsAt = m.Clock; RefreshProjects(); }
     }
@@ -524,12 +682,84 @@ public sealed class TabBar
 
     // ================================================================ dev servers (what's listening on localhost)
 
-    public sealed record ServerItem(int Port, int Pid, string Process, string Kind, DateTime? Started, bool Web);
+    /// <param name="Session">The Claude Code session that started it, when we can tell (its session id).</param>
+    public sealed record ServerItem(int Port, int Pid, string Process, string Kind, DateTime? Started, bool Web, string? Session = null);
     public List<ServerItem> Servers = new();
     public bool ServersLoaded;
     double _serversAt = -100;
-    /// <summary>Stop needs a second click: (pid, until when).</summary>
-    public (int Pid, double Until) ConfirmStop = (0, 0);
+    /// <summary>Stop needs a second click: (port, until when).</summary>
+    public (int Port, double Until) ConfirmStop = (0, 0);
+
+    /// <summary>A server as the panel draws it: it springs in, eases out once it stops, and shows its buttons on hover.</summary>
+    public sealed class ServerAnim(ServerItem item)
+    {
+        public ServerItem Item = item;
+        public readonly Spring Show = new(0, SpringSpec.Bounce, 0.004f);
+        public readonly Spring Hover = new(0, SpringSpec.Content, 0.004f);
+        public readonly Spring Confirm = new(0, SpringSpec.Bounce, 0.004f);
+        /// <summary>Its place in its session's card (relative to the card), so it glides when a neighbour leaves.</summary>
+        public readonly Spring X = new(0, SpringSpec.Content, 0.05f), Y = new(0, SpringSpec.Content, 0.05f), W = new(0, SpringSpec.Content, 0.05f);
+        public bool Placed;
+
+        /// <summary>Moves it to its slot (the first time, it simply starts there).</summary>
+        public void Place(float x, float y, float w)
+        {
+            if (!Placed) { X.Snap(x); Y.Snap(y); W.Snap(w); Placed = true; return; }
+            X.To(x); Y.To(y); W.To(w);
+        }
+    }
+    readonly Dictionary<int, ServerAnim> _serverAnims = new();
+    /// <summary>What the panel draws, by port: the running servers and the ones still easing out.</summary>
+    public readonly List<ServerAnim> ServersShown = new();
+    List<ServerItem>? _serversSeen;
+    bool _serversSnap;
+    readonly HashSet<int> _showcaseStopped = new();
+    public readonly Spring ServerScroll = new(0, new SpringSpec(0.3f, 1f), 0.1f);
+    public float ServerScrollMax;
+
+    public void ServersWheel(float delta) => ServerScroll.To(Math.Clamp(ServerScroll.Target - delta * 0.6f, 0, ServerScrollMax));
+
+    void StepServers(IslandModel m, float dt)
+    {
+        if (!ReferenceEquals(_serversSeen, Servers))
+        {
+            _serversSeen = Servers;
+            foreach (var s in Servers)
+            {
+                if (!_serverAnims.TryGetValue(s.Port, out var a))
+                {
+                    _serverAnims[s.Port] = a = new ServerAnim(s);
+                    if (_serversSnap) a.Show.Snap(1); // opening the tab: everything is simply there
+                }
+                a.Item = s;
+                a.Show.To(1, SpringSpec.Bounce);
+            }
+            foreach (var (port, a) in _serverAnims)
+                if (!Servers.Any(s => s.Port == port)) a.Show.To(0, SpringSpec.Quick);
+            if (ServersLoaded) _serversSnap = false;
+        }
+        string? hov = m.HoverHit;
+        bool confirming = m.Clock < ConfirmStop.Until;
+        bool changed = false;
+        foreach (var a in _serverAnims.Values)
+        {
+            string tail = ":" + a.Item.Port;
+            bool hot = hov != null && hov.StartsWith("srv:") && hov.EndsWith(tail);
+            bool sure = confirming && ConfirmStop.Port == a.Item.Port;
+            a.Hover.To(hot || sure ? 1 : 0);
+            a.Confirm.To(sure ? 1 : 0);
+            a.Show.Step(dt); a.Hover.Step(dt); a.Confirm.Step(dt);
+            a.X.Step(dt); a.Y.Step(dt); a.W.Step(dt);
+            if (a.Show.Target == 0 && a.Show.Value < 0.01f) { _serverAnims.Remove(a.Item.Port); changed = true; }
+        }
+        if (changed || ServersShown.Count != _serverAnims.Count)
+        {
+            ServersShown.Clear();
+            ServersShown.AddRange(_serverAnims.Values.OrderBy(a => a.Item.Port));
+        }
+        ServerScroll.To(Math.Clamp(ServerScroll.Target, 0, ServerScrollMax));
+        ServerScroll.Step(dt);
+    }
 
     static readonly HashSet<string> DevProcesses = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -575,27 +805,31 @@ public sealed class TabBar
         }
     }
 
-    public void RefreshServers()
+    public void RefreshServers(IslandModel m)
     {
         if (Showcase.On)
         {
             var now = DateTime.Now;
-            Servers =
-            [
-                new(5173, 0, "node", "Vite", now.AddMinutes(-42), true),
-                new(3000, 0, "node", "Next.js", now.AddMinutes(-7), true),
-                new(8000, 0, "python", "uvicorn", now.AddHours(-2), true),
+            Servers = new List<ServerItem>
+            {
+                new(4321, 0, "node", "Astro", now.AddMinutes(-7), true, "sc-orbit"),
+                new(5173, 0, "node", "Vite", now.AddMinutes(-42), true, "sc-aurora"),
                 new(5432, 0, "postgres", "PostgreSQL", now.AddDays(-1), false),
+                new(6006, 0, "node", "Storybook", now.AddMinutes(-18), true, "sc-aurora"),
                 new(6379, 0, "redis-server", "Redis", now.AddDays(-1), false),
-            ];
+                new(8000, 0, "python", "uvicorn", now.AddHours(-2), true, "sc-pixel"),
+            }.Where(s => !_showcaseStopped.Contains(s.Port)).ToList();
             ServersLoaded = true;
             return;
         }
+        var sessions = m.Team.Agents.Where(a => !a.Gone && a.Cwd.Length > 0)
+            .Select(a => new Owner(a.SessionId, a.Pid, a.Cwd.TrimEnd('\\', '/').Replace('/', '\\'), a.StartedAt)).ToList();
         Task.Run(() =>
         {
             try
             {
                 var names = new Dictionary<int, (string name, DateTime? at)>();
+                var parents = sessions.Count > 0 ? Processes.Parents() : [];
                 var list = new List<ServerItem>();
                 foreach (var (port, pid) in Listeners().Distinct())
                 {
@@ -606,34 +840,102 @@ public sealed class TabBar
                         catch { info = ("", null); }
                         names[pid] = info;
                     }
+                    if (info.name.Length == 0 || list.Any(s => s.Port == port)) continue;
                     bool known = KnownPorts.TryGetValue(port, out var kind);
-                    if (info.name.Length == 0 || !(DevProcesses.Contains(info.name) || known && port >= 1024)) continue;
-                    if (list.Any(s => s.Port == port)) continue;
-                    list.Add(new(port, pid, info.name, kind ?? info.name, info.at, !NotWeb.Contains(port)));
+                    bool dev = DevProcesses.Contains(info.name) || known && port >= 1024;
+                    // anything a Claude session started counts too (your own app.exe on :8090)
+                    if (!dev && port < 1024) continue;
+                    string? session = SessionOf(pid, sessions, parents);
+                    if (!dev && session == null) continue;
+                    list.Add(new(port, pid, info.name, kind ?? info.name, info.at, !NotWeb.Contains(port), session));
                 }
-                Servers = list.OrderBy(s => s.Port).Take(8).ToList();
+                Servers = list.OrderBy(s => s.Port).Take(24).ToList();
             }
             catch (Exception ex) { Diag.Log("servers: " + ex.Message); }
             ServersLoaded = true;
         });
     }
 
-    public void StopServer(IslandModel m, int i)
+    sealed record Owner(string Id, int Pid, string Cwd, DateTime StartedAt);
+
+    /// <summary>
+    /// Which Claude Code session started the server <paramref name="pid"/>: a session it still descends from, else
+    /// the session whose project folder it runs in or names on its command line (a server started in the
+    /// background outlives the shell that launched it, so its process tree no longer reaches the session).
+    /// </summary>
+    static string? SessionOf(int pid, List<Owner> sessions, Dictionary<int, int> parents)
     {
-        if (i < 0 || i >= Servers.Count) return;
-        var s = Servers[i];
-        if (Showcase.On) { m.ShowToast("Showcase mode: nothing stops"); return; }
-        if (ConfirmStop.Pid != s.Pid || m.Clock > ConfirmStop.Until) { ConfirmStop = (s.Pid, m.Clock + 3); return; }
+        if (sessions.Count == 0) return null;
+        var self = Processes.Peek(pid);
+        if (self == null) return null;
+
+        // up the tree, as long as each parent is older than its child (pids get reused)
+        var tree = new List<Processes.Info> { self };
+        for (int cur = pid, hops = 0; hops < 12 && parents.TryGetValue(cur, out int up) && up > 4; cur = up, hops++)
+        {
+            if (sessions.FirstOrDefault(s => s.Pid == up) is { } direct && Processes.Created(up) <= tree[^1].Created) return direct.Id;
+            var p = Processes.Peek(up);
+            if (p == null || p.Created > tree[^1].Created) break;
+            tree.Add(p);
+        }
+
+        // the nearest process that runs in a project folder, else names one on its command line (a server can borrow
+        // another project's tools, like its vite, to serve this folder); the deepest folder wins
+        foreach (var p in tree.Take(4))
+            foreach (bool byCwd in new[] { true, false })
+            {
+                Owner? best = null;
+                foreach (var s in sessions)
+                {
+                    if (byCwd ? !InFolder(p.Cwd, s.Cwd) : !Names(p.CommandLine, s.Cwd)) continue;
+                    // two sessions in one folder: the one most recently started before the server
+                    if (best == null || s.Cwd.Length > best.Cwd.Length
+                        || s.Cwd.Length == best.Cwd.Length && Before(s, self.Created) && (!Before(best, self.Created) || s.StartedAt > best.StartedAt))
+                        best = s;
+                }
+                if (best != null) return best.Id;
+            }
+        return null;
+
+        static bool Before(Owner s, DateTime at) => s.StartedAt <= at;
+    }
+
+    static bool InFolder(string? path, string folder)
+    {
+        if (string.IsNullOrEmpty(path)) return false;
+        path = path.TrimEnd('\\');
+        return path.Equals(folder, StringComparison.OrdinalIgnoreCase)
+            || path.Length > folder.Length && path[folder.Length] == '\\' && path.StartsWith(folder, StringComparison.OrdinalIgnoreCase);
+    }
+
+    static bool Names(string? commandLine, string folder)
+    {
+        if (string.IsNullOrEmpty(commandLine)) return false;
+        commandLine = commandLine.Replace('/', '\\');
+        for (int i = commandLine.IndexOf(folder, StringComparison.OrdinalIgnoreCase); i >= 0;
+             i = commandLine.IndexOf(folder, i + 1, StringComparison.OrdinalIgnoreCase))
+        {
+            int end = i + folder.Length;
+            if (end == commandLine.Length || commandLine[end] is '\\' or '"' or '\'' or ' ') return true;
+        }
+        return false;
+    }
+
+    public void StopServer(IslandModel m, ServerItem s)
+    {
+        if (ConfirmStop.Port != s.Port || m.Clock > ConfirmStop.Until) { ConfirmStop = (s.Port, m.Clock + 3); return; }
         ConfirmStop = (0, 0);
         try
         {
-            using var p = System.Diagnostics.Process.GetProcessById(s.Pid);
-            p.Kill();
-            m.ShowToast($"Stopped {s.Process} on :{s.Port}");
+            // the demo stops nothing real: the sample server just leaves
+            if (Showcase.On) _showcaseStopped.Add(s.Port);
+            else { using var p = System.Diagnostics.Process.GetProcessById(s.Pid); p.Kill(); }
+            Servers = Servers.Where(x => x.Port != s.Port).ToList(); // eases out now, not at the next look
+            m.ShowToast($"Stopped {s.Kind} on :{s.Port}");
             m.Bloub.React(Mascot.BloubState.Comet, m.Clock, 1.4);
         }
         catch (Exception ex) { m.ShowToast("Couldn't stop it"); Diag.Log("stop server: " + ex.Message); }
-        _serversAt = -100;
+        _serversAt = m.Clock - 1.5; // look again soon
     }
 
     // ================================================================ settings file
@@ -657,7 +959,7 @@ public sealed class TabBar
             if (o == null) return;
             if (o["tabs"] is JsonArray tabs)
             {
-                var list = tabs.Select(t => t?.GetValue<string>()).Where(t => t != null && Catalogue.Any(d => d.Id == t)).Distinct().Take(MaxTabs).ToList();
+                var list = tabs.Select(t => t?.GetValue<string>()).Where(t => t != null && All.Any(d => d.Id == t)).Distinct().Take(MaxTabs).ToList();
                 if (list.Count > 0) { Enabled.Clear(); Enabled.AddRange(list!); }
             }
             Discovered = o["discovered"]?.GetValue<bool>() ?? false;

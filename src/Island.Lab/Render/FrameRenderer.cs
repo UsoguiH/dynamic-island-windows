@@ -20,6 +20,7 @@ public sealed class FrameRenderer : IDisposable
     {
         _gpu = gpu;
         _canvas = new Canvas(gpu);
+        Scenes.Bloubs = _bloub;
         _blur = new GaussianBlur(gpu.D2D) { BorderMode = BorderMode.Soft, Optimization = GaussianBlurOptimization.Balanced };
         _gooBlur = new GaussianBlur(gpu.D2D) { StandardDeviation = 4.5f, BorderMode = BorderMode.Soft };
         _gooThreshold = new ColorMatrix(gpu.D2D)
@@ -268,8 +269,11 @@ public sealed class FrameRenderer : IDisposable
                 c.PushLayer(1, clip, bodyBox, bodyKey);
                 // in the tab library Bloub has two moons: the far one passes behind him, the near one in front
                 Scenes.LibraryMoons(c, m, front: false, bop);
+                // (building a tab, he squashes, jumps and flips)
+                c.Transform = m.Maker.BloubXf(m);
                 c.Bloub(_bloub, m.Bloub.Engine.Sample(m.Clock),
                     new Vector2(m.Face.X, m.Face.Y + m.BloubLift), 11f * m.Face.Size.Value * m.Bloub.Squish.Value, Canvas.Rgba(0xF2F2F7), bop);
+                c.Transform = Matrix3x2.Identity;
                 Scenes.LibraryMoons(c, m, front: true, bop);
                 c.PopLayer();
 
@@ -283,6 +287,14 @@ public sealed class FrameRenderer : IDisposable
                     c.Round(bx, by, tw, 24, 12, Canvas.WithA(Canvas.Rgba(0xBF5AF2), bop));
                     c.Text(line, bx + tw / 2, by + 4, 12, Canvas.WhiteA(bop), Vortice.DirectWrite.FontWeight.SemiBold, 0.5f);
                 }
+            }
+
+            // describing a tab: the line he becomes, the ✓ stamp, the ring, the confetti, the chip flying into the bar
+            if (m.Mode == Mode.Full && m.Visibility.Value > 0.01f)
+            {
+                c.PushLayer(Math.Clamp(m.Visibility.Value, 0, 1), clip, bodyBox, bodyKey);
+                Scenes.MakerOverlay(c, m);
+                c.PopLayer();
             }
         }
         finally { clip?.Dispose(); }

@@ -428,6 +428,66 @@ public sealed class Canvas : IDisposable
         Ctx.DrawRoundedRectangle(new RoundedRectangle(new System.Drawing.RectangleF(x, y, w, h), r, r), Brush(c), width);
     }
 
+    /// <summary>
+    /// Many small things as one primitive: <paramref name="hash"/> stands for everything <paramref name="draw"/>
+    /// puts inside the bounds (the probe never calls it), so a field of a thousand dots costs one hash.
+    /// </summary>
+    public void Custom(float x, float y, float w, float h, ulong hash, Action<ID2D1DeviceContext, ID2D1SolidColorBrush> draw)
+    {
+        if (!Prim(x, y, w, h, Probing ? H(17).P(x).P(y).P(w).P(h).I((long)hash).V : 0)) return;
+        draw(Ctx, _brush);
+    }
+
+    // ---- Pictures from the web (see Images): one bitmap and brush per URL, kept while they're drawn.
+    readonly Dictionary<string, (ID2D1Bitmap1 Bmp, ID2D1BitmapBrush1 Brush)> _pics = new();
+
+    /// <summary>
+    /// A picture filling a rounded rectangle (cover: scaled to fill, centred, the overflow cut off). Returns
+    /// false, drawing nothing, until it has loaded.
+    /// </summary>
+    public unsafe bool Image(string url, float x, float y, float w, float h, float r, float opacity = 1)
+    {
+        if (opacity <= 0.003f || Images.Get(url) is not { } pic) return false;
+        if (!Prim(x, y, w, h, Probing ? H(18).S(url).P(x).P(y).P(w).P(h).P(r).A(opacity).V : 0)) return true;
+        if (!_pics.TryGetValue(url, out var e))
+        {
+            if (_pics.Count > 160) { foreach (var v in _pics.Values) { v.Brush.Dispose(); v.Bmp.Dispose(); } _pics.Clear(); }
+            ID2D1Bitmap1 bmp;
+            fixed (byte* p = pic.Px)
+                bmp = Ctx.CreateBitmap(new SizeI(pic.W, pic.H), (nint)p, (uint)(pic.W * 4), new BitmapProperties1(
+                    new Vortice.DCommon.PixelFormat(Vortice.DXGI.Format.B8G8R8A8_UNorm, Vortice.DCommon.AlphaMode.Premultiplied), 96, 96, BitmapOptions.None));
+            var brush = Ctx.CreateBitmapBrush(bmp, new BitmapBrushProperties1
+            {
+                ExtendModeX = ExtendMode.Clamp, ExtendModeY = ExtendMode.Clamp, InterpolationMode = InterpolationMode.HighQualityCubic,
+            }, null);
+            _pics[url] = e = (bmp, brush);
+        }
+        float s = MathF.Max(w / pic.W, h / pic.H);
+        e.Brush.Transform = Matrix3x2.CreateScale(s) * Matrix3x2.CreateTranslation(x + (w - pic.W * s) / 2, y + (h - pic.H * s) / 2);
+        e.Brush.Opacity = Math.Clamp(opacity, 0, 1);
+        Ctx.FillRoundedRectangle(new RoundedRectangle(new System.Drawing.RectangleF(x, y, w, h), r, r), e.Brush);
+        return true;
+    }
+
+    public void StrokeEllipse(float cx, float cy, float rx, float ry, float width, Color4 c)
+    {
+        if (!Prim(cx - rx - width, cy - ry - width, (rx + width) * 2, (ry + width) * 2, Probing ? H(15).P(cx).P(cy).P(rx).P(ry).P(width).C(c).V : 0)) return;
+        Ctx.DrawEllipse(new Ellipse(new Vector2(cx, cy), rx, ry), Brush(c), width);
+    }
+
+    /// <summary>A rounded rectangle filled with a radial gradient (centre, radius, stops), at an overall opacity.</summary>
+    public void RadialRound(float x, float y, float w, float h, float r, Vector2 center, float radius, (float At, Color4 C)[] stops, float opacity)
+    {
+        if (opacity <= 0.003f) return;
+        var ph = H(16).P(x).P(y).P(w).P(h).P(r).P(center.X).P(center.Y).P(radius).A(opacity);
+        if (Probing) foreach (var (at, col) in stops) ph = ph.A(at).C(col);
+        if (!Prim(x, y, w, h, Probing ? ph.V : 0)) return;
+        using var gs = Ctx.CreateGradientStopCollection(stops.Select(s => new GradientStop(s.At, s.C)).ToArray());
+        using var b = Ctx.CreateRadialGradientBrush(new RadialGradientBrushProperties(center, Vector2.Zero, radius, radius), gs);
+        b.Opacity = opacity;
+        Ctx.FillRoundedRectangle(new RoundedRectangle(new System.Drawing.RectangleF(x, y, w, h), r, r), b);
+    }
+
     public void StrokeCircle(float cx, float cy, float r, float width, Color4 c)
     {
         if (!Prim(cx - r - width, cy - r - width, (r + width) * 2, (r + width) * 2, Probing ? H(3).P(cx).P(cy).P(r).P(width).C(c).V : 0)) return;
@@ -484,10 +544,28 @@ public sealed class Canvas : IDisposable
         return f;
     }
 
+    /// <summary>
+    /// While below 1, text "decodes": the first part (this fraction of each string) is final, the rest scrambles
+    /// (the same scramble in the probe and the real pass, as long as <see cref="DecodeSeed"/> is the same).
+    /// </summary>
+    public float DecodeU = 1;
+    public int DecodeSeed;
+    const string Glyphs = "abcdefghijklmnopqrstuvwxyz0123456789";
+
+    string Decode(string text)
+    {
+        int keep = (int)(Math.Clamp(DecodeU, 0, 1) * text.Length);
+        var ch = text.ToCharArray();
+        for (int i = keep; i < ch.Length; i++)
+            if (char.IsLetterOrDigit(ch[i])) ch[i] = Glyphs[(int)((uint)HashCode.Combine(DecodeSeed, i, text.Length, ch[i]) % Glyphs.Length)];
+        return new string(ch);
+    }
+
     /// <summary>Draws text with its top-left at (x, y). align: 0 left, 0.5 center, 1 right (x is the anchor).</summary>
     public void Text(string text, float x, float y, float size, Color4 color,
         FontWeight weight = FontWeight.Regular, float align = 0f, float maxWidth = 2000f)
     {
+        if (DecodeU < 1) text = Decode(text);
         if (maxWidth < 2000f) text = Fit(text, size, weight, maxWidth);
         float tw = Measure(text, size, weight);
         if (align != 0f) x -= tw * align;
@@ -512,7 +590,7 @@ public sealed class Canvas : IDisposable
     {
         float hw = width / 2 + 1;
         if (!Prim(MathF.Min(x1, x2) - hw, MathF.Min(y1, y2) - hw, MathF.Abs(x2 - x1) + hw * 2, MathF.Abs(y2 - y1) + hw * 2,
-                Probing ? H(7).P(x1).P(y1).P(x2).P(y2).P(width).C(c).V : 0)) return;
+                Probing ? H(7).F(x1).F(y1).F(x2).F(y2).P(width).C(c).V : 0)) return;
         Ctx.DrawLine(new Vector2(x1, y1), new Vector2(x2, y2), Brush(c), width, _round);
     }
 
@@ -684,6 +762,7 @@ public sealed class Canvas : IDisposable
     {
         ResetState();
         foreach (var sp in _sprites) sp.Dispose();
+        foreach (var v in _pics.Values) { v.Brush.Dispose(); v.Bmp.Dispose(); }
         foreach (var f in _formats.Values) f.Dispose();
         foreach (var g in _glows.Values) g.Dispose();
         foreach (var f in _icons.Values) f.Dispose();

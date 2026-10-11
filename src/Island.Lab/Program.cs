@@ -32,6 +32,11 @@ static class Program
     [STAThread]
     static void Main()
     {
+        // `IslandLab --check-tab <recipe.json | id>`: fetch a custom tab's data once, print what it would show, exit
+        var argv = Environment.GetCommandLineArgs();
+        if (Array.IndexOf(argv, "--check-tab") is > 0 and var ci) { Environment.ExitCode = CustomTabs.Check(argv.ElementAtOrDefault(ci + 1)); return; }
+        // `IslandLab --build-tab "<what to keep an eye on>"`: build a tab with Claude Code, print its progress and recipe (saves nothing)
+        if (Array.IndexOf(argv, "--build-tab") is > 0 and var bi) { Environment.ExitCode = TabBuilder.Cli(argv.ElementAtOrDefault(bi + 1) ?? ""); return; }
         // One island at a time: launching it again (shortcut, Start menu) just opens the running one.
         _single = new Mutex(true, "IslandLab.SingleInstance", out bool first);
         // measuring: the instance just killed may still be letting go of the mutex
@@ -115,6 +120,7 @@ static class Program
             if (!welcomed && now > 0.35) { welcomed = true; if (_demo == null) StartWelcome(mi.rcMonitor); }
             // Dev: ISLAND_DEMO="focus:<agent#>[:plan|files]" or "team" opens a screen without touching the mouse.
             if (_demo != null && now > 2.5) { RunDemo(_demo); _demo = null; }
+            if (_demoPlan.Count > 0 && _model.Clock >= _demoPlan[0].At) { var d = _demoPlan[0]; _demoPlan.RemoveAt(0); d.Do(); }
             if (_demoToggle is { } dt_ && _model.Clock >= dt_.At)
             {
                 if (_model.Tabs.Editing) _model.Tabs.Toggle(_model, dt_.Id);
@@ -147,6 +153,10 @@ static class Program
             long pt1 = Stopwatch.GetTimestamp();
             renderer.Render(_model); // redraws (and presents) only what changed, if anything
             _stillTicks = renderer.Presented ? 0 : _stillTicks + 1;
+            if (Shot.Plan is { } shot && now >= shot.At) { Shot.Save(gpu, shot.File); SetReserved(false); _model.Team.Dispose(); _tray?.Dispose(); return; }
+            // the hover target is only known after drawing, so a mouse that stops on a button gets its cursor here
+            if (inside && CursorId() is var want && want != _shownCursor) { _shownCursor = want; SetCursor(LoadCursorW(0, want)); }
+            else if (!inside) _shownCursor = 0;
             if (Perf) PerfSample(now, pt0, pt1, Stopwatch.GetTimestamp());
             if (_replayWelcome) { _replayWelcome = false; EndWelcome(); StartWelcome(mi.rcMonitor); }
             // A session finished: Bloub comes out to tell you (only when nothing else is on stage).
@@ -168,6 +178,13 @@ static class Program
 
     static (StageScene scene, Gpu gpu, nint hwnd, Action landed)? _welcome;
     static int _stillTicks;
+    static nint _shownCursor;
+
+    /// <summary>I-beam over a text field, hand over anything clickable, arrow elsewhere.</summary>
+    static nint CursorId() =>
+        _model.HoverHit is "mk:field" ? 32513 // IDC_IBEAM
+        : _model.HoverHit != null || _model.Mode is Mode.Dormant or Mode.Media or Mode.Split or Mode.Focus ? 32649 // IDC_HAND
+        : 32512; // IDC_ARROW
 
     // ---- ISLAND_PERF=1 logs, every 3 s: ticks and frames drawn per second, and where a tick's time goes.
     // ISLAND_BENCH=1: a fixed state for measuring (never auto-retracts or hides for other windows).
@@ -195,6 +212,8 @@ static class Program
     }
     static string? _demo = Environment.GetEnvironmentVariable("ISLAND_DEMO");
     static (string Id, double At)? _demoToggle;
+    static readonly bool DemoMode = Environment.GetEnvironmentVariable("ISLAND_DEMO") != null;
+    static readonly List<(double At, Action Do)> _demoPlan = new();
 
     static void RunDemo(string demo)
     {
@@ -208,7 +227,7 @@ static class Program
         {
             _model.SetMode(Mode.Full);
             // the demo pins a tab that isn't in your bar yet, so it shows up selected
-            if (Showcase.On && TabBar.Catalogue.Any(d => d.Id == p[1]) && !_model.Tabs.Enabled.Contains(p[1])) _model.Tabs.Toggle(_model, p[1]);
+            if (Showcase.On && TabBar.All.Any(d => d.Id == p[1]) && !_model.Tabs.Enabled.Contains(p[1])) _model.Tabs.Toggle(_model, p[1]);
             _model.Act("tab:" + p[1]);
         }
         else if (p[0] == "celebrate") _model.Team.CelebrateDemo(_model);
@@ -217,6 +236,16 @@ static class Program
             _model.SetMode(Mode.Full); _model.Tabs.SetEditing(_model, true);
             // "edit:usage": then unpin that tab (Bloub shrugs) and pin it back (he winks), on a loop
             if (p.Length > 1) _demoToggle = (p[1], _model.Clock + 1.6);
+        }
+        else if (p[0] == "make")
+        {
+            // "make:<what to keep an eye on>": the library, New tab, Bloub types it and builds it, then adds it
+            _model.SetMode(Mode.Full); _model.Tabs.SetEditing(_model, true);
+            double t = _model.Clock;
+            string text = p.Length > 1 ? string.Join(":", p[1..]) : "bitcoin price with a chart";
+            _demoPlan.Add((t + 1.6, () => _model.Act("mk:new")));
+            _demoPlan.Add((t + 3.4, () => _model.Maker.Demo(_model, text)));
+            _demoPlan.Add((t + 16, () => _model.Act("mk:add")));
         }
         else if (p[0] == "intro") _replayWelcome = true;
         else if (p[0] == "list") { _model.OpenTeam(); _model.Team.SetView(TeamView.List); }
@@ -233,7 +262,9 @@ static class Program
     {
         bool want = _model.Focused != null;
         var fg = GetForegroundWindow();
-        if (want && fg != _hwnd && now >= _nextFocusTry)
+        // (while Bloub builds a tab the island keeps your keys for Enter / Esc, but never takes them back from another window)
+        bool grab = want && !DemoMode && !(_model.Focused == _model.Maker.Field && _model.Maker.Now != TabMaker.Stage.Line);
+        if (grab && fg != _hwnd && now >= _nextFocusTry)
         {
             if (!_wantFocus) _prevForeground = fg;
             _nextFocusTry = now + 0.5;
@@ -249,6 +280,7 @@ static class Program
     {
         var f = _model.Focused;
         if (f == null) return;
+        if (f == _model.Maker.Field && _model.Maker.Key(_model, ch)) return;
         bool ctrl = GetKeyState(0x11) < 0;
         switch (ch)
         {
@@ -258,7 +290,7 @@ static class Program
                 if (Shell.GetClipboard(_hwnd) is { } clip) f.Insert(clip);
                 break;
             case (char)13: _model.Team.Submit(_model, f); break;
-            case (char)27: _model.FocusField(null); break;
+            case (char)27: if (f == _model.Tabs.TaskField) f.Clear(); _model.FocusField(null); break;
             default:
                 if (ch >= ' ' && !ctrl) f.Insert(ch.ToString());
                 break;
@@ -270,6 +302,7 @@ static class Program
     {
         var f = _model.Focused;
         if (f == null) return false;
+        if (f == _model.Maker.Field && (_model.Maker.Now != TabMaker.Stage.Line || _model.Maker.Typing)) return true;
         bool ctrl = GetKeyState(0x11) < 0;
         switch (vk)
         {
@@ -451,8 +484,8 @@ static class Program
             case WM_MOUSEACTIVATE:
                 return MA_NOACTIVATE;
             case WM_SETCURSOR:
-                // Hand over anything clickable, arrow elsewhere.
-                SetCursor(LoadCursorW(0, _model.HoverHit != null || _model.Mode is Mode.Dormant or Mode.Media or Mode.Split or Mode.Focus ? 32649 : 32512));
+                _shownCursor = CursorId();
+                SetCursor(LoadCursorW(0, _shownCursor));
                 return 1;
             case WM_LBUTTONDOWN:
                 _model.PressDown();
@@ -480,7 +513,8 @@ static class Program
                 if ((wParam & 0xFFFF) == 0 && _model.Focused != null) { _wantFocus = false; _model.FocusField(null); } // clicked elsewhere
                 break;
             case WM_MOUSEWHEEL when hwnd == _hwnd:
-                _model.Team.Wheel((short)((wParam >> 16) & 0xFFFF) / 120f * 40);
+                float wheel = (short)((wParam >> 16) & 0xFFFF) / 120f * 40;
+                if (_model.Mode != Mode.Full || _model.Tabs.Editing || !_model.Tabs.Wheel(wheel)) _model.Team.Wheel(wheel);
                 return 0;
             case WM_DESTROY:
                 if (hwnd == _hwnd) PostQuitMessage(0);
