@@ -21,6 +21,8 @@ public sealed class Agent
 {
     static int _serial;
     public readonly int Key = ++_serial;
+    public string HitId => _hitId ??= $"ag:k{Key}";
+    string? _hitId;
     public readonly AgentKind Kind;
     public string SessionId;
     public string Name = "";
@@ -181,12 +183,17 @@ public sealed class AgentTeam
     void Sync(IslandModel m)
     {
         var snap = _sessions.Snapshot;
-        var ids = new HashSet<string>();
-        int room = MaxShown - Agents.Count(a => a.Island && !a.Gone);
-        foreach (var s in snap.Take(Math.Max(0, room)))
+        var ids = _ids; ids.Clear();
+        int room = MaxShown;
+        foreach (var x in Agents) if (x.Island && !x.Gone) room--;
+        int taken = 0;
+        for (int si = 0; si < snap.Count; si++)
         {
+            var s = snap[si];
+            if (taken++ >= room) break;
             ids.Add(s.Id);
-            var a = Agents.FirstOrDefault(x => !x.Island && x.SessionId == s.Id && !x.Gone);
+            Agent? a = null;
+            foreach (var x in Agents) if (!x.Island && !x.Gone && x.SessionId == s.Id) { a = x; break; }
             if (a == null)
             {
                 a = NewAgent(AgentKind.Terminal, s.Id);
@@ -213,9 +220,13 @@ public sealed class AgentTeam
         }
         foreach (var a in Agents) if (!a.Island && !ids.Contains(a.SessionId) && !a.Gone) a.Gone = true;
 
-        foreach (var a in Agents.Where(a => a.Island && !a.Gone)) Pump(m, a);
+        for (int i = 0; i < Agents.Count; i++) if (Agents[i].Island && !Agents[i].Gone) Pump(m, Agents[i]);
 
-        foreach (var a in Agents.Where(a => a.Gone && a.A.Value < 0.02f && a.R.Value < 0.5f).ToList()) { a.Runner?.Dispose(); Agents.Remove(a); }
+        for (int i = Agents.Count - 1; i >= 0; i--)
+        {
+            var a = Agents[i];
+            if (a.Gone && a.A.Value < 0.02f && a.R.Value < 0.5f) { a.Runner?.Dispose(); Agents.RemoveAt(i); }
+        }
         if (Selected != null && Selected.Gone) { Selected = null; if (View == TeamView.Focus) SetView(TeamView.Grid); }
         _first = false;
     }
@@ -680,7 +691,8 @@ public sealed class AgentTeam
         if (View == TeamView.Focus && Selected == null) View = TeamView.Grid;
         Message.Placeholder = Selected == null ? "Message…" : Selected.Island ? $"Message {Selected.Name}…" : $"Ask {Selected.Name} a side question…";
 
-        var live = Live.ToList();
+        var live = _liveNow; live.Clear();
+        foreach (var a in Agents) if (!a.Gone) live.Add(a);
         bool greet = pill && (m.Hovered || m.Peeking) || dock && m.HoverHit == "tabs:team";
         if (greet && !_greeted) for (int i = 0; i < live.Count; i++) live[i].HopAt = _now + 0.05 + i * 0.075;
         _greeted = greet;
@@ -783,7 +795,7 @@ public sealed class AgentTeam
         bool reacting = a.React != null && _now < a.ReactUntil;
         if (!reacting) { a.React = null; a.ReactMood = null; }
 
-        bool hovered = m.HoverHit == $"ag:k{a.Key}" || (a == Selected && m.HoverHit == "ag:poke");
+        bool hovered = m.HoverHit == a.HitId || (a == Selected && m.HoverHit == "ag:poke");
         var (state, mood) = reacting ? (a.React!.Value, a.ReactMood ?? a.Personality)
             : hovered ? (BloubState.Wide, BloubExpressionId.Excite)
             : a.Status switch
@@ -832,10 +844,20 @@ public sealed class AgentTeam
     // ================================================================ drawing: the Bloubs
 
     static Color4 Lerp(Color4 a, Color4 b, float t) => new(a.R + (b.R - a.R) * t, a.G + (b.G - a.G) * t, a.B + (b.B - a.B) * t, 1);
+    readonly List<Agent> _order = new(), _liveNow = new();
+    readonly HashSet<string> _ids = new();
 
     public void DrawBalls(Canvas c, IslandModel m, BloubRenderer r, float opacity)
     {
-        foreach (var a in Agents.OrderBy(a => a.R.Value))
+        // small ones first, big ones on top (same order as a stable sort by size, without allocating one each pass)
+        _order.Clear();
+        foreach (var a in Agents)
+        {
+            int at = _order.Count;
+            while (at > 0 && _order[at - 1].R.Value > a.R.Value) at--;
+            _order.Insert(at, a);
+        }
+        foreach (var a in _order)
         {
             float rad = MathF.Max(0, a.R) * a.Grow;
             float op = Math.Clamp(a.A, 0, 1) * opacity;

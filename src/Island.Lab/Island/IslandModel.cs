@@ -129,6 +129,28 @@ public sealed class IslandModel
 
     public void ShowToast(string text) { Toast = text; ToastTime = Clock; }
 
+    // A toast that waits, then confirms (the Phantom beat, see Render/PhantomIcon): the wait line with three
+    // waving dots, then the words cut to the result as the green check lands.
+    public string CheckWait = "", CheckDone = "";
+    public float CheckAt = -100, CheckGoAt = -1;   // when it appeared; when the hand-over started (< 0: still waiting)
+    Func<(string Text, bool Ok)?>? _checkPoll;
+
+    /// <summary>Shows the waiting toast; <paramref name="poll"/> is asked every frame and answers once the work is over.</summary>
+    public void ShowCheck(string wait, Func<(string Text, bool Ok)?> poll)
+    {
+        CheckWait = wait; CheckDone = ""; CheckAt = Clock; CheckGoAt = -1; _checkPoll = poll;
+        ToastTime = -10;
+    }
+
+    void StepCheck()
+    {
+        // (the wait line always shows for at least 0.6 s, as in the original, even when the answer is instant)
+        if (_checkPoll == null || Clock - CheckAt < 0.6f || _checkPoll() is not { } r) return;
+        _checkPoll = null;
+        if (r.Ok) { CheckDone = r.Text; CheckGoAt = Clock; }
+        else { CheckAt = -100; ShowToast(r.Text); }
+    }
+
     /// <summary>Bloub's extra vertical offset (his hops in the tab library).</summary>
     public float BloubLift => Mode == Mode.Full ? Tabs.LibHop.Value * Math.Clamp(Tabs.EditT.Value, 0, 1) : 0;
     public readonly Face Face = new();
@@ -145,6 +167,10 @@ public sealed class IslandModel
     void WatchLimits()
     {
         Limits.Refresh(TimeSpan.FromMinutes(Mode == Mode.Full ? 2 : 10));
+        Friend.Update(this);
+        StepCheck();
+        if (Mode == Mode.Dormant && !Hidden && !Welcoming && Updater.TakeNotice() is { } version)
+            ShowInfo($"Island {version} is ready", "It installs by itself the next time the island closes");
         static int Level(float? u) => u >= 0.95f ? 2 : u >= 0.8f ? 1 : 0;
         int f = Level(Limits.FiveHour), w = Level(Limits.Week);
         if (f < _fiveWarned) _fiveWarned = f;
@@ -296,6 +322,8 @@ public sealed class IslandModel
         AgentAlert(a, title, text);
     }
 
+    public readonly Friend Friend = new();
+
     /// <summary>The welcome's Bloub just flew into the island: catch him with a squish and say hi.</summary>
     public void WelcomeLanded()
     {
@@ -393,6 +421,13 @@ public sealed class IslandModel
 
     public void Update(float dt, Vector2 cursor, bool inside)
     {
+        var pAll = Prof.Start();
+        try { UpdateCore(dt, cursor, inside); }
+        finally { Prof.Stop("update", pAll); }
+    }
+
+    void UpdateCore(float dt, Vector2 cursor, bool inside)
+    {
         Clock += dt;
         ModeTime += dt;
         Cursor = cursor;
@@ -468,13 +503,15 @@ public sealed class IslandModel
             }
         }
         // Peek: the line swells into a small pill and Bloub looks out at the cursor.
+        // (He no longer swells when the mouse merely comes near: the pill grew under the cursor and counted as
+        // touching him. He still looks out by himself now and then, but not while the mouse is right there.)
+        bool nearTop = cursor.Y < 90 && MathF.Abs(cursor.X - CX) < PeekW;
         if (Retracted && Clock > _nextRandomPeek)
         {
-            _peekUntil = Clock + 2.6f;
+            if (!nearTop) _peekUntil = Clock + 2.6f;
             _nextRandomPeek = Clock + 45 + (float)_rng.NextDouble() * 45;
         }
-        bool nearTop = cursor.Y < 64 && MathF.Abs(cursor.X - CX) < 120;
-        bool wantPeek = Retracted && _peekCooldown <= 0 && (nearTop || Clock < _peekUntil);
+        bool wantPeek = Retracted && _peekCooldown <= 0 && Clock < _peekUntil;
         if (wantPeek != Peeking)
         {
             Peeking = wantPeek;
@@ -537,12 +574,17 @@ public sealed class IslandModel
         else if (Mode == Mode.Agents)
             SetGlow(Team.View == TeamView.Focus && Team.Selected != null ? Team.Selected.StatusColor : 0x5E5CE6u, Team.View == TeamView.Focus ? 0.34f : 0.2f);
         Face.Step(dt);
+        var p = Prof.Start();
         Tabs.Update(this, dt);
+        Prof.Stop("upd tabs", p); p = Prof.Start();
         Maker.Update(this, dt);
+        Prof.Stop("upd maker", p); p = Prof.Start();
         Team.Update(this, dt);
+        Prof.Stop("upd team", p); p = Prof.Start();
         WatchLimits();
         DeliverDone();
         Bloub.Update(Clock, this, new Vector2(Face.X, Face.Y));
+        Prof.Stop("upd bloub+limits", p);
         foreach (var l in Layers) l.Step(dt);
         Layers.RemoveAll(l => l.Dead);
     }
@@ -660,7 +702,10 @@ public sealed class IslandModel
                 ShowToast("Denied — Claude was told to stop");
                 Bloub.React(Mascot.BloubState.Alert, Clock, 1.8, Mascot.BloubExpressionId.Triste);
                 break;
-            case "limits": Limits.Refresh(TimeSpan.FromSeconds(30)); ShowToast("Checking your limits…"); break;
+            case "limits":
+                Limits.Refresh(TimeSpan.FromSeconds(30));
+                ShowCheck("Checking your limits...", () => Limits.Probing ? null : Limits.Error is { } err ? (err, false) : ("Limits updated", true));
+                break;
             case "agent":
                 OpenTeam();
                 break;

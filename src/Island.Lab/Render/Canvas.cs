@@ -517,8 +517,11 @@ public sealed class Canvas : IDisposable
     public float Measure(string text, float size, FontWeight weight = FontWeight.Regular)
     {
         if (_widths.TryGetValue((text, size, weight), out var w)) return w;
+        long t0 = Prof.On ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
         using var layout = _gpu.DWrite.CreateTextLayout(text, Format(size, weight), 4000, 200);
         w = layout.Metrics.WidthIncludingTrailingWhitespace;
+        if (Prof.On && System.Diagnostics.Stopwatch.GetElapsedTime(t0).TotalMilliseconds > 4)
+            Diag.Write($"slow measure {System.Diagnostics.Stopwatch.GetElapsedTime(t0).TotalMilliseconds:0.0}ms \"{text}\" {size} {weight}");
         if (_widths.Count > 4000) _widths.Clear();
         _widths[(text, size, weight)] = w;
         return w;
@@ -569,9 +572,55 @@ public sealed class Canvas : IDisposable
         if (maxWidth < 2000f) text = Fit(text, size, weight, maxWidth);
         float tw = Measure(text, size, weight);
         if (align != 0f) x -= tw * align;
-        if (!Prim(x, y, tw + 2, size * 1.6f, Probing ? H(4).S(text).F(x).F(y).P(size).I((int)weight).C(color).V : 0)) return;
-        Ctx.DrawText(text, Format(size, weight), new Rect(x, y, maxWidth, size * 1.6f), Brush(color),
-            DrawTextOptions.Clip | DrawTextOptions.EnableColorFont);
+        float bx = x, by = y, bw = tw + 2, bh = size * 1.6f;
+        bool steady = Steady(ref bx, ref by, ref bw, ref bh);
+        if (!Prim(bx, by, bw, bh, Probing ? H(4).S(text).F(x).F(y).P(size).I((int)weight).C(color).V : 0)) return;
+        var was = steady ? Unscale(x + tw / 2, y + size * 0.8f) : default;
+        if (DecodeU < 1)
+            Ctx.DrawText(text, Format(size, weight), new Rect(x, y, maxWidth, size * 1.6f), Brush(color),
+                DrawTextOptions.Clip | DrawTextOptions.EnableColorFont);
+        else
+            Ctx.DrawTextLayout(new Vector2(x, y), Line(text, size, weight), Brush(color), DrawTextOptions.EnableColorFont);
+        if (steady) Ctx.Transform = was;
+    }
+
+    // A line of text keeps its layout (shaping, font fallback) from one frame to the next: building it again for
+    // every string of every frame was a good part of the time spent drawing.
+    readonly Dictionary<(string, float, FontWeight), IDWriteTextLayout> _lines = new();
+
+    IDWriteTextLayout Line(string text, float size, FontWeight weight)
+    {
+        if (_lines.TryGetValue((text, size, weight), out var l)) return l;
+        if (_lines.Count > 900) { foreach (var v in _lines.Values) v.Dispose(); _lines.Clear(); }
+        l = _gpu.DWrite.CreateTextLayout(text, Format(size, weight), 4000, size * 1.6f);
+        _lines[(text, size, weight)] = l;
+        return l;
+    }
+
+    // Text inside something that scales only a little (a tile easing from 92% to 100%, a whole layer settling in)
+    // is moved, not resized: Direct2D rasterises every glyph again at each new size, so those animations, the
+    // ones where smoothness shows most, were exactly the frames that ran long. At these scales the eye can't
+    // tell, and at 100% nothing changes at all.
+    bool Steady(ref float x, ref float y, ref float w, ref float h)
+    {
+        if (_xf.IsIdentity || MathF.Abs(_xf.M12) > 1e-4f || MathF.Abs(_xf.M21) > 1e-4f) return false;
+        float sx = _xf.M11, sy = _xf.M22;
+        if (sx is < 0.8f or > 1.25f || sy is < 0.8f or > 1.25f || (MathF.Abs(sx - 1) < 1e-4f && MathF.Abs(sy - 1) < 1e-4f)) return false;
+        // the box it will really cover, in the scaled space (so what is repainted is what is drawn)
+        float gw = sx < 1 ? w / sx : w, gh = sy < 1 ? h / sy : h;
+        x -= (gw - w) / 2; y -= (gh - h) / 2; w = gw; h = gh;
+        return true;
+    }
+
+    /// <summary>Swaps the scale for the move that puts (ax, ay) where the scale would; returns the transform to put back.</summary>
+    Matrix3x2 Unscale(float ax, float ay)
+    {
+        var was = Ctx.Transform;
+        var p = Vector2.Transform(new(ax, ay), _xf);
+        // (the context may carry more than our transform: an offset while drawing into a cached bitmap)
+        Matrix3x2.Invert(_xf, out var inv);
+        Ctx.Transform = Matrix3x2.CreateTranslation(p.X - ax, p.Y - ay) * (inv * was);
+        return was;
     }
 
     public void Round(float x, float y, float w, float h, float r, Color4 c)
@@ -663,7 +712,10 @@ public sealed class Canvas : IDisposable
     /// <summary>Draws one icon glyph centred on (cx, cy).</summary>
     public void Icon(char glyph, float cx, float cy, float size, Color4 color)
     {
-        if (!Prim(cx - size, cy - size, size * 2, size * 2, Probing ? H(10).I(glyph).F(cx).F(cy).P(size).C(color).V : 0)) return;
+        float bx = cx - size, by = cy - size, bw = size * 2, bh = size * 2;
+        bool steady = Steady(ref bx, ref by, ref bw, ref bh);
+        if (!Prim(bx, by, bw, bh, Probing ? H(10).I(glyph).F(cx).F(cy).P(size).C(color).V : 0)) return;
+        var was = steady ? Unscale(cx, cy) : default;
         if (!_icons.TryGetValue(size, out var f))
         {
             f = _gpu.DWrite.CreateTextFormat("Segoe MDL2 Assets", FontWeight.Normal, Vortice.DirectWrite.FontStyle.Normal, FontStretch.Normal, size);
@@ -672,8 +724,12 @@ public sealed class Canvas : IDisposable
             f.WordWrapping = WordWrapping.NoWrap;
             _icons[size] = f;
         }
-        Ctx.DrawText(glyph.ToString(), f, new Rect(cx - size, cy - size, size * 2, size * 2), Brush(color));
+        Ctx.DrawText(Glyph(glyph), f, new Rect(cx - size, cy - size, size * 2, size * 2), Brush(color));
+        if (steady) Ctx.Transform = was;
     }
+
+    readonly Dictionary<char, string> _glyphs = new();
+    string Glyph(char g) => _glyphs.TryGetValue(g, out var s) ? s : _glyphs[g] = g.ToString();
 
     IDWriteTextLayout Layout(string text, float size, float width, FontWeight weight)
     {
@@ -768,6 +824,7 @@ public sealed class Canvas : IDisposable
         foreach (var f in _icons.Values) f.Dispose();
         foreach (var f in _wrapFormats.Values) f.Dispose();
         foreach (var l in _layouts.Values) l.Dispose();
+        foreach (var l in _lines.Values) l.Dispose();
         _shimmer?.Dispose();
         _round.Dispose();
         _dash.Dispose();

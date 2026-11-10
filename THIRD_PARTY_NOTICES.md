@@ -31,3 +31,7 @@ SOFTWARE.
 ## Vortice.Windows
 
 Direct3D 11, Direct2D, DXGI and DirectComposition bindings: [Vortice.Windows](https://github.com/amerkoleci/Vortice.Windows), MIT License, Copyright (c) Amer Koleci and Contributors.
+
+## Velopack
+
+Installer and auto-update, by the Velopack contributors. MIT License. https://github.com/velopack/velopack

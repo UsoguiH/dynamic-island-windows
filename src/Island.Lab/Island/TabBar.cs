@@ -509,7 +509,14 @@ public sealed class TabBar
         StepServers(m, dt);
         StepTasks(m, dt);
 
-        if (m.Clock - _netAt >= 1) { SampleNetwork(m.Clock - _netAt); _netAt = m.Clock; }
+        // the network is read once a second on a worker thread (asking Windows for its adapters can take tens of
+        // milliseconds), and only while the Network tab is in your bar
+        if ((Enabled.Contains("network") || Selected == "network") && m.Clock - _netAt >= 1 && Interlocked.CompareExchange(ref _netBusy, 1, 0) == 0)
+        {
+            _netAt = m.Clock;
+            ThreadPool.UnsafeQueueUserWorkItem(static tb => { try { tb._netRead = ReadNetwork(); } finally { Volatile.Write(ref tb._netBusy, 0); } }, this, false);
+        }
+        if (_netRead is { } read && !ReferenceEquals(read, _netSeen)) { TakeNetwork(read); _netSeen = read; }
         // the tabs you described: each looks again at its source on its own schedule while it's pinned
         foreach (var t in CustomTabs.All)
         {
@@ -520,51 +527,68 @@ public sealed class TabBar
         if (m.Mode == Mode.Full && Selected == "projects" && m.Clock - _projectsAt > 20) { _projectsAt = m.Clock; RefreshProjects(); }
     }
 
-    void SampleNetwork(double seconds)
+    /// <summary>One look at the network: bytes received and sent so far, and the busiest adapter.</summary>
+    sealed record NetRead(long Rx, long Tx, string Name, string Kind, string Ip, long Stamp);
+    volatile NetRead? _netRead;
+    NetRead? _netSeen;
+    int _netBusy;
+
+    /// <summary>Worker thread: asks Windows for the adapters and their counters.</summary>
+    static NetRead? ReadNetwork()
     {
         long rx = 0, tx = 0;
+        string name = "", kind = "", ip = "";
         if (Showcase.On)
         {
             double t = Environment.TickCount64 / 1000.0;
             rx = (long)(t * 2_600_000 + Math.Abs(Math.Sin(t * 0.7)) * 9_000_000);
             tx = (long)(t * 420_000 + Math.Abs(Math.Sin(t * 1.3)) * 600_000);
-            NetName = "Wi-Fi"; NetKind = "Wireless · 5 GHz"; NetIp = "192.168.1.24";
+            name = "Wi-Fi"; kind = "Wireless · 5 GHz"; ip = "192.168.1.24";
         }
         else
         {
             try
             {
                 NetworkInterface? best = null;
+                long bestRx = -1;
                 foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
                 {
                     if (ni.OperationalStatus != OperationalStatus.Up || ni.NetworkInterfaceType is NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel) continue;
                     var st = ni.GetIPStatistics();
                     rx += st.BytesReceived; tx += st.BytesSent;
-                    if (best == null || st.BytesReceived > best.GetIPStatistics().BytesReceived) best = ni;
+                    if (st.BytesReceived > bestRx) { best = ni; bestRx = st.BytesReceived; }
                 }
                 if (best != null)
                 {
-                    NetName = best.Name;
-                    NetKind = best.NetworkInterfaceType switch
+                    name = best.Name;
+                    kind = best.NetworkInterfaceType switch
                     {
                         NetworkInterfaceType.Wireless80211 => "Wireless",
                         NetworkInterfaceType.Ethernet or NetworkInterfaceType.GigabitEthernet => "Ethernet",
                         _ => best.NetworkInterfaceType.ToString(),
                     } + (best.Speed > 0 ? $" · {best.Speed / 1_000_000} Mbps link" : "");
-                    NetIp = best.GetIPProperties().UnicastAddresses
+                    ip = best.GetIPProperties().UnicastAddresses
                         .FirstOrDefault(a => a.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)?.Address.ToString() ?? "";
                 }
             }
-            catch (Exception ex) { Diag.Log("network: " + ex.Message); return; }
+            catch (Exception ex) { Diag.Log("network: " + ex.Message); return null; }
         }
+        return new NetRead(rx, tx, name, kind, ip, Stopwatch.GetTimestamp());
+    }
+
+    /// <summary>The island's thread: turns a look at the network into one more second of the graphs.</summary>
+    void TakeNetwork(NetRead n)
+    {
+        NetName = n.Name; NetKind = n.Kind; NetIp = n.Ip;
+        double seconds = _netSeen == null ? 0 : (n.Stamp - _netSeen.Stamp) / (double)Stopwatch.Frequency;
         if (_lastRx >= 0 && seconds > 0)
         {
-            long dr = Math.Max(0, rx - _lastRx), dtx = Math.Max(0, tx - _lastTx);
+            long dr = Math.Max(0, n.Rx - _lastRx), dtx = Math.Max(0, n.Tx - _lastTx);
             Array.Copy(Down, 1, Down, 0, Down.Length - 1); Down[^1] = (float)(dr / seconds);
             Array.Copy(Up, 1, Up, 0, Up.Length - 1); Up[^1] = (float)(dtx / seconds);
             NetDownTotal += dr; NetUpTotal += dtx;
         }
-        _lastRx = rx; _lastTx = tx;
+        _lastRx = n.Rx; _lastTx = n.Tx;
     }
 
     public void RefreshDownloads()
@@ -987,7 +1011,7 @@ public sealed class TabBar
                 ["tasks"] = new JsonArray(Tasks.Select(t => (JsonNode)new JsonObject { ["text"] = t.Text, ["done"] = t.Done }).ToArray()),
                 ["notes"] = new JsonArray(Notes.Select(n => (JsonNode)new JsonObject { ["text"] = n.Text, ["at"] = n.At.ToString("o") }).ToArray()),
             };
-            File.WriteAllText(File_, o.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+            Disk.Write(File_, o.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
         }
         catch (Exception ex) { Diag.Log("settings save: " + ex.Message); }
     }

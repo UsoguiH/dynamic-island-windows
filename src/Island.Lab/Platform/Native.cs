@@ -107,6 +107,19 @@ internal static unsafe partial class Native
     [DllImport("kernel32", CharSet = CharSet.Unicode)] public static extern nint GetModuleHandleW(string? name);
     [DllImport("shell32")] public static extern int SHQueryUserNotificationState(out int state);
     [DllImport("winmm")] public static extern uint timeBeginPeriod(uint ms);
+    [DllImport("kernel32")] static extern nint GetCurrentProcess();
+    [DllImport("kernel32")] static extern bool SetProcessWorkingSetSizeEx(nint process, nuint min, nuint max, uint flags);
+
+    /// <summary>
+    /// Keeps the island's own memory in RAM. When the PC runs short (a normal day: a browser, a few Claude
+    /// sessions), Windows pages out whatever hasn't been touched lately, and the island, mostly asleep, is the
+    /// first to go: its next animation then waits on the disk, a third of a second at a time. This reserves
+    /// a small floor (about 1% of a 16 GB machine) that is never paged out.
+    /// </summary>
+    public static void KeepInMemory(int megabytes = 128)
+    {
+        try { SetProcessWorkingSetSizeEx(GetCurrentProcess(), (nuint)megabytes << 20, (nuint)2048 << 20, 1 /* hard minimum */ | 8 /* no hard maximum */); } catch { }
+    }
     [DllImport("user32")] public static extern bool IsIconic(nint hwnd);
     [DllImport("user32")] public static extern nint SetCursor(nint cursor);
     [DllImport("user32")] public static extern bool IsWindowVisible(nint hwnd);

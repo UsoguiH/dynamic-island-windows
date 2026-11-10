@@ -28,6 +28,8 @@ public abstract class StageScene : IDisposable
     protected readonly float W, H;
 
     protected double T;
+    /// <summary>Seconds since the scene started.</summary>
+    public double Clock => T;
     readonly HashSet<double> _fired = new();
     readonly Random _rng = new();
 

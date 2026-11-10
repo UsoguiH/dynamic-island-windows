@@ -114,6 +114,22 @@ public static class BloubShape
         return outPts;
     }
 
+    /// <summary>The same projection, straight to the float points the renderer draws (nothing in between to allocate).</summary>
+    public static Vector2[] ToVectors(Silhouette s, double scale)
+    {
+        var outPts = new Vector2[ProfileSamples];
+        double cr = Math.Cos(s.Rot), sr = Math.Sin(s.Rot);
+        for (int i = 0; i < ProfileSamples; i++)
+        {
+            double r = At(s.Radii, i, 1);
+            double x = r * Cos[i], y = r * Sin[i];
+            double rx = x * cr - y * sr;
+            double ry = x * sr + y * cr;
+            outPts[i] = new Vector2((float)((rx * s.Sx + s.Cx) * scale), (float)((ry * s.Sy + s.Cy) * scale));
+        }
+        return outPts;
+    }
+
     /// <summary>
     /// Closed polyline -> Catmull-Rom cubics (tension 1/6). Returns, for each point i, the two
     /// control points of the cubic going from point i to point i+1 (the original emits an SVG path).

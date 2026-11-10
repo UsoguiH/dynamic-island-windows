@@ -1,4 +1,4 @@
-using System.Text;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 
 namespace Island.Lab.Island;
@@ -28,48 +28,72 @@ public sealed class UsageStats
 /// background thread: a first pass over the last week, then only the bytes appended since.
 /// One assistant message can span several transcript lines (one per content block) that repeat the same
 /// usage, so usage counts once per message id while tool calls count on every line.
+/// <para>
+/// Everything here stays off the island's thread and off the garbage collector's back: the files are read as
+/// bytes through one reused buffer, only the lines that carry usage are parsed, and the stats are computed
+/// here too (the island just reads the latest <see cref="Stats"/>). Transcripts run to gigabytes; reading
+/// them as strings allocated hundreds of megabytes a second and made the island stutter.
+/// </para>
 /// </summary>
 public sealed class ClaudeUsage : IDisposable
 {
-    sealed record Ev(DateTime Time, long Tokens, long Output, string? Model, string Project, string Session, string[] Edited, int Commands);
+    sealed record Ev(DateTime Time, long Tokens, long Output, string? Model, string Project, string Session, string[] Edited, int Commands, ulong Id);
 
-    sealed class FileState { public long Offset; public string Partial = ""; }
-
-    readonly Dictionary<string, FileState> _files = new(StringComparer.OrdinalIgnoreCase);
-    readonly HashSet<string> _seenIds = new();
+    readonly Dictionary<string, long> _offsets = new(StringComparer.OrdinalIgnoreCase);
+    readonly HashSet<ulong> _seenIds = new();
     readonly List<Ev> _events = new();
-    readonly object _lock = new();
+    readonly Dictionary<string, string> _names = new();
     volatile bool _stop;
-    UsageStats _stats = new();
-    DateTime _statsAt;
+    volatile UsageStats _stats = new();
+    long _asked;
+    bool _dirty = true;
+    DateTime _computedAt;
 
     static readonly string Root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "projects");
 
     public ClaudeUsage()
     {
+        _onLine = Line;
+        _stopped = () => _stop;
         if (Showcase.On) return;
         new Thread(Loop) { IsBackground = true, Name = "ClaudeUsage", Priority = ThreadPriority.BelowNormal }.Start();
     }
 
-    /// <summary>Latest stats (recomputed at most every 2 s).</summary>
+    /// <summary>Latest stats (kept fresh in the background; fresher while something is asking for them).</summary>
     public UsageStats Stats
     {
         get
         {
             if (Showcase.On) return Showcase.Usage();
-            if ((DateTime.Now - _statsAt).TotalSeconds > 2) { _stats = Compute(); _statsAt = DateTime.Now; }
+            Volatile.Write(ref _asked, Environment.TickCount64);
             return _stats;
         }
     }
 
-    bool _scanned;
-
     void Loop()
     {
+        bool scanned = false;
         while (!_stop)
         {
-            try { Scan(); _scanned = true; } catch (Exception ex) { Diag.Log("usage scan: " + ex.Message); }
-            for (int i = 0; i < 20 && !_stop; i++) Thread.Sleep(1000);
+            try
+            {
+                Scan();
+                scanned = true;
+                // (time alone changes them too: a new day, a window running out)
+                if (_dirty || (DateTime.Now - _computedAt).TotalSeconds >= 60)
+                {
+                    _stats = Compute(scanned);
+                    _dirty = false; _computedAt = DateTime.Now;
+                }
+            }
+            catch (Exception ex) { Diag.Log("usage scan: " + ex.Message); }
+            // look again soon while the Usage tab is on screen, rarely otherwise
+            bool watched = Environment.TickCount64 - Volatile.Read(ref _asked) < 4000;
+            for (int i = 0, n = watched ? 4 : 20; i < n && !_stop; i++)
+            {
+                Thread.Sleep(1000);
+                if (!watched && Environment.TickCount64 - Volatile.Read(ref _asked) < 1500) break; // the tab was just opened
+            }
         }
     }
 
@@ -77,126 +101,146 @@ public sealed class ClaudeUsage : IDisposable
     {
         if (!Directory.Exists(Root)) return;
         var since = DateTime.Now.AddDays(-8);
-        foreach (var path in Directory.EnumerateFiles(Root, "*.jsonl", SearchOption.AllDirectories))
+        // (the directory listing already carries each file's size and date: no extra call per file)
+        foreach (var fi in new DirectoryInfo(Root).EnumerateFiles("*.jsonl", SearchOption.AllDirectories))
         {
             if (_stop) return;
-            FileInfo fi;
-            try { fi = new FileInfo(path); } catch { continue; }
-            if (fi.LastWriteTime < since) continue;
-            if (!_files.TryGetValue(path, out var st)) _files[path] = st = new FileState();
-            if (fi.Length < st.Offset) { st.Offset = 0; st.Partial = ""; }
-            if (fi.Length == st.Offset) continue;
-            ReadFrom(path, st);
+            long len; DateTime written;
+            try { len = fi.Length; written = fi.LastWriteTime; } catch { continue; }
+            if (written < since) continue;
+            _offsets.TryGetValue(fi.FullName, out long offset);
+            if (len < offset) offset = 0;
+            if (len == offset) continue;
+            try { _offsets[fi.FullName] = ReadFrom(fi.FullName, offset); }
+            catch (IOException) { } // being written right now: next time
+            catch (UnauthorizedAccessException) { }
         }
-        lock (_lock) _events.RemoveAll(e => e.Time < since);
+        int before = _events.Count;
+        for (int i = _events.Count - 1; i >= 0; i--)
+            if (_events[i].Time < since) { _seenIds.Remove(_events[i].Id); _events.RemoveAt(i); }
+        if (_events.Count != before) _dirty = true;
     }
 
-    void ReadFrom(string path, FileState st)
-    {
-        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        fs.Seek(st.Offset, SeekOrigin.Begin);
-        var buf = new byte[1 << 20];
-        var sb = new StringBuilder(st.Partial);
-        int n;
-        var batch = new List<Ev>();
-        while ((n = fs.Read(buf, 0, buf.Length)) > 0)
-        {
-            st.Offset += n;
-            sb.Append(Encoding.UTF8.GetString(buf, 0, n));
-            string text = sb.ToString();
-            int start = 0, nl;
-            while ((nl = text.IndexOf('\n', start)) >= 0)
-            {
-                Line(text.AsSpan(start, nl - start), batch);
-                start = nl + 1;
-            }
-            sb.Clear();
-            sb.Append(text, start, text.Length - start);
-        }
-        st.Partial = sb.ToString();
-        if (batch.Count > 0) lock (_lock) _events.AddRange(batch);
-    }
+    // one buffer for every file
+    byte[] _buf = new byte[1 << 18];
+    readonly Action<ReadOnlyMemory<byte>> _onLine;
+    readonly Func<bool> _stopped;
 
-    void Line(ReadOnlySpan<char> line, List<Ev> batch)
+    static ReadOnlySpan<byte> AssistantTag => "\"type\":\"assistant\""u8;
+    static ReadOnlySpan<byte> UsageTag => "\"usage\""u8;
+
+    /// <summary>Reads the lines added after <paramref name="offset"/>; returns where the next read starts (after the last whole line).</summary>
+    long ReadFrom(string path, long offset) =>
+        // (a line longer than the buffer is kept only if it can be an assistant message: screenshots are skipped unread)
+        Jsonl.Read(path, offset, ref _buf, AssistantTag, _onLine, _stopped);
+
+    /// <summary>One transcript line: adds an event when it carries usage or tool calls.</summary>
+    void Line(ReadOnlyMemory<byte> line)
     {
         // cheap filters before parsing: only assistant messages carry usage and tool calls
-        if (line.Length < 50 || !line.Contains("\"type\":\"assistant\"", StringComparison.Ordinal) || !line.Contains("\"usage\"", StringComparison.Ordinal)) return;
+        var s = line.Span;
+        if (s.Length < 50 || s.IndexOf(AssistantTag) < 0 || s.IndexOf(UsageTag) < 0) return;
         try
         {
-            using var doc = JsonDocument.Parse(line.ToString());
+            using var doc = JsonDocument.Parse(line);
             var o = doc.RootElement;
             if (!o.TryGetProperty("message", out var msg) || !o.TryGetProperty("timestamp", out var ts)) return;
-            if (!DateTime.TryParse(ts.GetString(), null, System.Globalization.DateTimeStyles.RoundtripKind, out var time)) return;
+            if (!ts.TryGetDateTime(out var time)) return;
             time = time.ToLocalTime();
-            string? id = msg.TryGetProperty("id", out var idv) ? idv.GetString() : null;
-            string? model = msg.TryGetProperty("model", out var mv) ? mv.GetString() : null;
+            msg.TryGetProperty("model", out var mv);
+            string? model = mv.ValueKind == JsonValueKind.String ? Name(mv) : null;
             if (model != null && model.StartsWith('<')) return; // synthetic messages
-            string cwd = o.TryGetProperty("cwd", out var cv) ? cv.GetString() ?? "" : "";
-            string session = o.TryGetProperty("sessionId", out var sv) ? sv.GetString() ?? "" : "";
 
+            ulong id = msg.TryGetProperty("id", out var idv) && idv.ValueKind == JsonValueKind.String ? Hash(JsonMarshal.GetRawUtf8Value(idv)) : 0;
             long tokens = 0, output = 0;
-            bool first = id == null || _seenIds.Add(id);
+            bool first = id == 0 || _seenIds.Add(id);
             if (first && msg.TryGetProperty("usage", out var u) && u.ValueKind == JsonValueKind.Object)
             {
                 long T(string p) => u.TryGetProperty(p, out var v) && v.TryGetInt64(out var x) ? x : 0;
                 output = T("output_tokens");
                 tokens = T("input_tokens") + T("cache_creation_input_tokens") + output; // new tokens (cache reads excluded)
             }
-            var edited = new List<string>();
+            List<string>? edited = null;
             int commands = 0;
             if (msg.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.Array)
                 foreach (var c in content.EnumerateArray())
                 {
-                    if (!c.TryGetProperty("type", out var ct) || ct.GetString() != "tool_use") continue;
-                    string name = c.TryGetProperty("name", out var nv) ? nv.GetString() ?? "" : "";
-                    var input = c.TryGetProperty("input", out var iv) ? iv : default;
-                    if (name is "Edit" or "MultiEdit" or "Write" or "NotebookEdit" && input.ValueKind == JsonValueKind.Object
-                        && (input.TryGetProperty("file_path", out var fp) || input.TryGetProperty("notebook_path", out fp)) && fp.GetString() is { } f)
-                        edited.Add(f);
-                    else if (name is "Bash" or "PowerShell") commands++;
+                    if (!c.TryGetProperty("type", out var ct) || ct.ValueKind != JsonValueKind.String || !ct.ValueEquals("tool_use"u8)) continue;
+                    if (!c.TryGetProperty("name", out var nv) || nv.ValueKind != JsonValueKind.String) continue;
+                    if (nv.ValueEquals("Bash"u8) || nv.ValueEquals("PowerShell"u8)) { commands++; continue; }
+                    if (!(nv.ValueEquals("Edit"u8) || nv.ValueEquals("MultiEdit"u8) || nv.ValueEquals("Write"u8) || nv.ValueEquals("NotebookEdit"u8))) continue;
+                    if (c.TryGetProperty("input", out var input) && input.ValueKind == JsonValueKind.Object
+                        && (input.TryGetProperty("file_path", out var fp) || input.TryGetProperty("notebook_path", out fp)) && fp.ValueKind == JsonValueKind.String)
+                        (edited ??= new()).Add(Name(fp));
                 }
-            if (!first && edited.Count == 0 && commands == 0) return;
-            batch.Add(new Ev(time, tokens, output, first ? model : null, ProjectName(cwd), session, edited.ToArray(), commands));
+            if (!first && edited == null && commands == 0) return;
+            string cwd = o.TryGetProperty("cwd", out var cv) && cv.ValueKind == JsonValueKind.String ? Name(cv) : "";
+            string session = o.TryGetProperty("sessionId", out var sv) && sv.ValueKind == JsonValueKind.String ? Name(sv) : "";
+            _events.Add(new Ev(time, tokens, output, first ? model : null, ProjectName(cwd), session, edited?.ToArray() ?? [], commands, id));
+            _dirty = true;
         }
         catch { }
     }
 
-    static string ProjectName(string cwd)
+    /// <summary>A string that repeats line after line (a model, a folder, a session id): one copy of each is kept.</summary>
+    string Name(JsonElement e)
     {
-        var dir = cwd.TrimEnd('\\', '/');
-        if (dir.Length == 0) return "other";
-        var leaf = Path.GetFileName(dir);
-        // a session started in a project's code folder still counts for the project (…\DynmicIsland\src\Island.Lab → DynmicIsland)
-        while (leaf is "src" or "Island.Lab" && Path.GetDirectoryName(dir) is { Length: > 3 } parent) { dir = parent; leaf = Path.GetFileName(dir); }
-        return leaf;
+        string s = e.GetString() ?? "";
+        if (_names.TryGetValue(s, out var kept)) return kept;
+        if (_names.Count > 20000) _names.Clear();
+        return _names[s] = s;
     }
 
-    UsageStats Compute()
+    static ulong Hash(ReadOnlySpan<byte> s)
     {
-        List<Ev> evs;
-        lock (_lock) evs = _events.OrderBy(e => e.Time).ToList();
-        var s = new UsageStats { Ready = _scanned };
+        ulong h = 14695981039346656037;
+        foreach (byte b in s) h = (h ^ b) * 1099511628211;
+        return h == 0 ? 1 : h;
+    }
+
+    readonly Dictionary<string, string> _projects = new();
+
+    string ProjectName(string cwd)
+    {
+        if (_projects.TryGetValue(cwd, out var known)) return known;
+        var dir = cwd.TrimEnd('\\', '/');
+        string leaf = "other";
+        if (dir.Length > 0)
+        {
+            leaf = Path.GetFileName(dir);
+            // a session started in a project's code folder still counts for the project (…\DynmicIsland\src\Island.Lab → DynmicIsland)
+            while (leaf is "src" or "Island.Lab" && Path.GetDirectoryName(dir) is { Length: > 3 } parent) { dir = parent; leaf = Path.GetFileName(dir); }
+        }
+        return _projects[cwd] = leaf;
+    }
+
+    UsageStats Compute(bool scanned)
+    {
+        var evs = _events;
+        evs.Sort(static (a, b) => a.Time.CompareTo(b.Time)); // in place: files arrive one after another, not in time order
+        var s = new UsageStats { Ready = scanned };
         var now = DateTime.Now;
         var today = now.Date;
 
         // 5-hour windows: a window starts at the hour of the first message after the previous one ended
         DateTime? ws = null;
-        foreach (var e in evs.Where(e => e.Tokens > 0))
-            if (ws == null || e.Time >= ws.Value.AddHours(5)) ws = e.Time.Date.AddHours(e.Time.Hour);
-        if (ws != null && now < ws.Value.AddHours(5))
-        {
-            s.WindowStart = ws; s.WindowEnd = ws.Value.AddHours(5);
-            foreach (var e in evs.Where(e => e.Time >= ws)) { s.WindowTokens += e.Tokens; if (e.Tokens > 0) s.WindowRequests++; }
-        }
+        foreach (var e in evs)
+            if (e.Tokens > 0 && (ws == null || e.Time >= ws.Value.AddHours(5))) ws = e.Time.Date.AddHours(e.Time.Hour);
+        bool inWindow = ws != null && now < ws.Value.AddHours(5);
+        if (inWindow) { s.WindowStart = ws; s.WindowEnd = ws!.Value.AddHours(5); }
 
-        var todays = evs.Where(e => e.Time >= today).ToList();
         var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var sessions = new HashSet<string>();
         var proj = new Dictionary<string, long>();
         var models = new Dictionary<string, long>();
         DateTime? prev = null;
-        foreach (var e in todays)
+        foreach (var e in evs)
         {
+            if (inWindow && e.Time >= ws) { s.WindowTokens += e.Tokens; if (e.Tokens > 0) s.WindowRequests++; }
+            int d = 6 - (int)(today - e.Time.Date).TotalDays;
+            if (d is >= 0 and < 7) s.Days[d] += e.Tokens;
+            if (e.Time < today) continue;
+
             s.TodayTokens += e.Tokens; s.TodayOutput += e.Output;
             if (e.Tokens > 0) s.TodayRequests++;
             s.Hours[e.Time.Hour] += e.Tokens;
@@ -213,21 +257,18 @@ public sealed class ClaudeUsage : IDisposable
         s.TodaySessions = sessions.Count;
         s.Projects = proj.Where(p => p.Value > 0).OrderByDescending(p => p.Value).Select(p => (p.Key, p.Value)).ToList();
         s.Models = models.Where(p => p.Value > 0).OrderByDescending(p => p.Value).Select(p => (p.Key, p.Value)).ToList();
-
-        foreach (var e in evs)
-        {
-            int d = 6 - (int)(today - e.Time.Date).TotalDays;
-            if (d is >= 0 and < 7) s.Days[d] += e.Tokens;
-        }
         for (int d = 6; d >= 0 && s.Days[d] > 0; d--) s.Streak++;
         return s;
     }
 
-    static string ShortModel(string m)
+    readonly Dictionary<string, string> _short = new();
+
+    string ShortModel(string m)
     {
-        m = m.Replace("claude-", "");
-        int dash = m.IndexOf('-');
-        return dash > 0 ? char.ToUpperInvariant(m[0]) + m[1..dash] : m; // "opus-5-5" → "Opus"
+        if (_short.TryGetValue(m, out var known)) return known;
+        string name = m.Replace("claude-", "");
+        int dash = name.IndexOf('-');
+        return _short[m] = dash > 0 ? char.ToUpperInvariant(name[0]) + name[1..dash] : name; // "opus-5-5" → "Opus"
     }
 
     public void Dispose() => _stop = true;

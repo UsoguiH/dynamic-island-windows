@@ -46,11 +46,16 @@ public sealed class ClaudeSessions : IDisposable
         public bool TitleScanned;
         public AgentData Data = new();
         public AgentData? Snap;
-        public long Offset;
-        public string Partial = "";
-        public bool SkipFirst;
+        public long Offset = -1;
     }
     readonly Dictionary<string, Tail> _tails = new();
+
+    /// <summary>A session file as last parsed (it is only read again when Claude Code rewrites it).</summary>
+    sealed record Entry(long Length, DateTime Written, string? Id, int Pid, long? ProcStart, bool Shown, string Cwd, string Name, string Status,
+        string? WaitingFor, long Since, long Started);
+    readonly Dictionary<string, Entry> _entries = new(StringComparer.OrdinalIgnoreCase);
+    // one buffer for every transcript
+    byte[] _buf = new byte[1 << 18];
 
     public ClaudeSessions()
     {
@@ -68,69 +73,78 @@ public sealed class ClaudeSessions : IDisposable
         }
     }
 
+    readonly HashSet<string> _seen = new(), _files = new(StringComparer.OrdinalIgnoreCase);
+
     List<SessionInfo> Read()
     {
         var list = new List<SessionInfo>();
         if (!Directory.Exists(SessionsDir)) return list;
-        var seen = new HashSet<string>();
-        foreach (var file in Directory.EnumerateFiles(SessionsDir, "*.json"))
+        _seen.Clear(); _files.Clear();
+        // (the directory listing carries each file's size and date, so an unchanged session costs no read)
+        foreach (var fi in new DirectoryInfo(SessionsDir).EnumerateFiles("*.json"))
         {
-            JsonElement o;
-            try
+            long len; DateTime written;
+            try { len = fi.Length; written = fi.LastWriteTimeUtc; } catch { continue; }
+            _files.Add(fi.FullName);
+            if (!_entries.TryGetValue(fi.FullName, out var e) || e.Length != len || e.Written != written)
             {
-                using var doc = JsonDocument.Parse(ReadShared(file));
-                o = doc.RootElement.Clone();
+                if (Parse(fi.FullName, len, written) is not { } parsed) continue; // being rewritten right now: next time
+                _entries[fi.FullName] = e = parsed;
             }
-            catch { continue; }
+            if (e.Id == null || !e.Shown) continue;
+            // (the registry stores the process start time, FILETIME: a reused pid is not the session)
+            if (!Platform.Processes.Alive(e.Pid, e.ProcStart)) continue;
 
-            string? id = Str(o, "sessionId");
-            if (id == null || !o.TryGetProperty("pid", out var pidEl) || !pidEl.TryGetInt32(out int pid)) continue;
-            string kind = Str(o, "kind") ?? "interactive";
-            if (kind != "interactive") continue;
-            if (!Alive(pid, Str(o, "procStart"))) continue;
-
-            string cwd = Str(o, "cwd") ?? "";
-            string name = Path.GetFileName(cwd.TrimEnd('\\', '/'));
-            if (string.IsNullOrEmpty(name)) name = Str(o, "name") ?? "session";
-            string status = Str(o, "status") ?? "idle";
-            long since = o.TryGetProperty("statusUpdatedAt", out var su) && su.TryGetInt64(out var ms) ? ms : 0;
-            long started = o.TryGetProperty("startedAt", out var sa) && sa.TryGetInt64(out var ms2) ? ms2 : since;
-
-            seen.Add(id);
-            var t = Transcript(id);
+            _seen.Add(e.Id);
+            var t = Transcript(e.Id);
             if (t.Snap == null || t.Snap.Version != t.Data.Version) t.Snap = t.Data.Clone();
-            list.Add(new SessionInfo(id, pid, name, cwd, status, Str(o, "waitingFor"), t.Title, t.Prompt, t.Snap,
-                DateTimeOffset.FromUnixTimeMilliseconds(since).UtcDateTime, DateTimeOffset.FromUnixTimeMilliseconds(started).UtcDateTime));
+            list.Add(new SessionInfo(e.Id, e.Pid, e.Name, e.Cwd, e.Status, e.WaitingFor, t.Title, t.Prompt, t.Snap,
+                DateTimeOffset.FromUnixTimeMilliseconds(e.Since).UtcDateTime, DateTimeOffset.FromUnixTimeMilliseconds(e.Started).UtcDateTime));
         }
-        foreach (var k in _tails.Keys.Where(k => !seen.Contains(k)).ToList()) _tails.Remove(k);
+        if (_tails.Count > _seen.Count) foreach (var k in _tails.Keys.Where(k => !_seen.Contains(k)).ToList()) _tails.Remove(k);
+        if (_entries.Count > _files.Count) foreach (var k in _entries.Keys.Where(k => !_files.Contains(k)).ToList()) _entries.Remove(k);
         // Most recently active first.
         list.Sort((a, b) => b.StatusSince.CompareTo(a.StatusSince));
         return list;
     }
 
-    static string? Str(JsonElement o, string p) => o.TryGetProperty(p, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
-
-    static string ReadShared(string path)
-    {
-        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        using var sr = new StreamReader(fs, Encoding.UTF8);
-        return sr.ReadToEnd();
-    }
-
-    static bool Alive(int pid, string? procStart)
+    /// <summary>Reads one session file. Null when it cannot be read right now.</summary>
+    static Entry? Parse(string file, long len, DateTime written)
     {
         try
         {
-            using var p = Process.GetProcessById(pid);
-            if (p.HasExited) return false;
-            // Guard against PID reuse: the registry stores the process start time (FILETIME).
-            if (procStart != null && long.TryParse(procStart, out long ft))
-            {
-                try { if (Math.Abs(p.StartTime.ToFileTimeUtc() - ft) > 20_000_000) return false; } catch { }
-            }
-            return true;
+            using var doc = JsonDocument.Parse(ReadShared(file));
+            var o = doc.RootElement;
+            string? id = Str(o, "sessionId");
+            if (id == null || !o.TryGetProperty("pid", out var pidEl) || !pidEl.TryGetInt32(out int pid))
+                return new Entry(len, written, null, 0, null, false, "", "", "", null, 0, 0);
+            // Sessions you sit in front of: a terminal, an editor. Headless runs ("claude -p": the limits check and
+            // the tab builder of the island, scripts, the agents it launches itself) register as interactive too,
+            // with an SDK entry point; they would pop in and out of the team as one-second Bloubs.
+            bool shown = (Str(o, "kind") ?? "interactive") == "interactive"
+                         && !(Str(o, "entrypoint") ?? "cli").StartsWith("sdk", StringComparison.OrdinalIgnoreCase);
+            string cwd = Str(o, "cwd") ?? "";
+            string name = Path.GetFileName(cwd.TrimEnd('\\', '/'));
+            if (string.IsNullOrEmpty(name)) name = Str(o, "name") ?? "session";
+            long since = o.TryGetProperty("statusUpdatedAt", out var su) && su.TryGetInt64(out var ms) ? ms : 0;
+            long started = o.TryGetProperty("startedAt", out var sa) && sa.TryGetInt64(out var ms2) ? ms2 : since;
+            return new Entry(len, written, id, pid, long.TryParse(Str(o, "procStart"), out long ft) ? ft : null, shown, cwd, name,
+                Str(o, "status") ?? "idle", Str(o, "waitingFor"), since, started);
         }
-        catch { return false; }
+        catch (JsonException) { return null; }
+        catch (IOException) { return null; }
+        catch (UnauthorizedAccessException) { return null; }
+    }
+
+    static string? Str(JsonElement o, string p) => o.TryGetProperty(p, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+    static byte[] ReadShared(string path)
+    {
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        var buf = new byte[fs.Length];
+        int read = 0;
+        while (read < buf.Length) { int n = fs.Read(buf, read, buf.Length - read); if (n <= 0) break; read += n; }
+        return read == buf.Length ? buf : buf[..read];
     }
 
     // ---------------------------------------------------------------- transcript tail
@@ -162,41 +176,31 @@ public sealed class ClaudeSessions : IDisposable
         try
         {
             // Transcripts are append-only and can be huge (screenshots): read only what was added since
-            // last time (the first read takes the last 2 MB).
-            using var fs = new FileStream(t.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            if (t.Offset > len || t.Offset == 0) { t.Offset = Math.Max(0, len - 2 * 1024 * 1024); t.Partial = ""; t.SkipFirst = t.Offset > 0; }
-            fs.Seek(t.Offset, SeekOrigin.Begin);
-            var buf = new byte[len - t.Offset];
-            int read = 0;
-            while (read < buf.Length) { int n = fs.Read(buf, read, buf.Length - read); if (n <= 0) break; read += n; }
-            t.Offset += read;
-            var text = t.Partial + Encoding.UTF8.GetString(buf, 0, read);
-            int lastNl = text.LastIndexOf('\n');
-            t.Partial = lastNl >= 0 ? text[(lastNl + 1)..] : text;
-            var lines = lastNl >= 0 ? text[..lastNl].Split('\n') : [];
-            for (int i = t.SkipFirst ? 1 : 0; i < lines.Length; i++) Parse(lines[i], t, true);
-            if (lines.Length > 0) t.SkipFirst = false;
+            // last time (the first read takes the last 2 MB), as bytes, through one reused buffer.
+            bool midLine = false;
+            if (t.Offset < 0 || t.Offset > len) { t.Offset = Math.Max(0, len - 2 * 1024 * 1024); midLine = t.Offset > 0; }
+            t.Offset = Jsonl.Read(t.Path, t.Offset, ref _buf, default, line => Parse(line, t, true), () => _stop, midLine);
 
-            // The AI title is written early; scan the whole file once if the tail didn't have it.
+            // The AI title is written early; look through the whole file once if the tail did not have it
+            // (lines too long to be a title are skipped unread).
             if (t.Title == null && !t.TitleScanned)
             {
                 t.TitleScanned = true;
-                fs.Seek(0, SeekOrigin.Begin);
-                using var sr = new StreamReader(fs, Encoding.UTF8, false, 1 << 16, leaveOpen: true);
-                string? l;
-                while ((l = sr.ReadLine()) != null)
-                    if (l.Contains("\"ai-title\"")) Parse(l, t, false);
+                Jsonl.Read(t.Path, 0, ref _buf, TitleTag, line => { if (line.Span.IndexOf(TitleTag) >= 0) Parse(line, t, false); }, () => _stop);
             }
         }
         catch (Exception ex) { Diag.Log("transcript: " + ex.Message); }
         return t;
     }
 
-    static void Parse(string line, Tail t, bool messages)
+    static ReadOnlySpan<byte> TitleTag => "\"ai-title\""u8;
+
+    static void Parse(ReadOnlyMemory<byte> line, Tail t, bool messages)
     {
-        if (line.Length < 10) return;
-        bool title = line.Contains("\"ai-title\""), prompt = line.Contains("\"last-prompt\"");
-        bool msg = messages && (line.Contains("\"type\":\"assistant\"") || line.Contains("\"type\":\"user\""));
+        var s = line.Span;
+        if (s.Length < 10) return;
+        bool title = s.IndexOf(TitleTag) >= 0, prompt = s.IndexOf("\"last-prompt\""u8) >= 0;
+        bool msg = messages && (s.IndexOf("\"type\":\"assistant\""u8) >= 0 || s.IndexOf("\"type\":\"user\""u8) >= 0);
         if (!title && !prompt && !msg) return;
         try
         {

@@ -219,6 +219,8 @@ public static partial class Scenes
         }
         c.PopLayer();
 
+        CheckToast(c, m, x0 + w / 2, y0 + h - 58);
+
         // Toast
         float age = m.Clock - m.ToastTime;
         if (age < 1.8f)
@@ -229,6 +231,48 @@ public static partial class Scenes
             c.Round(x0 + w / 2 - tw2 / 2, ty, tw2, 32, 16, Canvas.WithA(Rgba(0x2C2C2E), a));
             c.Text(m.Toast, x0 + w / 2, ty + 7, 13, WhiteA(a), FontWeight.SemiBold, 0.5f);
         }
+    }
+
+    /// <summary>A spring from 0 to 1 (angular frequency w, damping ratio z), as a function of time.</summary>
+    static float Spring01(float t, float w, float z)
+    {
+        if (t <= 0) return 0;
+        float wd = w * MathF.Sqrt(1 - z * z);
+        return 1 - MathF.Exp(-z * w * t) * (MathF.Cos(wd * t) + z * w / wd * MathF.Sin(wd * t));
+    }
+
+    /// <summary>
+    /// The toast that waits and then confirms: Phantom's "Sending... / Sent", from the "new app" project's
+    /// Toast.tsx (a dark #1D1D1D box, the icon, the words in near white; scaled to the island: 0.7).
+    /// It drops in on a spring; the words cut to the result (no fade) while the box eases to its new width
+    /// and the check lands; 1.5 s later it lifts away.
+    /// </summary>
+    static void CheckToast(Canvas c, IslandModel m, float cx, float top)
+    {
+        if (m.CheckAt < -50) return;
+        float t = m.Clock - m.CheckAt, go = m.CheckGoAt < 0 ? -1 : m.Clock - m.CheckGoAt;
+        float exit = go < 0 ? 0 : Math.Clamp((go - PhantomIcon.CheckSeconds - 1.5f) / 0.24f, 0, 1);
+        if (exit >= 1) return;
+        const float H = 44, Icon = 20, Gap = 10, Pad = 14, Fs = 14;
+        float wWait = c.Measure(m.CheckWait, Fs, FontWeight.Medium) + Icon + Gap + Pad * 2;
+        float wDone = c.Measure(m.CheckDone, Fs, FontWeight.Medium) + Icon + Gap + Pad * 2;
+        float width = go < 0 ? wWait : wWait + (wDone - wWait) * Spring01(go, 26.46f, 0.85f);  // stiffness 700, damping 45
+        float e = Spring01(t, 22.9f, 0.818f), ex = exit * exit;                              // stiffness 420, damping 30, mass 0.8
+        float y = top - 28 * (1 - e) - 21 * ex;
+        float sc = (0.8f + 0.2f * e) * (1 - 0.14f * ex), a = Math.Clamp(t / 0.12f, 0, 1) * (1 - ex);
+        float left = cx - width / 2;
+        var old = c.Transform;
+        c.Transform = Matrix3x2.CreateScale(sc, new Vector2(cx, y + H / 2)) * old;
+        c.Round(left, y, width, H, 14, Canvas.WithA(Rgba(0x1D1D1D), a));
+        var at = new Vector2(left + Pad + Icon / 2, y + H / 2);
+        // (it moves every frame while it plays, and not at all once the sparkle has settled)
+        ulong key = new FrameHash(83).F(go < 0 ? t : MathF.Min(go, PhantomIcon.AfterSeconds)).I(go < 0 ? 0 : 1).A(a).V;
+        c.Custom(at.X - Icon / 2 - 5, at.Y - Icon / 2 - 5, Icon + 10, Icon + 10, key,
+            (ctx, brush) => PhantomIcon.Draw(ctx, c.Factory, brush, at, Icon, t, go, a));
+        c.PushClip(left, y, width, H);
+        c.Text(go < 0 ? m.CheckWait : m.CheckDone, left + Pad + Icon + Gap, y + H / 2 - Fs * 0.7f, Fs, Canvas.WithA(Rgba(0xF2F2F2), a), FontWeight.Medium);
+        c.PopClip();
+        c.Transform = old;
     }
 
     static void Overview(Canvas c, IslandModel m, float x, float y, float w, float h)

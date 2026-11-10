@@ -105,6 +105,7 @@ public static partial class Scenes
         RollLine(c, k, k.Voice, k.VoiceOld, x0 + PanelX + PanelW / 2, vy, 12, 0.56f, 0.34f, Voice);
         c.PopClip();
 
+        if (k.Changing) return; // (changing a tab: there is nothing to start from)
         // living previews to start from; the one Bloub thinks you mean steps forward
         float ty = y0 + PanelY + 148, gap = 10, tw = (PanelW - gap * 3) / 4, th = 138;
         int pick = k.Reading.Kind is { } kind ? Array.IndexOf(TabMaker.Kinds, kind) : -1;
@@ -479,11 +480,14 @@ public static partial class Scenes
         }
         if (k.Preview is not { } tab) return;
         right = BarButton(c, m, right, cy, "Add to island", '\0', "mk:add", primary: true, a);
+        // say what should be different, in the same line you described it in
+        if (k.Done) right = BarButton(c, m, right - 8, cy, "Change it", '\uE70F', "mk:change", primary: false, a);
         for (int i = k.Tweaks.Count - 1; i >= 0; i--)
         {
             var tw = k.Tweaks[i];
             float g = tw.GoneAt > 0 ? k.Since(tw.GoneAt, 0.26f) : 0;
             if (g >= 1) continue;
+            if (right - 8 - BarButtonW(c, tw.Label, '\uE70F', false) < x + 70) continue; // (no room left for this one)
             float bw = BarButtonW(c, tw.Label, '', false);
             var old = c.Transform;
             c.Transform = Matrix3x2.CreateScale(1 - 0.1f * g, new Vector2(right - 8 - bw / 2, cy)) * old;

@@ -32,11 +32,18 @@ static class Program
     [STAThread]
     static void Main()
     {
+        // (the installer's hooks: first run after install, after an update, uninstall. Does nothing otherwise.)
+        Velopack.VelopackApp.Build().Run();
         // `IslandLab --check-tab <recipe.json | id>`: fetch a custom tab's data once, print what it would show, exit
         var argv = Environment.GetCommandLineArgs();
         if (Array.IndexOf(argv, "--check-tab") is > 0 and var ci) { Environment.ExitCode = CustomTabs.Check(argv.ElementAtOrDefault(ci + 1)); return; }
         // `IslandLab --build-tab "<what to keep an eye on>"`: build a tab with Claude Code, print its progress and recipe (saves nothing)
-        if (Array.IndexOf(argv, "--build-tab") is > 0 and var bi) { Environment.ExitCode = TabBuilder.Cli(argv.ElementAtOrDefault(bi + 1) ?? ""); return; }
+        if (Array.IndexOf(argv, "--build-tab") is > 0 and var bi)
+        {
+            string? change = Array.IndexOf(argv, "--change") is > 0 and var changeAt ? argv.ElementAtOrDefault(changeAt + 1) : null;
+            Environment.ExitCode = TabBuilder.Cli(argv.ElementAtOrDefault(bi + 1) ?? "", change);
+            return;
+        }
         // One island at a time: launching it again (shortcut, Start menu) just opens the running one.
         _single = new Mutex(true, "IslandLab.SingleInstance", out bool first);
         // measuring: the instance just killed may still be letting go of the mutex
@@ -49,6 +56,11 @@ static class Program
             return;
         }
         timeBeginPeriod(1);
+        Warm.Start();
+        Updater.Start();
+        KeepInMemory();
+        // a collection that stops the drawing thread is a dropped frame: full blocking ones are held back
+        System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
         var inst = GetModuleHandleW(null);
         _proc = WindowProc;
         var cls = Marshal.StringToHGlobalUni("IslandLabWindow");
@@ -87,7 +99,7 @@ static class Program
         // Auto-retract: first free key wins (Ctrl+Alt+R is often taken by other apps).
         foreach (char k in "HRJ")
             if (RegisterHotKey(_hwnd, 102, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, k)) { _retractKey = k; break; }
-        AppDomain.CurrentDomain.ProcessExit += (_, _) => { SetReserved(false); _model.Team.Dispose(); _tray?.Dispose(); };
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => { SetReserved(false); _model.Team.Dispose(); _tray?.Dispose(); Disk.Flush(); };
 
         using var pacer = new Pacer();
         // the loop must wake on every vblank even when other apps keep the CPU busy; it uses little time per tick
@@ -101,8 +113,10 @@ static class Program
             // one tick per display refresh; a message wakes the loop early to handle it, then it waits on
             if (Perf && _pBusyFrom > 0) _pBusy += (Stopwatch.GetTimestamp() - _pBusyFrom) * 1000.0 / Stopwatch.Frequency;
             // nothing changed for a while: look every other refresh (a new animation starts at most one frame later; it then runs at full rate)
+            long w0 = Stopwatch.GetTimestamp();
             bool tick = pacer.Wait(_stillTicks > 72 && _welcome == null && !_model.Hovered ? 2 : 1);
             _pBusyFrom = Stopwatch.GetTimestamp();
+            _hWait += _pBusyFrom - w0;
             if (Perf && tick && pacer.Late > 1) _pLate++;
             while (PeekMessageW(out var msg, 0, 0, 0, PM_REMOVE))
             {
@@ -110,10 +124,12 @@ static class Program
                 TranslateMessage(ref msg);
                 DispatchMessageW(ref msg);
             }
+            _hMsg += Stopwatch.GetTimestamp() - _pBusyFrom;
             if (!tick) continue;
 
             double now = clock.Elapsed.TotalSeconds;
-            if (now - last > 0.04 && last > 0) Diag.Log($"hitch {(now - last) * 1000:0}ms mode={_model.Mode} layers={_model.Layers.Count}");
+            if (now - last > 0.04 && last > 0) Hitch(now - last);
+            long h0 = Stopwatch.GetTimestamp();
             float dt = (float)Math.Min(now - last, 0.05) * _model.TimeScale;
             last = now;
 
@@ -148,6 +164,7 @@ static class Program
             SetClickThrough(!inside);
 
             long pt0 = Stopwatch.GetTimestamp();
+            _hCheck = pt0 - h0;
             _model.Update(dt, _cursor, inside);
             KeyboardFocus(now);
             long pt1 = Stopwatch.GetTimestamp();
@@ -167,13 +184,35 @@ static class Program
                     StartStage(mi.rcMonitor, g => new Celebration(g, pc.Agent.Name), () => _model.CelebrationLanded(pc.Agent, pc.Title, pc.Text));
                 else _model.AgentAlert(pc.Agent, pc.Title, pc.Text);
             }
+            long st0 = Stopwatch.GetTimestamp();
+            _hUpdate = pt1 - pt0; _hRender = st0 - pt1;
             if (_welcome != null)
             {
                 var (w, _, _, landed) = _welcome.Value;
                 w.Frame(dt, new Vector2((p.X - mi.rcMonitor.Left) / _scale, (p.Y - mi.rcMonitor.Top) / _scale));
+                // ISLAND_STAGESHOT="0.9,1.6,2.7:C:\out\intro": saves the stage's own frame at those moments (to check a scene without filming the screen)
+                if (_stageShots is { } ss && _stageShot < ss.Times.Length && w.Clock >= ss.Times[_stageShot])
+                    Shot.Save(_welcome.Value.gpu, $"{ss.Prefix}{_stageShot++}.png");
                 if (w.Landed) { EndWelcome(); landed(); }
             }
+            _hStage = Stopwatch.GetTimestamp() - st0;
+            _hWait = _hMsg = 0;
         }
+    }
+
+    // ---- where a hitch went: the wait and the messages since the last tick, and that tick's own work
+    static long _hWait, _hMsg, _hCheck, _hUpdate, _hRender, _hStage;
+    static int _hGc0, _hGc1, _hGc2; static TimeSpan _hPause;
+
+    static void Hitch(double seconds)
+    {
+        double f = 1000.0 / Stopwatch.Frequency;
+        int g0 = GC.CollectionCount(0), g1 = GC.CollectionCount(1), g2 = GC.CollectionCount(2);
+        var pause = GC.GetTotalPauseDuration();
+        Diag.Log($"hitch {seconds * 1000:0}ms mode={_model.Mode} layers={_model.Layers.Count} wait={_hWait * f:0.0} msg={_hMsg * f:0.0} " +
+                 $"last tick: check={_hCheck * f:0.0} update={_hUpdate * f:0.0} render={_hRender * f:0.0} stage={_hStage * f:0.0} " +
+                 $"gc={g0 - _hGc0}/{g1 - _hGc1}/{g2 - _hGc2} pause={(pause - _hPause).TotalMilliseconds:0.0}ms heap={GC.GetTotalMemory(false) >> 20}MB");
+        (_hGc0, _hGc1, _hGc2, _hPause) = (g0, g1, g2, pause);
     }
 
     static (StageScene scene, Gpu gpu, nint hwnd, Action landed)? _welcome;
@@ -195,10 +234,16 @@ static class Program
     {
         double f = 1000.0 / Stopwatch.Frequency;
         _pUpd += (t1 - t0) * f; _pRen += (t2 - t1) * f; _pFrames++;
+        // the slowest tick, and how many took most of a 144 Hz refresh (a frame that late is shown a refresh later)
+        double work = (t2 - t0) * f;
+        if (work > _pWorst) _pWorst = work;
+        if (work > 6) _pSlow++;
         if (Gpu.LastPresentMs >= 0) { _pPres += Gpu.LastPresentMs; _pDrawn++; Gpu.LastPresentMs = -1; }
         if (now - _perfAt < 3) return;
         double s = now - _perfAt;
-        Log($"perf ticks={_pFrames / s:0}/s drawn={_pDrawn / s:0}/s busy={_pBusy / s:0.0}ms/s late={_pLate} " +
+        int g0 = GC.CollectionCount(0), g2 = GC.CollectionCount(2); var gp = GC.GetTotalPauseDuration();
+        Log($"perf ticks={_pFrames / s:0}/s drawn={_pDrawn / s:0}/s busy={_pBusy / s:0.0}ms/s late={_pLate} worst={_pWorst:0.0}ms slow={_pSlow} " +
+            $"gc={g0 - _pGc0}/{g2 - _pGc2} pause={(gp - _pPause).TotalMilliseconds:0.0}ms alloc={(GC.GetTotalAllocatedBytes(false) - _pAlloc) / s / 1024:0}KB/s " +
             $"update={_pUpd / _pFrames:0.000}ms render={(_pRen - _pPres) / _pFrames:0.000}ms present={_pPres / _pFrames:0.000}ms " +
             $"(probe={FrameRenderer.ProbeMs / _pFrames:0.000} draw={FrameRenderer.DrawMs / _pFrames:0.000} flush={FrameRenderer.FlushMs / _pFrames:0.000}) " +
             $"regions={(double)FrameRenderer.Regions / Math.Max(1, _pDrawn):0.0} verify={FrameRenderer.VerifyBad}/{FrameRenderer.VerifyFrames} mode={_model.Mode}");
@@ -207,9 +252,12 @@ static class Program
             foreach (var kv in Canvas.StatCounts.OrderByDescending(k => k.Value).Take(12)) Log($"   changed {kv.Value,4}x {kv.Key}");
             Canvas.StatCounts.Clear();
         }
+        Prof.Report(Log, _pFrames);
         FrameRenderer.ProbeMs = FrameRenderer.DrawMs = FrameRenderer.FlushMs = 0; FrameRenderer.Regions = 0;
         _perfAt = now; _pUpd = _pRen = _pPres = _pBusy = 0; _pFrames = _pDrawn = _pLate = 0;
+        _pWorst = 0; _pSlow = 0; (_pGc0, _pGc2, _pPause, _pAlloc) = (g0, g2, gp, GC.GetTotalAllocatedBytes(false));
     }
+    static double _pWorst; static int _pSlow, _pGc0, _pGc2; static TimeSpan _pPause; static long _pAlloc;
     static string? _demo = Environment.GetEnvironmentVariable("ISLAND_DEMO");
     static (string Id, double At)? _demoToggle;
     static readonly bool DemoMode = Environment.GetEnvironmentVariable("ISLAND_DEMO") != null;
@@ -247,7 +295,25 @@ static class Program
             _demoPlan.Add((t + 3.4, () => _model.Maker.Demo(_model, text)));
             _demoPlan.Add((t + 16, () => _model.Act("mk:add")));
         }
+        else if (p[0] == "change")
+        {
+            // builds a tab, then asks for a change to it: ISLAND_DEMO="change:make it green"
+            _model.SetMode(Mode.Full); _model.Tabs.SetEditing(_model, true);
+            double t = _model.Clock;
+            string text = p.Length > 1 ? string.Join(":", p[1..]) : "make it green";
+            _demoPlan.Add((t + 0.25, () => _model.Act("mk:new")));
+            _demoPlan.Add((t + 2.4, () => _model.Maker.Demo(_model, "bitcoin price with a chart")));
+            _demoPlan.Add((t + 50, () => _model.Act("mk:change")));
+            _demoPlan.Add((t + 52, () => _model.Maker.Demo(_model, text)));
+        }
+        else if (p[0] == "check")
+        {
+            // the "Checking your limits..." toast on the Usage tab: ISLAND_DEMO=check
+            _model.SetMode(Mode.Full); _model.Tabs.Select(_model, "usage");
+            _demoPlan.Add((_model.Clock + 1.0, () => _model.Act("limits")));
+        }
         else if (p[0] == "intro") _replayWelcome = true;
+        else if (p[0] == "idle") { } // nothing: the island as it rests (no intro), for measuring
         else if (p[0] == "list") { _model.OpenTeam(); _model.Team.SetView(TeamView.List); }
         else if (p[0] == "new") { _model.OpenTeam(); _model.Team.SetView(TeamView.New); }
         else _model.OpenTeam();
@@ -317,6 +383,9 @@ static class Program
         return true;
     }
     static bool _replayWelcome;
+    static int _stageShot;
+    static readonly (double[] Times, string Prefix)? _stageShots = Environment.GetEnvironmentVariable("ISLAND_STAGESHOT") is { } v && v.IndexOf(':') is > 0 and var cut
+        ? (v[..cut].Split(',').Select(s => double.Parse(s, System.Globalization.CultureInfo.InvariantCulture)).ToArray(), v[(cut + 1)..]) : null;
 
     static nint CreateOverlay(string title)
     {
@@ -390,7 +459,7 @@ static class Program
     {
         var fg = GetForegroundWindow();
         if (fg == 0 || fg == _hwnd || fg == GetShellWindow() || !IsWindowVisible(fg) || IsIconic(fg)) return false;
-        if (ClassName(fg) is "Progman" or "WorkerW" or "Shell_TrayWnd") return false;
+        if (ShellSurface(ClassName(fg))) return false;
         GetWindowRect(fg, out var r);
         int cx = _winX + (int)(IslandModel.CX * _scale), reach = (int)(110 * _scale);
         return r.Top <= _winY + (int)(46 * _scale) && r.Bottom > _winY + (int)(46 * _scale) &&
@@ -400,10 +469,11 @@ static class Program
     static bool HitTest(Vector2 p)
     {
         var (w, h, r) = _model.Live;
-        // The retracted line is only 5 px tall: give it a forgiving hover zone along the screen edge.
         float dx = MathF.Abs(p.X - IslandModel.CX);
-        // Folded: a forgiving strip along the screen edge (taller while Bloub peeks).
-        if (_model.Retracted) return p.Y >= -2 && p.Y < (_model.Peeking ? 34 : 14) && dx < (_model.Peeking ? IslandModel.PeekW / 2 + 8 : 100);
+        // Folded: only the white line itself (or the little pill while Bloub peeks) opens the island, not the area
+        // around it. It used to be a 200 x 14 px strip that grew to 34 px whenever the mouse came near, so
+        // reaching for a browser tab under it opened the island every time.
+        if (_model.Retracted) return p.Y >= -2 && p.Y <= _model.Top + h + 1.5f && dx <= w / 2 + 1.5f;
         // Open: the space between the screen edge and the island counts too, so hover never drops
         // out when moving up to the very top (no flapping between folded and open).
         if (p.Y >= -2 && p.Y < _model.Top + h / 2 && dx < w / 2) return true;
@@ -432,16 +502,18 @@ static class Program
     /// <summary>A game/video is fullscreen: Windows says so, or the foreground window covers the whole monitor.</summary>
     static string _lastFullscreenReason = "";
     static readonly string LogPath = Path.Combine(Path.GetTempPath(), "islandlab.log");
-    static void Log(string s) { try { File.AppendAllText(LogPath, $"{DateTime.Now:HH:mm:ss.fff} {s}" + Environment.NewLine); } catch { } }
+    static void Log(string s) => Diag.Write(s);
 
     static bool FullscreenAppActive()
     {
+        var fg = GetForegroundWindow();
+        var cls = fg != 0 ? ClassName(fg) : "";
+        // Windows' own surfaces cover the whole screen too (Start, Search, the notification centre, Task View,
+        // Alt+Tab): the island stays for those. It used to vanish every time the Start menu opened.
+        if (ShellSurface(cls)) return false;
         if (SHQueryUserNotificationState(out int state) == 0 && state is 2 or 3 or 4)
         { _lastFullscreenReason = $"quns={state}"; return true; }
-        var fg = GetForegroundWindow();
         if (fg == 0 || fg == _hwnd || fg == GetShellWindow() || fg == GetDesktopWindow()) return false;
-        var cls = ClassName(fg);
-        if (cls is "Progman" or "WorkerW" or "Shell_TrayWnd") return false;
         GetWindowRect(fg, out var r);
         var mi = new MONITORINFO { cbSize = (uint)Marshal.SizeOf<MONITORINFO>() };
         GetMonitorInfoW(MonitorFromWindow(fg, 2), ref mi);
@@ -449,6 +521,15 @@ static class Program
         return r.Left <= mi.rcMonitor.Left && r.Top <= mi.rcMonitor.Top &&
                r.Right >= mi.rcMonitor.Right && r.Bottom >= mi.rcMonitor.Bottom;
     }
+
+    /// <summary>A window that belongs to Windows itself, not to an app or a game.</summary>
+    static bool ShellSurface(string cls) => cls is
+        "Progman" or "WorkerW" or "Shell_TrayWnd" or "Shell_SecondaryTrayWnd" or "NotifyIconOverflowWindow"
+        or "Windows.UI.Core.CoreWindow"            // Start, Search, the notification centre, the volume / network flyouts
+        or "MultitaskingViewFrame" or "TaskSwitcherWnd" or "XamlExplorerHostIslandWindow" // Task View, Alt+Tab
+        or "ForegroundStaging" or "ApplicationManager_ImmersiveShellWindow" or "ImmersiveLauncher"
+        or "TopLevelWindowForOverflowXamlIsland" or "Xaml_WindowedPopupClass" or "Shell_InputSwitchTopLevelWindow"
+        or "LockScreenBackstopFrame" or "SnipOverlayRootWindow";
 
     /// <summary>Tray icon (and second launches): open the island on a screen, toggle autostart, quit.</summary>
     static void OnTray(Tray.Command cmd)

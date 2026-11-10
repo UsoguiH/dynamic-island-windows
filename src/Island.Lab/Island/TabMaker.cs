@@ -45,6 +45,15 @@ public sealed class TabMaker
     public const string Question = "What should I keep an eye on?";
     public const string Hint = "Press <k>Tab</k> for the suggestion, or start from one below";
     static readonly string[] Suggest = Kinds.Select(k => k.Starter.ToLowerInvariant()).ToArray();
+
+    // Changing a tab you just built: the same line, asked a different question. What you type is sent to the
+    // builder with the tab's recipe, and it comes back changed.
+    public const string ChangeQuestion = "What should I change?";
+    public const string ChangeHint = "Say it your way, then press <k>Enter</k>";
+    static readonly string[] ChangeSuggest = ["make the pictures bigger", "show only the top five", "use another colour", "newest first"];
+    (string Request, JsonObject Json)? _changing;
+    public bool Changing => _changing != null;
+    string[] Sug => Changing ? ChangeSuggest : Suggest;
     static readonly Regex When = new("^(today|tonight|now|tomorrow|week|weekly|weekend|daily|hourly|live|morning|evening)$");
     static readonly Regex Who = new("^(my|mine|me|our)$");
     static readonly Regex Stop = new("^(the|a|an|of|in|at|for|this|with|and|on|to|show|keep|eye|me|my)$");
@@ -312,11 +321,12 @@ public sealed class TabMaker
     public Mini Minis { get; private set; } = new();
     float _tileNext;
 
-    public void Open(IslandModel m, string text = "")
+    public void Open(IslandModel m, string text = "", (string Request, JsonObject Json)? change = null)
     {
         if (m.Mode != Mode.Full || !m.Tabs.Editing || Now != Stage.Off && Now != Stage.Build) return;
         bool fromBuild = Now == Stage.Build;
         Builder?.Cancel(); Builder = null;
+        _changing = change;
         Now = Stage.Line; _at = _clock; OpenedAt = _clock;
         Diag.Log("maker: line");
         Armed = false; Ready = false; ArmedAt = -10;
@@ -337,8 +347,8 @@ public sealed class TabMaker
         _then = () =>
         {
             Armed = true; ArmedAt = _clock;
-            if (Ph.Text.Length == 0) PutPh(Question);
-            SayVoice(Hint);
+            if (Ph.Text.Length == 0) PutPh(Changing ? ChangeQuestion : Question);
+            SayVoice(Changing ? ChangeHint : Hint);
             _phNext = _clock + 3;
             if (text.Length > 0) TypeOut(text, 0.012f, null);
         };
@@ -372,6 +382,7 @@ public sealed class TabMaker
     {
         string text = Field.Text;
         var r = Understand(text);
+        if (Changing) r = r with { Kind = null }; // (a change is not a new kind of tab: no kind chip)
         Reading = r;
         var hits = r.Tokens.Where(t => t.Hit).Select(t => t.At).ToHashSet();
         bool fresh = false;
@@ -384,12 +395,13 @@ public sealed class TabMaker
         GoDark.To(Ready ? 1 : 0);
         Fit(r);
         if (r.Kind != null) SayVoice($"<ok>Got it · {r.Kind.Means(r)}");
+        else if (Changing) SayVoice(text.Trim().Length >= 3 ? "Press <k>Enter</k> and I’ll change it" : ChangeHint);
         else if (text.Trim().Length == 0 || !Voice.Text.StartsWith("Press")) SayVoice(text.Trim().Length >= 3 ? "Press <k>Enter</k> and I’ll find a live source for it" : Hint);
         _idleAt = -1; Tilt.To(0);
         if (fromTyping) { Ps.Velocity -= 0.14f; Hop.Velocity -= 45; }
         if (r.Kind != null && r.Kind != _lastKind) { Hop.Velocity -= 330; EyeS.Velocity += 6; Ps.Velocity -= 0.5f; }
         else if (fromTyping && fresh) { Hop.Velocity -= 160; Ps.Velocity -= 0.2f; }
-        if (r.Kind == null && text.Trim().Length > 0) _idleAt = _clock + 1.6f;
+        if (r.Kind == null && text.Trim().Length > 0 && !Changing) _idleAt = _clock + 1.6f;
         _lastKind = r.Kind;
     }
 
@@ -434,6 +446,7 @@ public sealed class TabMaker
     void Submit(IslandModel m)
     {
         if (Now != Stage.Line || Typing || !Armed) return;
+        if (Changing && Field.Text.Trim().Length < 3) { Shake(); SayVoice("Tell me what to change"); return; }
         if (Field.Text.Trim().Length == 0) { TypeOut(Suggest[_sug], 0.018f, () => After(0.28f, () => Submit(m))); return; }
         if (Field.Text.Trim().Length < 3) { Shake(); SayVoice("Tell me a little more"); return; }
         Ps.Velocity -= 0.6f;
@@ -446,7 +459,8 @@ public sealed class TabMaker
     {
         Now = Stage.Build; _at = _clock; BuildAt = _clock;
         Diag.Log($"maker: build \"{text}\"");
-        Title = char.ToUpperInvariant(text[0]) + text[1..];
+        string shown = _changing?.Request ?? text; // (a change keeps the tab's own title)
+        Title = char.ToUpperInvariant(shown[0]) + shown[1..];
         TitleFs = MathF.Round(Fs.Value * 2) / 2;
         var (l, cy, _, _, _) = Line();
         TitleFrom = new Vector2(l + 69, cy - TitleFs * 0.7f);
@@ -460,9 +474,26 @@ public sealed class TabMaker
             _sq.Snap(0.8f); _sq.To(1);
             Go(new Vector3(42, 92, 20.9f), 0.76f, 22);
         });
-        Builder = new TabBuilder(text);
-        Builder.Start(About(text));
+        if (_changing is { } ch)
+        {
+            // the same tab, changed: its recipe goes back to the builder with what you asked for
+            Builder = new TabBuilder(ch.Request) { Previous = ch.Json, Change = text };
+            Builder.Start("your change");
+            _changing = null;
+        }
+        else
+        {
+            Builder = new TabBuilder(text);
+            Builder.Start(About(text));
+        }
         m.Bloub.React(BloubState.Thinking, _clock, 600, BloubExpressionId.Attentif);
+    }
+
+    /// <summary>"Change it" on a finished tab: back to the line, to say what should be different.</summary>
+    void Change(IslandModel m)
+    {
+        if (Now != Stage.Build || !Done || Builder is not { Json: { } json } b) return;
+        Open(m, "", (b.Request, (JsonObject)json.DeepClone()));
     }
 
     void Retry(IslandModel m)
@@ -473,8 +504,8 @@ public sealed class TabMaker
         Preview = null; SolidAt = -10; BarAt = -10; Done = false; Failed = false; Tweaks.Clear();
         _doneAt = -1; _celebrateAt = -1; DotsAt = _clock; DotsOffAt = -10;
         Unstamp(false);
-        Builder = new TabBuilder(text);
-        Builder.Start(About(text));
+        Builder = new TabBuilder(text) { Previous = Builder.Previous, Change = Builder.Change };
+        Builder.Start(Builder.Change != null ? "your change" : About(text));
         m.Bloub.React(BloubState.Thinking, _clock, 600, BloubExpressionId.Attentif);
     }
 
@@ -745,7 +776,8 @@ public sealed class TabMaker
                 }
                 break;
             case "go": Submit(m); break;
-            case "tile" when Now == Stage.Line && Armed && !Typing && int.TryParse(p.ElementAtOrDefault(2), out int ti) && ti < Kinds.Length:
+            case "change": Change(m); break;
+            case "tile" when Now == Stage.Line && Armed && !Typing && !Changing && int.TryParse(p.ElementAtOrDefault(2), out int ti) && ti < Kinds.Length:
                 _hoverTile = -1;
                 TypeOut(Kinds[ti].Starter.ToLowerInvariant(), 0.022f, () => After(0.34f, () => Submit(m)));
                 break;
@@ -753,7 +785,10 @@ public sealed class TabMaker
             case "tw" when int.TryParse(p.ElementAtOrDefault(2), out int wi): Tweak(m, wi); break;
             case "retry": Retry(m); break;
             case "del" when p.Length > 2 && Now == Stage.Off: m.Tabs.Delete(m, p[2]); break;
-            case "edit": if (Builder?.Request is { } req) Open(m, req); break;
+            case "edit":
+                if (Builder is { Previous: { } was, Change: { } asked } cb) Open(m, asked, (cb.Request, was)); // a change that failed: say it another way
+                else if (Builder?.Request is { } req) Open(m, req);
+                break;
         }
     }
 
@@ -775,7 +810,7 @@ public sealed class TabMaker
                 return true;
             case (char)27: Cancel(m); return true;
             case (char)9:
-                if (Now == Stage.Line && Armed && Field.Text.Length == 0 && !Typing) TypeOut(Suggest[_sug], 0.018f, null);
+                if (Now == Stage.Line && Armed && Field.Text.Length == 0 && !Typing) TypeOut(Sug[_sug], 0.018f, null);
                 return true;
         }
         return Now != Stage.Line || Typing;   // while he types or builds, your keys don't edit the line
@@ -910,7 +945,7 @@ public sealed class TabMaker
         int hover = m.HoverHit is { } h && h.StartsWith("mk:tile:") && int.TryParse(h[8..], out int hi) ? hi : -1;
         if (hover != _hoverTile) { _hoverTile = hover; _hoverSince = _clock; }
         bool held = hover >= 0 && _clock - _hoverSince > 0.14f;
-        if (Armed && held && Field.Text.Length == 0 && !Typing && Ph.Text != Suggest[hover]) { _sug = hover; PutPh(Suggest[hover]); _phNext = _clock + 3; }
+        if (Armed && held && !Changing && Field.Text.Length == 0 && !Typing && Ph.Text != Suggest[hover]) { _sug = hover; PutPh(Suggest[hover]); _phNext = _clock + 3; }
 
         // the grey suggestion rolls on now and then
         if (Armed && _clock >= _phNext)
@@ -918,8 +953,8 @@ public sealed class TabMaker
             _phNext = _clock + 3;
             if (Field.Text.Length == 0 && hover < 0 && !Typing)
             {
-                if (Ph.Text != Question) _sug = (_sug + 1) % Suggest.Length;
-                PutPh(Suggest[_sug]);
+                if (Ph.Text != Question && Ph.Text != ChangeQuestion) _sug = (_sug + 1) % Sug.Length;
+                PutPh(Sug[_sug]);
             }
         }
 

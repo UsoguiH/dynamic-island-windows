@@ -14,13 +14,29 @@
     <TieredPGO>true</TieredPGO>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <TieredCompilation>true</TieredCompilation>
   </PropertyGroup>
+
+  <!--
+    The island redraws at the display's refresh rate, so a garbage collection that stops its thread shows as a
+    stutter. By default .NET turns "aggressive" once the PC's memory is 90% used (a normal state on a 16 GB
+    machine running a few Claude sessions and a browser) and then runs a full, blocking collection almost every
+    time, a dozen a second. The island's heap is ~20 MB: it has nothing to give back, so it only backs off
+    when the machine is truly out of memory.
+  -->
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.GC.HighMemoryPercent" Value="99" />
+    <RuntimeHostConfigurationOption Include="System.GC.RetainVM" Value="true" />
+  </ItemGroup>
 
   <ItemGroup>
     <Content Include="Assets\bloub.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Velopack" Version="1.2.161" />
     <PackageReference Include="Vortice.Direct2D1" Version="3.8.3" />
     <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
     <PackageReference Include="Vortice.DirectComposition" Version="3.8.3" />

@@ -37,6 +37,10 @@ public sealed class TabBuilder
 
     public TabBuilder(string request) => Request = request.Trim();
 
+    /// <summary>Changing a tab that was already built: its recipe, and what the user asked to be different.</summary>
+    public JsonObject? Previous { get; init; }
+    public string? Change { get; init; }
+
     /// <summary>A tweak was applied: it is now the recipe.</summary>
     public void Adopt(Recipe r, JsonObject json, CustomData? d) { Recipe = r; Json = json; Data = d; }
 
@@ -66,6 +70,21 @@ public sealed class TabBuilder
     {
         if (Showcase.On) { await Pretend(); return; }
         string prompt = $"Build a tab for: {Request}\n\n{Context()}";
+        if (Previous != null && Change != null)
+            prompt = $"""
+                Build a tab for: {Request}
+
+                {Context()}
+
+                You already built this tab. Its recipe, which works:
+                ```json
+                {Previous.ToJsonString(Pretty)}
+                ```
+
+                The user looked at it and asks for a change: "{Change}"
+
+                Change the recipe to give them that. Keep the source and everything they did not ask to change, unless the change needs another source. The island can only draw the views and fields listed in your instructions: pick whatever comes closest to what they describe (for example "a grid", "cards" or "bigger" usually means the posters view with pictures, or stats tiles; "coloured" means the accent "color", a "tint" or a "dot" per row; "fewer" or "more" is options.limit; an order is options.sort). Answer with one ```json block.
+                """;
         for (int attempt = 0; attempt < 3; attempt++)
         {
             string answer = await Ask(prompt, attempt == 0);
@@ -104,6 +123,8 @@ public sealed class TabBuilder
                 ```json
                 {json.ToJsonString(Pretty)}
                 ```
+
+                {(Change != null ? $"(This recipe is your change to a tab the user already had. They asked: {Change}. Keep that change.)" : "")}
 
                 The island fetched it and found a problem: {problem}{(problem.Contains("can't be reached") ? ". A better path won't help: pick a different source." : "")}
 
@@ -325,9 +346,19 @@ public sealed class TabBuilder
     }
 
     /// <summary>The command-line test: builds, prints each step and the recipe, saves nothing.</summary>
-    public static int Cli(string request)
+    public static int Cli(string request, string? change = null)
     {
-        var b = new TabBuilder(request);
+        int code = Cli(new TabBuilder(request), out var json);
+        // `--change "<what should be different>"`: then asks for that change to the tab it just built
+        if (code != 0 || change == null) return code;
+        Console.WriteLine($"\nchange · {change}");
+        return Cli(new TabBuilder(request) { Previous = json, Change = change }, out _);
+    }
+
+    static int Cli(TabBuilder b, out JsonObject? json)
+    {
+        string request = b.Request;
+        json = null;
         var t0 = DateTime.Now;
         b.Start(request);
         while (true)
@@ -339,6 +370,7 @@ public sealed class TabBuilder
         if (b.Recipe == null) { Console.WriteLine("failed: " + b.Error); return 1; }
         Console.WriteLine($"ready · {Summary(b.Recipe, b.Data)}");
         Console.WriteLine(b.Json!.ToJsonString(Pretty));
+        json = b.Json;
         foreach (var row in b.Data?.Rows.Take(6) ?? []) Console.WriteLine("  " + string.Join("  ", row.Select(kv => $"{kv.Key}={kv.Value}")));
         if (b.Data?.Value is { } v) Console.WriteLine($"  value={v} change={b.Data.Change} points={b.Data.Series.Length}");
         return 0;

@@ -1,5 +1,8 @@
 name: Release
 
+# Push a tag like v0.2.0 and this builds the installer (Setup.exe, with auto-update) and a portable zip,
+# and publishes them as a GitHub release. Installed copies find the new version there and update themselves.
+
 on:
   push:
     tags: ['v*']
@@ -14,19 +17,35 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
-      - name: Publish single-file exe
-        run: >
-          dotnet publish src/Island.Lab -c Release -o publish
-          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
-          -p:DebugType=none
-      - name: Zip
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Version from the tag
+        id: v
         shell: pwsh
-        run: Compress-Archive -Path publish/IslandLab.exe -DestinationPath IslandLab-${{ github.ref_name }}-win-x64.zip
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            publish/IslandLab.exe
-            IslandLab-${{ github.ref_name }}-win-x64.zip
-          generate_release_notes: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
+        run: echo "version=$('${{ github.ref_name }}'.TrimStart('v'))" >> $env:GITHUB_OUTPUT
+
+      - name: Publish (self-contained, no .NET needed on the PC)
+        run: >
+          dotnet publish src/Island.Lab -c Release -r win-x64 --self-contained -o publish
+          -p:DebugType=none -p:Version=${{ steps.v.outputs.version }}
+
+      - name: Install the packaging tool (Velopack)
+        run: dotnet tool install -g vpk --version 1.2.161
+
+      # the previous release, so this one can be shipped as a small delta to people who already have it
+      - name: Fetch the previous release
+        continue-on-error: true
+        run: vpk download github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pack the installer
+        run: >
+          vpk pack --packId DynamicIsland --packTitle "Island" --packAuthors "UsoguiH"
+          --packVersion ${{ steps.v.outputs.version }} --packDir publish --mainExe IslandLab.exe
+          --icon src/Island.Lab/Assets/bloub.ico
+
+      - name: Publish the release
+        run: >
+          vpk upload github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }}
+          --publish --releaseName "Island ${{ github.ref_name }}" --tag ${{ github.ref_name }}

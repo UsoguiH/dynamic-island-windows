@@ -370,6 +370,10 @@ public sealed class BloubEngine
     // more than once per frame (a probe pass, then the real one), so the last result is kept.
     BloubFrame? _sampled;
     double _sampledAt;
+    // scratch lists of one sample (the frame gets right-sized copies)
+    readonly List<BloubEye> _eyes = new(2);
+    readonly List<BloubDot> _dots = new();
+    readonly List<ArcRender> _arcs = new();
 
     public BloubFrame Sample(double now)
     {
@@ -430,16 +434,14 @@ public sealed class BloubEngine
 
         // --- body -------------------------------------------------------------
         var sil = pose.Sil with { Cx = pose.Sil.Cx + offX, Cy = pose.Sil.Cy + offY, Sy = pose.Sil.Sy * life.Breath };
-        var pts = BloubShape.ToPoints(sil, R);
-        var body = new Vector2[pts.Length];
-        for (int i = 0; i < pts.Length; i++) body[i] = new Vector2((float)pts[i].X, (float)pts[i].Y);
+        var body = BloubShape.ToVectors(sil, R);
 
         // --- eyes -------------------------------------------------------------
         // The eyes live on a sphere of radius 1; as soon as the silhouette is not a circle they are
         // brought back pro rata of the real radius in their direction, or they overflow.
         double BodyRadius(double x, double y) => BloubShape.RadiusAtAngle(pose.Sil.Radii, Math.Atan2(y, x) - pose.Sil.Rot);
 
-        var eyes = new List<BloubEye>(2);
+        var eyes = _eyes; eyes.Clear();
         if (pose.EyeAlpha > 0.01)
         {
             var (p0, p1) = BloubFace.EyePoses(gaze, R, pose.Split);
@@ -472,7 +474,7 @@ public sealed class BloubEngine
         }
 
         // --- decor ------------------------------------------------------------
-        var dots = new List<BloubDot>(pose.Dots.Count);
+        var dots = _dots; dots.Clear();
         foreach (var p in pose.Dots)
         {
             if (!(p.Opacity > 0.01 && p.R > 0.0005)) continue;
@@ -493,7 +495,7 @@ public sealed class BloubEngine
         }
 
         // States declare arcs in ball-radius units; only the engine knows the viewBox scale.
-        var arcs = new List<ArcRender>(pose.Arcs.Count);
+        var arcs = _arcs; arcs.Clear();
         foreach (var a in pose.Arcs)
             if (a.Opacity > 0.01) arcs.Add(BloubDecor.ArcRender(a.Seed, a.T, R, a.Id, a.Opacity));
 
@@ -501,10 +503,10 @@ public sealed class BloubEngine
         {
             Body = body,
             BodyAlpha = (float)pose.BodyAlpha,
-            Eyes = eyes.ToArray(),
-            Dots = dots.ToArray(),
+            Eyes = eyes.Count == 0 ? [] : eyes.ToArray(),
+            Dots = dots.Count == 0 ? [] : dots.ToArray(),
             DotsBehind = pose.DotsBehind,
-            Arcs = arcs.ToArray(),
+            Arcs = arcs.Count == 0 ? [] : arcs.ToArray(),
             Notif = notif,
             Notch = notch,
         };

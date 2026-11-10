@@ -47,11 +47,16 @@ public sealed class ClaudeLimits
     public void Refresh(TimeSpan maxAge)
     {
         if (Showcase.On) { Showcase.Limits(this); return; }
-        if (DateTime.Now - UpdatedAt < maxAge || DateTime.Now - _lastProbe < TimeSpan.FromSeconds(45)) return;
+        // a check that failed (offline, signed out, Claude Code missing) is tried again later and later: 45 s, 90 s,
+        // 3 min… up to 15 min, instead of starting a new Claude process every 45 seconds for as long as it fails
+        var wait = TimeSpan.FromSeconds(Math.Min(900, 45 * Math.Pow(2, Math.Min(_failures, 6))));
+        if (DateTime.Now - UpdatedAt < maxAge || DateTime.Now - _lastProbe < wait) return;
         if (Interlocked.Exchange(ref _probing, 1) == 1) return;
         _lastProbe = DateTime.Now;
-        new Thread(Probe) { IsBackground = true, Name = "ClaudeLimits" }.Start();
+        new Thread(Probe) { IsBackground = true, Name = "ClaudeLimits", Priority = ThreadPriority.BelowNormal }.Start();
     }
+
+    int _failures;
 
     void Probe()
     {
@@ -71,7 +76,11 @@ public sealed class ClaudeLimits
             foreach (var k in psi.Environment.Keys.ToList())
                 if (k.StartsWith("CLAUDE_CODE_", StringComparison.OrdinalIgnoreCase) || k.Equals("CLAUDECODE", StringComparison.OrdinalIgnoreCase))
                     psi.Environment.Remove(k);
+            var before = UpdatedAt;
+            Diag.Log("limits probe: start");
             using var p = Process.Start(psi)!;
+            // it is a background errand: it must never take the processor from what you are doing (or from the island)
+            try { p.PriorityClass = ProcessPriorityClass.BelowNormal; } catch { }
             p.StandardInput.Close();
             _ = p.StandardError.ReadToEndAsync();
             var read = Task.Run(() =>
@@ -86,8 +95,10 @@ public sealed class ClaudeLimits
             if (!p.WaitForExit(30000)) { try { p.Kill(true); } catch { } Error = "Limits check timed out"; }
             read.Wait(2000);
             if (DateTime.Now - UpdatedAt > TimeSpan.FromMinutes(1) && Error == null) Error = "Couldn't read your limits";
+            _failures = UpdatedAt > before ? 0 : _failures + 1;
+            Diag.Log("limits probe: " + (UpdatedAt > before ? "ok" : Error ?? "nothing"));
         }
-        catch (Exception ex) { Error = "Couldn't run claude"; Diag.Log("limits probe: " + ex.Message); }
+        catch (Exception ex) { Error = "Couldn't run claude"; _failures++; Diag.Log("limits probe: " + ex.Message); }
         finally { Interlocked.Exchange(ref _probing, 0); }
     }
 }

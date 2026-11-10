@@ -50,6 +50,25 @@ public static class Processes
         finally { CloseHandle(h); }
     }
 
+    /// <summary>
+    /// The process is still running (and, when <paramref name="startFileTime"/> is given, it is the same one:
+    /// pids get reused). One cheap system call, where System.Diagnostics.Process lists every process first.
+    /// </summary>
+    public static bool Alive(int pid, long? startFileTime = null)
+    {
+        var h = OpenProcess(0x1000 /* PROCESS_QUERY_LIMITED_INFORMATION */, false, (uint)pid);
+        if (h == 0) return false;
+        try
+        {
+            if (!GetProcessTimes(h, out long created, out long exited, out _, out _)) return false;
+            if (exited != 0 && GetExitCodeProcess(h, out uint code) && code != 259 /* STILL_ACTIVE */) return false;
+            return startFileTime is not { } ft || Math.Abs(created - ft) <= 20_000_000;
+        }
+        finally { CloseHandle(h); }
+    }
+
+    [DllImport("kernel32")] static extern bool GetExitCodeProcess(nint h, out uint code);
+
     static Info? Read(int pid)
     {
         var h = OpenProcess(0x0400 /* PROCESS_QUERY_INFORMATION */ | 0x0010 /* PROCESS_VM_READ */, false, (uint)pid);

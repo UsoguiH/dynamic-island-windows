@@ -70,9 +70,11 @@ public sealed class FrameRenderer : IDisposable
     {
         var surface = Area.Of(0, 0, _gpu.Width / _gpu.Scale, _gpu.Height / _gpu.Scale);
         long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+        var pp = Prof.Start();
         _canvas.BeginProbe();
         Scene(m, null);
         var dirty = _canvas.EndProbe(surface);
+        Prof.Stop("probe", pp);
         long t1 = System.Diagnostics.Stopwatch.GetTimestamp();
         ProbeMs += (t1 - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
         Presented = dirty != null;
@@ -89,7 +91,9 @@ public sealed class FrameRenderer : IDisposable
         ctx.BeginDraw();
         ctx.Transform = Matrix3x2.Identity;
         if (_bodyCache == null || _bodyCached != _body.Hash) RenderBody(ctx);
+        var ps = Prof.Start();
         _canvas.PrepareSprites(dirty, _gpu.BackBuffer);
+        Prof.Stop("sprites", ps);
         float s = _gpu.Scale;
         _px.Clear();
         foreach (var d in dirty)
@@ -102,19 +106,25 @@ public sealed class FrameRenderer : IDisposable
             ctx.PushAxisAlignedClip(new Vortice.Mathematics.Rect(area.L, area.T, area.R - area.L, area.B - area.T), AntialiasMode.Aliased);
             ctx.Clear(new Vortice.Mathematics.Color4(0, 0, 0, 0));
             _canvas.BeginDraw(area);
+            var pd = Prof.Start();
             Scene(m, ctx);
+            Prof.Stop("draw pass", pd);
             ctx.Transform = Matrix3x2.Identity;
             ctx.PopAxisAlignedClip();
         }
         long t2 = System.Diagnostics.Stopwatch.GetTimestamp();
+        var pf = Prof.Start();
         var hr = ctx.EndDraw();
+        Prof.Stop("flush", pf);
         long t3 = System.Diagnostics.Stopwatch.GetTimestamp();
         DrawMs += (t2 - t1) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
         FlushMs += (t3 - t2) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
         Regions += dirty.Count;
         if (hr.Failure) { Diag.Log($"EndDraw failed 0x{hr.Code:X8} mode={m.Mode} layers={m.Layers.Count}"); _canvas.Invalidate(); }
         if (FrameCheck.On && _check != null) _gpu.BeforePresent ??= _check.CompareBuffers;
+        var pr = Prof.Start();
         _gpu.Present(_px);
+        Prof.Stop("present", pr);
         if (FrameCheck.On) Verify(m, surface);
     }
 
@@ -231,7 +241,9 @@ public sealed class FrameRenderer : IDisposable
                 else
                 {
                     c.Transform = xf;
+                    var pl = Prof.Start();
                     Scenes.Draw(c, m, layer.Mode, x0, y0, tw, th);
+                    Prof.Stop(ctx == null ? "  probe content" : "  draw content", pl);
                     c.Transform = Matrix3x2.Identity;
                 }
                 c.PopLayer();
@@ -260,7 +272,9 @@ public sealed class FrameRenderer : IDisposable
             if (teamOp > 0.01f)
             {
                 c.PushLayer(1, clip, bodyBox, bodyKey);
+                var pb = Prof.Start();
                 m.Team.DrawBalls(c, m, _bloub, teamOp);
+                Prof.Stop(ctx == null ? "  probe team" : "  draw team", pb);
                 c.PopLayer();
             }
             if (bop > 0.01f)
