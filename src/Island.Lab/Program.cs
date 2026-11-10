@@ -76,7 +76,7 @@ static class Program
 
         _hwnd = CreateOverlay("Island");
 
-        _scale = GetDpiForWindow(_hwnd) / 96f;
+        _scale = Shot.Scale ?? GetDpiForWindow(_hwnd) / 96f;
         int pw = (int)MathF.Round(LogicalW * _scale), ph = (int)MathF.Round(LogicalH * _scale);
         var mi = new MONITORINFO { cbSize = (uint)Marshal.SizeOf<MONITORINFO>() };
         GetMonitorInfoW(MonitorFromWindow(_hwnd, 1 /* primary */), ref mi);
@@ -171,6 +171,7 @@ static class Program
             renderer.Render(_model); // redraws (and presents) only what changed, if anything
             _stillTicks = renderer.Presented ? 0 : _stillTicks + 1;
             if (Shot.Plan is { } shot && now >= shot.At) { Shot.Save(gpu, shot.File); SetReserved(false); _model.Team.Dispose(); _tray?.Dispose(); return; }
+            if (Shot.Film != null && Shot.FilmFrame(gpu, now)) { SetReserved(false); _model.Team.Dispose(); _tray?.Dispose(); return; }
             // the hover target is only known after drawing, so a mouse that stops on a button gets its cursor here
             if (inside && CursorId() is var want && want != _shownCursor) { _shownCursor = want; SetCursor(LoadCursorW(0, want)); }
             else if (!inside) _shownCursor = 0;
@@ -271,12 +272,31 @@ static class Program
             _model.OpenTeam(_model.Team.Live.ElementAtOrDefault(n));
             if (p.Length > 2) _model.Team.Act(_model, ["atab", p[2]]);
         }
-        else if (p[0] == "tab" && p.Length > 1)
+        else if (p[0] == "tab" && p.Length > 1) DemoTab(p[1]);
+        else if (p[0] == "script")
         {
-            _model.SetMode(Mode.Full);
-            // the demo pins a tab that isn't in your bar yet, so it shows up selected
-            if (Showcase.On && TabBar.All.Any(d => d.Id == p[1]) && !_model.Tabs.Enabled.Contains(p[1])) _model.Tabs.Toggle(_model, p[1]);
-            _model.Act("tab:" + p[1]);
+            // a timed tour, for filming: ISLAND_DEMO="script:0=tab servers;2.5=tab usage;5=team;7=focus 0;9=atab plan;11=rest"
+            double t = _model.Clock;
+            foreach (var step in demo[(demo.IndexOf(':') + 1)..].Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                int eq = step.IndexOf('=');
+                if (eq < 0 || !double.TryParse(step[..eq], System.Globalization.CultureInfo.InvariantCulture, out double at)) continue;
+                string[] a = step[(eq + 1)..].Split(' ', 2);
+                string arg = a.Length > 1 ? a[1] : "";
+                _demoPlan.Add((t + at, () =>
+                {
+                    switch (a[0])
+                    {
+                        case "tab": DemoTab(arg); break;
+                        case "team": _model.OpenTeam(); break;
+                        case "focus": _model.OpenTeam(_model.Team.Live.ElementAtOrDefault(int.TryParse(arg, out int k) ? k : 0)); break;
+                        case "atab": _model.Team.Act(_model, ["atab", arg]); break;
+                        case "new": _model.OpenTeam(); _model.Team.SetView(TeamView.New); _model.Team.Task.Set(arg); _model.FocusField(_model.Team.Task); break;
+                        case "rest": _model.FocusField(null); _model.SetMode(Mode.Dormant); break;
+                        case "act": _model.Act(arg); break;
+                    }
+                }));
+            }
         }
         else if (p[0] == "celebrate") _model.Team.CelebrateDemo(_model);
         else if (p[0] == "edit")
@@ -321,6 +341,14 @@ static class Program
             if (p.Length > 1) { _model.Team.Task.Set(string.Join(":", p[1..])); _model.FocusField(_model.Team.Task); }
         }
         else _model.OpenTeam();
+    }
+
+    static void DemoTab(string id)
+    {
+        _model.SetMode(Mode.Full);
+        // the demo pins a tab that isn't in your bar yet, so it shows up selected
+        if (Showcase.On && TabBar.All.Any(d => d.Id == id) && !_model.Tabs.Enabled.Contains(id)) _model.Tabs.Toggle(_model, id);
+        _model.Act("tab:" + id);
     }
 
     // ---- keyboard: the island normally never takes focus; it does while you type into one of its fields.

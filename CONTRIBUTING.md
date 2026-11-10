@@ -49,7 +49,7 @@ Clicks are ids like `"yourid:action:3"`, which `IslandModel.ActTabs` routes. Try
 ## Pull requests
 
 - Keep each PR focused on one feature or fix.
-- For anything visual, attach a short GIF or clip (record it in `--showcase` mode).
+- For anything visual, attach a short GIF or clip (record it in `--showcase` mode). The island can film itself without a screen recorder: `ISLAND_SHOWCASE=1 ISLAND_DEMO=tab:servers ISLAND_FILM=2:8:30:clip.raw` saves its own frames (raw BGRA, size in `clip.raw.txt`), and `ISLAND_SHOT=4:shot.png` with `ISLAND_SHOT_SCALE=2` saves one sharp still.
 - Make sure `dotnet build -c Release` passes with no new warnings.
 
 ## Reporting bugs

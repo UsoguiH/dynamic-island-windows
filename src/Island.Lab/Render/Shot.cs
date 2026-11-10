@@ -7,10 +7,65 @@ namespace Island.Lab.Render;
 /// <summary>
 /// Dev: ISLAND_SHOT="&lt;seconds&gt;:&lt;file.png&gt;" saves the island's own frame (what it drew, not the screen) as a
 /// PNG over a dark backdrop, then quits. With ISLAND_DEMO it checks a screen without touching the mouse.
+/// ISLAND_SHOT_SCALE=2 draws that frame at twice the size (for pictures that stay sharp on any display).
+/// ISLAND_FILM="&lt;from&gt;:&lt;to&gt;:&lt;fps&gt;:&lt;file.raw&gt;" saves every frame between those seconds, one after another
+/// (premultiplied BGRA; the size and count go in &lt;file.raw&gt;.txt), then quits: a clip of the island with no screen recording.
 /// </summary>
 public static class Shot
 {
     public static readonly (double At, string File)? Plan = Parse(Environment.GetEnvironmentVariable("ISLAND_SHOT"));
+
+    public static readonly (double From, double To, double Fps, string File)? Film = ParseFilm(Environment.GetEnvironmentVariable("ISLAND_FILM"));
+
+    static (double, double, double, string)? ParseFilm(string? v)
+    {
+        var p = v?.Split(':', 4);
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        return p is { Length: 4 } && double.TryParse(p[0], inv, out double a) && double.TryParse(p[1], inv, out double b) && double.TryParse(p[2], inv, out double f) && f > 0
+            ? (a, b, f, p[3]) : null;
+    }
+
+    static FileStream? _film;
+    static ID3D11Texture2D? _filmStaging;
+    static byte[]? _filmRow;
+    static int _filmFrames;
+
+    /// <summary>Adds the frame on screen now to the clip (again if a slot was missed, so the clip keeps real time). True when the clip is complete.</summary>
+    public static unsafe bool FilmFrame(Gpu gpu, double now)
+    {
+        var f = Film!.Value;
+        if (now < f.From) return false;
+        var desc = gpu.FrameTexture.Description;
+        int w = (int)desc.Width, h = (int)desc.Height;
+        if (now >= f.To)
+        {
+            _film?.Dispose();
+            File.WriteAllText(f.File + ".txt", $"{w} {h} {_filmFrames} {f.Fps.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+            return true;
+        }
+        if (now < f.From + _filmFrames / f.Fps) return false;
+        if (_filmStaging == null)
+        {
+            desc.Usage = ResourceUsage.Staging; desc.BindFlags = BindFlags.None; desc.CPUAccessFlags = CpuAccessFlags.Read; desc.MiscFlags = ResourceOptionFlags.None;
+            _filmStaging = gpu.Device.CreateTexture2D(desc);
+            _film = File.Create(f.File);
+            _filmRow = new byte[w * 4 * h];
+        }
+        gpu.Context.CopyResource(_filmStaging, gpu.FrameTexture);
+        var map = gpu.Context.Map(_filmStaging, 0, MapMode.Read);
+        try
+        {
+            for (int y = 0; y < h; y++)
+                new ReadOnlySpan<byte>((byte*)map.DataPointer + y * map.RowPitch, w * 4).CopyTo(_filmRow.AsSpan(y * w * 4));
+        }
+        finally { gpu.Context.Unmap(_filmStaging, 0); }
+        while (now >= f.From + _filmFrames / f.Fps) { _film!.Write(_filmRow); _filmFrames++; }
+        return false;
+    }
+
+    /// <summary>The scale to draw at instead of the monitor's, while taking a shot.</summary>
+    public static readonly float? Scale = (Plan != null || Film != null) && float.TryParse(Environment.GetEnvironmentVariable("ISLAND_SHOT_SCALE"),
+        System.Globalization.CultureInfo.InvariantCulture, out float k) && k is >= 1 and <= 4 ? k : null;
 
     static (double, string)? Parse(string? v) =>
         v != null && v.IndexOf(':') is > 0 and var i && double.TryParse(v[..i], System.Globalization.CultureInfo.InvariantCulture, out double s) ? (s, v[(i + 1)..]) : null;
