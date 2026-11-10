@@ -1,59 +1,48 @@
 <div align="center">
 
-<img src="docs/media/banner.png" alt="Island: all your Claude Code agents in one glance. A Dynamic Island for Windows showing which agents are working, done, or need you" width="100%">
+<img src="docs/media/hero.png" alt="Island, the Dynamic Island for Windows. All in one glance. Under the pill, the tab library is open: Bloub and seventeen tabs to pin." width="100%">
 
-# Island
-
-### The Dynamic Island for Windows that watches your AI coding agents
-
-A small black pill at the top of your screen. It shows which of your Claude Code agents are **working**,<br>
-which are **done** and which **need you**, so you never keep one waiting again.
+A living black pill at the top of your screen. Hover it, and it opens into whatever you keep checking:<br>
+your dev servers, tasks and timers, your AI agents, your plan limits, and live tabs you make by describing them.
 
 <a href="https://github.com/UsoguiH/dynamic-island-windows/releases/latest/download/DynamicIsland-win-Setup.exe"><img src="https://img.shields.io/badge/Download%20for%20Windows-Setup.exe-0A84FF?style=for-the-badge&logo=windows&logoColor=white" alt="Download for Windows" height="46"></a>
 
 <sub>Free and open source · Windows 10 and 11 · no admin rights, no account · updates itself</sub><br>
-<sub><a href="https://github.com/UsoguiH/dynamic-island-windows/releases">All downloads</a> · <a href="#try-it-without-claude-code">No Claude Code? Try the demo mode</a></sub>
+<sub><a href="https://github.com/UsoguiH/dynamic-island-windows/releases">All downloads</a> · <a href="#try-it-first">Try the demo mode first</a></sub>
 
 <br>
 
 [![Build](https://github.com/UsoguiH/dynamic-island-windows/actions/workflows/build.yml/badge.svg)](https://github.com/UsoguiH/dynamic-island-windows/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/UsoguiH/dynamic-island-windows?include_prereleases&label=latest&color=5E5CE6)](https://github.com/UsoguiH/dynamic-island-windows/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/UsoguiH/dynamic-island-windows/total?color=0A84FF&label=downloads)](https://github.com/UsoguiH/dynamic-island-windows/releases)
-[![License: MIT](https://img.shields.io/badge/license-MIT-30D158)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/UsoguiH/dynamic-island-windows?style=flat&color=FF9F0A)](https://github.com/UsoguiH/dynamic-island-windows/stargazers)
+[![Release](https://img.shields.io/github/v/release/UsoguiH/dynamic-island-windows?include_prereleases&label=latest&color=1F4FD8)](https://github.com/UsoguiH/dynamic-island-windows/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/UsoguiH/dynamic-island-windows/total?color=1F4FD8&label=downloads)](https://github.com/UsoguiH/dynamic-island-windows/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-0c0c0e)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/UsoguiH/dynamic-island-windows?style=flat&color=0c0c0e)](https://github.com/UsoguiH/dynamic-island-windows/stargazers)
+
+<br>
+
+<img src="docs/media/tour.gif" alt="The pill opens into the dev servers tab, then tasks, the timer, usage and limits, the team of agents and one agent's live steps, then folds back into the pill" width="800">
+
+<sub>The app itself, in its demo mode. Every picture on this page is drawn by the app. Nothing is a mock-up.</sub>
 
 </div>
 
----
+## What's in the pill
 
-## You know this moment
-
-You start an agent, switch to something else "for a minute", and come back 47 minutes later.
-
-It asked **Allow this edit?** two minutes after you left. It has been waiting ever since.
-
-Island makes that impossible to miss. Every Claude Code session on your PC becomes a small coloured face at the top of your screen, and the moment one of them finishes or needs you, the island tells you which one and why.
-
-<div align="center">
-<img src="docs/media/agents.gif" alt="Hovering the island opens a dashboard, then a team of coloured Bloubs; clicking one shows its live log, plan and changed files" width="760">
-
-<sub>Real captures of the app, recorded in its demo mode. Nothing on this page is a mock-up.</sub>
-</div>
-
-| Without Island | With Island |
+| | |
 |---|---|
-| You alt-tab through terminals to see who is still working | Every session is a face in the pill: working, done, or waiting |
-| A permission question waits until you happen to look | The island says which agent needs you, and why, the moment it asks |
-| An agent finishes and you find out later | The mascot (his name is **Bloub**) jumps out next to your cursor and tells you |
-| You guess how much of your plan is left | Your real 5-hour and weekly limits, with reset times |
-| One more window to manage | No window at all: it is click-through, never steals focus, and folds into a thin line over your browser tabs |
+| **[Seventeen tabs](#seventeen-tabs-pin-the-ones-you-use)** | Dev servers, tasks, notes, timers, focus sessions, the calendar, world clocks, battery, downloads, network. Pin the ones you use. |
+| **[Tabs you describe](#describe-a-tab-and-it-builds-itself)** | Say *"bitcoin price with a chart"* or *"today's Premier League matches"* and a live tab builds itself. |
+| **[Your AI agents](#your-ai-agents-as-a-team)** | Every Claude Code session is a coloured face: working, done, or waiting for you. Start new ones and answer them from the island. |
+| **[Your limits](#know-your-limits-before-you-hit-them)** | Your real 5-hour and weekly Claude limits, and what you used today. |
+| **[Bloub](#bloub)** | The mascot who lives in the pill. He winks, he shrugs, and he jumps out to tell you when something is done. |
+| **[Never in your way](#never-in-your-way)** | Click-through, never steals focus, folds into a thin line over your browser tabs, hides in fullscreen games. |
 
-It needs **no setup**: it reads what Claude Code already writes on your disk. It is **native** (C# and Direct3D, no Electron), draws only what changed, and everything stays **on your PC**.
+It is **native** (C# and Direct3D, no Electron), it draws only what changed, and everything stays **on your PC**.
 
 ## Install in 10 seconds
 
 1. **[Download Setup.exe](https://github.com/UsoguiH/dynamic-island-windows/releases/latest/download/DynamicIsland-win-Setup.exe)** and run it. No admin rights, no .NET to install, no account.
-2. Bloub drops in to say hi, and the island sits at the top of your screen. Your running Claude Code sessions show up by themselves.
+2. Bloub drops in to say hi, and the island sits at the top of your screen.
 3. It **updates itself**: a new version downloads in the background and installs the next time the island closes.
 
 Prefer no installer? Get the **[portable zip](https://github.com/UsoguiH/dynamic-island-windows/releases/latest/download/DynamicIsland-win-Portable.zip)**, unzip it anywhere and run `IslandLab.exe`.
@@ -61,11 +50,11 @@ Prefer no installer? Get the **[portable zip](https://github.com/UsoguiH/dynamic
 > [!NOTE]
 > The app isn't code-signed yet, so Windows SmartScreen may warn you the first time: click **More info → Run anyway**. The whole source is here if you'd rather [build it yourself](#build-from-source).
 
-**Requirements:** Windows 10 (1903+) or 11, 64-bit, any DirectX 11 GPU. [Claude Code](https://claude.com/claude-code) is optional.
+**Requirements:** Windows 10 (1903+) or 11, 64-bit, any DirectX 11 GPU.
 
-### Try it without Claude Code
+### Try it first
 
-Run it in **demo mode** and you get a scripted team of agents, usage and limits. Nothing is read from your disk:
+**Demo mode** fills the island with a scripted team of agents, servers, usage and limits. Nothing is read from your disk:
 
 ```powershell
 IslandLab.exe --showcase
@@ -75,81 +64,76 @@ IslandLab.exe --showcase
 
 Windows Settings → Apps → **Island** → Uninstall. Your tabs, tasks and notes live in `%APPDATA%\Island` and are yours to keep or delete.
 
-## Features
+## Seventeen tabs. Pin the ones you use.
 
-### Your Claude Code agents as a team
+<img src="docs/media/tabs.png" alt="Four of the tabs: dev servers running on this PC, today's tasks, a stopwatch and countdown, and the calendar" width="100%">
 
-Every running Claude Code session becomes a coloured Bloub in the pill. Hover to see the team, and click an agent to open it:
+Click the pill and it opens into a dashboard. Each tab is one thing you would otherwise open a window for:
+
+| | |
+|---|---|
+| **Servers** | Every dev server listening on localhost (Vite, Next.js, uvicorn, Postgres, Redis…), with how long it's been up. **Open** it in the browser or **Stop** it (asks twice). |
+| **Tasks · Notes** | A to-do list and quick notes, saved on your PC. |
+| **Timer · Focus** | Stopwatch with laps, countdown with presets, deep-work sessions. |
+| **Calendar · Clocks** | The month at a glance, how much of today is gone, and world clocks. |
+| **Battery** | Charge ring, time left, power mode and battery saver. A banner when you plug in or unplug. |
+| **Downloads · Network** | Your latest downloads (open or show in folder) and live up/down speed. |
+| **Projects** | Your recent projects: open in your editor or Explorer, or start an agent there. |
+| **Overview · Agents · Usage** | Everything at a glance, your AI sessions, and your limits. |
+
+Click the pencil to open the **tab library**: tap a tile to pin it to your bar, tap again to unpin, drag to reorder. You can pin up to 10, and your choice is saved.
+
+## Describe a tab, and it builds itself
+
+<p align="center"><img src="docs/media/describe.gif" alt="In the tab library, New tab is tapped, 'bitcoin price with a chart' is typed, Bloub finds a live source and lays it out, and the finished tab shows the price with a 24-hour chart and is added to the bar" width="800"></p>
+
+Open the tab library, tap **New tab** and say what you want to keep an eye on, in your own words: *"bitcoin price with a chart"*, *"today's Premier League matches"*, *"new anime episodes with posters"*, *"prayer times in Riyadh"*. Bloub finds a free live source for it, lays it out (a price chart, score rows, a shelf of posters, a card per day…) and fills it with real data while you watch.
+
+- **Change it by asking again:** on the result, press **Change it** and say what should be different ("make it green", "show the last 7 days", "bigger pictures"). The same tab comes back changed.
+- After that, the tab refreshes by itself. No AI runs again and nothing leaves your PC except the request to that source.
+- Building a tab uses your own [Claude Code](https://claude.com/claude-code), once. Everything else in Island works without it.
+
+## Your AI agents, as a team
+
+<img src="docs/media/agents.png" alt="The team of four coloured Bloubs with an orange badge on the one that needs you, and that agent's screen: needs you in its terminal, permission to run npm publish, Open terminal" width="100%">
+
+You start an agent, switch to something else "for a minute", and come back 47 minutes later. It asked **Allow this edit?** two minutes after you left.
+
+With Island, every running Claude Code session is a coloured Bloub in the pill, and the moment one of them finishes or needs you, the island says which one and why. Click an agent to open it:
 
 - **Live activity:** "Editing theme.ts → Running npm test", built from the session's transcript
-- **Plan:** the agent's to-do list, with progress
-- **Files:** every file it changed, and how many times
+- **Plan and files:** its to-do list with progress, and every file it changed
 - **Needs you:** an orange badge and an alert when a session is waiting on you
 - **Side questions:** ask a running session something without interrupting it (Island asks a read-only fork)
 - **Go to terminal:** jumps straight to that session's window
 
 **Zero config.** Island reads Claude Code's own session registry (`~/.claude/sessions`) and transcripts. It doesn't need hooks and doesn't touch your `settings.json`.
 
-### Launch agents from the island
-
-<img src="docs/media/launch.png" alt="The New agent form with a task typed in and a project picked, next to the launched agent's own screen showing its live steps" width="760">
+<img src="docs/media/launch.png" alt="The New agent form with a task typed in and a project picked, next to the launched agent's own screen showing its live steps" width="100%">
 
 Press **+**, say what it should do, pick one of your recent projects and choose how much it may do on its own. The agent runs in the background, and you answer its **Allow / Deny** prompts and its questions right from the island. You can message it, stop it, restart it or continue it in a terminal (`claude --resume`) whenever you want.
 
-### Bloub comes out when an agent is done
+## Know your limits before you hit them
 
-<img src="docs/media/celebrate.gif" alt="Bloub leaps out of the island, lands next to the cursor with a check badge saying I'm done, then flies home" width="560" align="right">
-
-When a session finishes and you're looking elsewhere, Bloub **leaps out of the island**, lands next to your cursor and says it's done, with confetti in the agent's colour. Then it flies home and the island shows a banner.
-
-It plays at most once every 12 s, and never during a fullscreen game.
-
-<br clear="right">
-
-### Usage, plan limits and a dashboard
-
-<img src="docs/media/dashboard.gif" alt="The dashboard: overview, agents list, usage with 5-hour and weekly limit rings and charts, clipboard, system" width="720">
+<img src="docs/media/limits.png" alt="The Usage tab: 5-hour and weekly limit rings with reset times, today's tokens, active time, files edited and commands, usage per project and this week's chart" width="100%">
 
 - **Plan limits:** your real 5-hour and weekly usage rings with reset times, plus banners at 80% and 95%
 - **Today:** tokens, active time, files edited and commands run, with hour, project, week and model breakdowns
 - Everything is computed locally from `~/.claude/projects/**/*.jsonl`
 
-### 17 tabs, your way
+## Bloub
 
-<img src="docs/media/library.gif" alt="The tab library: Bloub sits in an orb with two moons; unpinning a tile makes him shrug with the moons lifting like shoulders, pinning one makes him wink while the tile fills with colour" width="720">
+<p align="center"><img src="docs/media/library.gif" alt="In the tab library Bloub sits in an orb with two moons; unpinning a tile makes him shrug, pinning it again makes him wink while the tile fills with colour" width="800"></p>
 
-Click the pencil and the dashboard turns into a **tab library**. Bloub floats down into an orb and two moons start circling him. Tap a tile to pin it to your bar: its colour spreads out from your finger and Bloub **winks**. Tap it again to unpin it and Bloub **shrugs** ("oh well"), with the moons lifting like shoulders. Drag the tabs in the bar to reorder them. You can pin up to 10, and your choice is saved.
+Bloub is the face in the pill. He looks where your cursor goes, blinks, and reacts to what you do: pin a tab and he **winks**, unpin one and he **shrugs**, with his two moons lifting like shoulders.
 
-<img src="docs/media/tabs.gif" alt="A tour of the tabs: dev servers, battery, calendar, network, tasks, notes, downloads" width="720">
+When an agent finishes while you are looking elsewhere, Bloub **leaps out of the island**, lands next to your cursor and says it's done, with confetti in the agent's colour. Then he flies home. It happens at most once every 12 s, and never during a fullscreen game.
 
-| | |
-|---|---|
-| **Servers** | Every dev server listening on localhost (Vite, Next.js, uvicorn, Postgres, Redis…), with how long it's been up. **Open** it in the browser or **Stop** it (asks twice). |
-| **Battery** | Charge ring, time left, power mode and battery saver, and the charge over this session. A banner when you plug in or unplug. |
-| **Projects** | Your recent Claude Code projects: open in your editor or Explorer, or start a new agent there. |
-| **Tasks · Notes** | A to-do list and quick notes, saved on your PC. |
-| **Timer · Focus** | Stopwatch with laps, countdown with presets, deep-work sessions. |
-| **Calendar · Clocks** | The month at a glance, how much of today is gone, and world clocks. |
-| **Downloads · Network** | Your latest downloads (open or show in folder) and live up/down speed. |
-| **Overview · Agents · Usage** | Everything at a glance, your sessions, and your limits. |
+## Never in your way
 
-### Describe a tab, and it builds itself
-
-<img src="docs/media/describe.png" alt="Typing 'bitcoin price with a chart' into the island, and the live tab it built: the price, the change over 24 hours and a chart" width="760">
-
-Open the tab library, tap **New tab** and say what you want to keep an eye on, in your own words: *"bitcoin price with a chart"*, *"today's Premier League matches"*, *"new anime episodes with posters"*, *"prayer times in Riyadh"*. Bloub finds a free live source for it, lays it out (a price chart, score rows, a shelf of posters, a card per day…) and fills it with real data while you watch.
-
-- **Change it by asking again:** on the result, press **Change it** and say what should be different ("make it green", "show the last 7 days", "bigger pictures"). The same tab comes back changed.
-- After that, the tab refreshes by itself. No AI runs again and nothing leaves your PC except the request to that source.
-- It uses your own Claude Code to build the tab, once.
-
-### Never in your way
-
-<img src="docs/media/retract.gif" alt="Over a browser's tab strip the island folds into a thin line; hovering pops it back out" width="800">
-
-- **Auto-retract:** when a window's tabs sit under the island, it folds into a thin line. Hover the line to bring it back, or click it to open the dashboard.
+- **Click-through** everywhere except the black shape, and it **never steals focus**
+- **Auto-retract:** when a window's tabs sit under the island, it folds into a thin line. Touch the line to bring it back.
 - **Reserved bar** (optional): reserves a 40 px strip, so maximised windows start below the island
-- **Click-through** everywhere except the black shape; it **never steals focus**
 - **Hides in fullscreen games** automatically
 - **One instance:** launching it again just opens the running island
 
