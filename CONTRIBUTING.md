@@ -17,7 +17,7 @@ dotnet run --project src/Island.Lab -c Release -- --showcase
 | `Island/IslandModel.cs` | Modes, springs, hit-testing, alerts: the island's brain |
 | `Island/Scenes.cs` | Drawing for each mode (dashboard, media, focus…) |
 | `Island/TabBar.cs`, `Scenes.Tabs.cs` | The dashboard's tabs: the catalogue, your picks, the tab library, and each tab's data and panel |
-| `Island/AgentTeam.cs` | Claude Code agents as a team of Bloubs: grid, focus, list, new agent |
+| `Island/AgentTeam.cs` | Claude Code agents as a team of Bloubs: grid, focus, new agent |
 | `Island/ClaudeSessions.cs`, `ClaudeUsage.cs`, `ClaudeLimits.cs` | Reading Claude Code's local files and plan limits |
 | `Island/AgentRunner.cs` | Headless `claude -p` agents over stream-json |
 | `Island/Showcase.cs` | The scripted demo data behind `--showcase` |

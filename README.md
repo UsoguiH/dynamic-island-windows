@@ -1,24 +1,24 @@
 <div align="center">
 
-<img src="docs/media/banner.png" alt="Island: a living Dynamic Island for Windows that watches your Claude Code agents" width="100%">
+<img src="docs/media/banner.png" alt="Island: all your Claude Code agents in one glance. A Dynamic Island for Windows showing which agents are working, done, or need you" width="100%">
 
 # Island
 
 ### The Dynamic Island for Windows that watches your AI coding agents
 
 A small black pill at the top of your screen. It shows which of your Claude Code agents are **working**,<br>
-which are **done** and which **need you**, and lets you answer them without leaving what you're doing.
+which are **done** and which **need you**, so you never keep one waiting again.
 
-<a href="https://github.com/UsoguiH/dynamic-island-windows/releases/latest/download/DynamicIsland-win-Setup.exe"><img src="https://img.shields.io/badge/Download%20for%20Windows-Setup.exe-0A84FF?style=for-the-badge&logo=windows&logoColor=white" alt="Download for Windows" height="44"></a>
+<a href="https://github.com/UsoguiH/dynamic-island-windows/releases/latest/download/DynamicIsland-win-Setup.exe"><img src="https://img.shields.io/badge/Download%20for%20Windows-Setup.exe-0A84FF?style=for-the-badge&logo=windows&logoColor=white" alt="Download for Windows" height="46"></a>
 
-<sub>Free and open source · Windows 10 and 11 · installs in seconds, updates itself · <a href="#try-it-without-claude-code">no Claude Code? try the demo mode</a></sub>
+<sub>Free and open source · Windows 10 and 11 · no admin rights, no account · updates itself</sub><br>
+<sub><a href="https://github.com/UsoguiH/dynamic-island-windows/releases">All downloads</a> · <a href="#try-it-without-claude-code">No Claude Code? Try the demo mode</a></sub>
 
 <br>
 
-<img src="docs/media/agents.gif" alt="Hovering the island opens a dashboard, then a team of coloured Bloubs; clicking one shows its live log, plan and changed files" width="760">
-
 [![Build](https://github.com/UsoguiH/dynamic-island-windows/actions/workflows/build.yml/badge.svg)](https://github.com/UsoguiH/dynamic-island-windows/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/UsoguiH/dynamic-island-windows?include_prereleases&label=latest&color=5E5CE6)](https://github.com/UsoguiH/dynamic-island-windows/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/UsoguiH/dynamic-island-windows/total?color=0A84FF&label=downloads)](https://github.com/UsoguiH/dynamic-island-windows/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-30D158)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/UsoguiH/dynamic-island-windows?style=flat&color=FF9F0A)](https://github.com/UsoguiH/dynamic-island-windows/stargazers)
 
@@ -26,29 +26,34 @@ which are **done** and which **need you**, and lets you answer them without leav
 
 ---
 
-## What it is, in 30 seconds
+## You know this moment
 
-You run AI coding agents in terminals. They work for minutes, then stop to ask a question, or finish while you are looking at something else, and you find out late. Island puts all of them in one place you can always see.
+You start an agent, switch to something else "for a minute", and come back 47 minutes later.
 
-| | |
-|---|---|
-| **See** | Every Claude Code session on your PC is a small coloured face in the pill: working, done, or waiting for you. |
-| **Know** | When one finishes, the mascot (his name is **Bloub**) jumps out next to your cursor and tells you. When one needs you, the island says which one and why. |
-| **Act** | Start a new agent, answer its Allow / Deny questions and read its plan and changed files, all from the island. |
-| **And more** | Your real Claude plan limits, your dev servers, tasks, timers, and live tabs you create by describing them in a sentence. |
+It asked **Allow this edit?** two minutes after you left. It has been waiting ever since.
 
-It needs **no setup**: it reads what Claude Code already writes on your disk. It is **native** (C# and Direct3D, no Electron), runs at your monitor's refresh rate, and everything stays **on your PC**.
+Island makes that impossible to miss. Every Claude Code session on your PC becomes a small coloured face at the top of your screen, and the moment one of them finishes or needs you, the island tells you which one and why.
 
 <div align="center">
-<img src="docs/media/morph.gif" alt="The island morphing between Now Playing, a split bubble, a permission alert, expanded media, the command bar and a focus timer" width="760">
+<img src="docs/media/agents.gif" alt="Hovering the island opens a dashboard, then a team of coloured Bloubs; clicking one shows its live log, plan and changed files" width="760">
 
-<sub>Real captures of the app, recorded in its demo mode. Nothing here is a mock-up.</sub>
+<sub>Real captures of the app, recorded in its demo mode. Nothing on this page is a mock-up.</sub>
 </div>
 
-## Install
+| Without Island | With Island |
+|---|---|
+| You alt-tab through terminals to see who is still working | Every session is a face in the pill: working, done, or waiting |
+| A permission question waits until you happen to look | The island says which agent needs you, and why, the moment it asks |
+| An agent finishes and you find out later | The mascot (his name is **Bloub**) jumps out next to your cursor and tells you |
+| You guess how much of your plan is left | Your real 5-hour and weekly limits, with reset times |
+| One more window to manage | No window at all: it is click-through, never steals focus, and folds into a thin line over your browser tabs |
 
-1. **[Download Setup.exe](https://github.com/UsoguiH/dynamic-island-windows/releases/latest/download/DynamicIsland-win-Setup.exe)** and run it. That's it: no admin rights, no .NET to install.
-2. Bloub drops in to say hi, and the island sits at the top of your screen.
+It needs **no setup**: it reads what Claude Code already writes on your disk. It is **native** (C# and Direct3D, no Electron), draws only what changed, and everything stays **on your PC**.
+
+## Install in 10 seconds
+
+1. **[Download Setup.exe](https://github.com/UsoguiH/dynamic-island-windows/releases/latest/download/DynamicIsland-win-Setup.exe)** and run it. No admin rights, no .NET to install, no account.
+2. Bloub drops in to say hi, and the island sits at the top of your screen. Your running Claude Code sessions show up by themselves.
 3. It **updates itself**: a new version downloads in the background and installs the next time the island closes.
 
 Prefer no installer? Get the **[portable zip](https://github.com/UsoguiH/dynamic-island-windows/releases/latest/download/DynamicIsland-win-Portable.zip)**, unzip it anywhere and run `IslandLab.exe`.
@@ -70,18 +75,6 @@ IslandLab.exe --showcase
 
 Windows Settings → Apps → **Island** → Uninstall. Your tabs, tasks and notes live in `%APPDATA%\Island` and are yours to keep or delete.
 
-## Contents
-
-- [What it is](#what-it-is-in-30-seconds) · [Install](#install)
-- [Features](#features)
-- [Build from source](#build-from-source)
-- [Hotkeys](#hotkeys)
-- [Questions](#questions)
-- [How it works](#how-it-works)
-- [Privacy](#privacy)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing) · [Credits](#credits) · [License](#license)
-
 ## Features
 
 ### Your Claude Code agents as a team
@@ -99,7 +92,9 @@ Every running Claude Code session becomes a coloured Bloub in the pill. Hover to
 
 ### Launch agents from the island
 
-Press **+ New agent**, pick one of your recent projects, describe the task (or use a template) and choose a permission mode. The agent runs headless, and you answer **Allow / Deny** prompts and its questions right from the island. You can message it, stop it, restart it or continue it in a terminal (`claude --resume`) whenever you want.
+<img src="docs/media/launch.png" alt="The New agent form with a task typed in and a project picked, next to the launched agent's own screen showing its live steps" width="760">
+
+Press **+**, say what it should do, pick one of your recent projects and choose how much it may do on its own. The agent runs in the background, and you answer its **Allow / Deny** prompts and its questions right from the island. You can message it, stop it, restart it or continue it in a terminal (`claude --resume`) whenever you want.
 
 ### Bloub comes out when an agent is done
 
@@ -140,6 +135,8 @@ Click the pencil and the dashboard turns into a **tab library**. Bloub floats do
 
 ### Describe a tab, and it builds itself
 
+<img src="docs/media/describe.png" alt="Typing 'bitcoin price with a chart' into the island, and the live tab it built: the price, the change over 24 hours and a chart" width="760">
+
 Open the tab library, tap **New tab** and say what you want to keep an eye on, in your own words: *"bitcoin price with a chart"*, *"today's Premier League matches"*, *"new anime episodes with posters"*, *"prayer times in Riyadh"*. Bloub finds a free live source for it, lays it out (a price chart, score rows, a shelf of posters, a card per day…) and fills it with real data while you watch.
 
 - **Change it by asking again:** on the result, press **Change it** and say what should be different ("make it green", "show the last 7 days", "bigger pictures"). The same tab comes back changed.
@@ -155,6 +152,26 @@ Open the tab library, tap **New tab** and say what you want to keep an eye on, i
 - **Click-through** everywhere except the black shape; it **never steals focus**
 - **Hides in fullscreen games** automatically
 - **One instance:** launching it again just opens the running island
+
+## Questions
+
+**Is it free?** Yes. MIT licence, no paid tier, no account.
+
+**Do I need Claude Code?** No. Without it you still get the island, the tabs and the demo mode. With it, your agents show up by themselves.
+
+**Does it slow my PC down?** It redraws only what changed, so at rest it uses almost nothing, and it gets out of the way of fullscreen games.
+
+**Does it send anything anywhere?** No telemetry, no account, no server. See [Privacy](#privacy).
+
+**Will it cover my browser tabs?** Over a window it folds into a thin line, and only touching that line opens it.
+
+**Does it work with other agents (Codex, Gemini, Cursor)?** Not yet. Claude Code today; others are the next big step. Tell us which one you want in [an issue](https://github.com/UsoguiH/dynamic-island-windows/issues).
+
+**Can I answer an agent from the island?** Agents you start from the island: yes, Allow / Deny and its questions appear right there. Sessions you started in a terminal: the island tells you which one is waiting, and one click takes you to its window.
+
+**Windows says the app is unknown. Is it safe?** It isn't code-signed yet, so SmartScreen warns the first time (**More info → Run anyway**). Every line of the source is in this repository, and the installer is built from it by [GitHub Actions](.github/workflows/release.yml).
+
+**How do I stop it?** Right-click the tray icon → Quit, or `Ctrl+Alt+Q`.
 
 ## Build from source
 
@@ -220,20 +237,6 @@ flowchart LR
 
 The full design doc covers the spring tokens, the choreography, the state sizes and the feature plan: **[docs/PLAN.md](docs/PLAN.md)**.
 
-## Questions
-
-**Do I need Claude Code?** No. Without it you still get the island, the tabs and the demo mode. With it, your agents show up by themselves.
-
-**Does it slow my PC down?** It redraws only what changed, so at rest it uses almost nothing, and it gets out of the way of fullscreen games.
-
-**Does it send anything anywhere?** No telemetry, no account, no server. See [Privacy](#privacy).
-
-**Will it cover my browser tabs?** Over a window it folds into a thin line, and only touching that line opens it.
-
-**Does it work with other agents (Codex, Gemini, Cursor)?** Not yet. Claude Code today; others are the next big step. Tell us which one you want in [an issue](https://github.com/UsoguiH/dynamic-island-windows/issues).
-
-**How do I stop it?** Right-click the tray icon → Quit, or `Ctrl+Alt+Q`.
-
 ## Privacy
 
 Island is **local-only**. It has no telemetry, no account and no server.
@@ -259,7 +262,7 @@ Island is **local-only**. It has no telemetry, no account and no server.
 - [x] Describe a tab in words: live tabs that build themselves
 - [ ] Code signing
 
-Have an idea? [Open a feature request](https://github.com/UsoguiH/dynamic-island-windows/issues/new?template=feature_request.yml).
+What changed in each version: **[CHANGELOG.md](CHANGELOG.md)**. Have an idea? [Open a feature request](https://github.com/UsoguiH/dynamic-island-windows/issues/new?template=feature_request.yml).
 
 ## Contributing
 
@@ -279,6 +282,12 @@ Island is an independent project. It isn't affiliated with Apple or Anthropic. "
 
 <div align="center">
 <br>
+
+### Ready? It takes 10 seconds.
+
+<a href="https://github.com/UsoguiH/dynamic-island-windows/releases/latest/download/DynamicIsland-win-Setup.exe"><img src="https://img.shields.io/badge/Download%20for%20Windows-Setup.exe-0A84FF?style=for-the-badge&logo=windows&logoColor=white" alt="Download for Windows" height="46"></a>
+
+<br><br>
 
 **If Bloub made you smile, a ⭐ helps other people find it.**
 
