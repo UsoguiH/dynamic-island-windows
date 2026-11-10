@@ -314,8 +314,12 @@ static class Program
         }
         else if (p[0] == "intro") _replayWelcome = true;
         else if (p[0] == "idle") { } // nothing: the island as it rests (no intro), for measuring
-        else if (p[0] == "list") { _model.OpenTeam(); _model.Team.SetView(TeamView.List); }
-        else if (p[0] == "new") { _model.OpenTeam(); _model.Team.SetView(TeamView.New); }
+        else if (p[0] == "new")
+        {
+            // the New agent form, optionally with a task typed in: ISLAND_DEMO="new:fix the flaky login test"
+            _model.OpenTeam(); _model.Team.SetView(TeamView.New);
+            if (p.Length > 1) { _model.Team.Task.Set(string.Join(":", p[1..])); _model.FocusField(_model.Team.Task); }
+        }
         else _model.OpenTeam();
     }
 

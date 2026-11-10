@@ -13,7 +13,7 @@ namespace Island.Lab.Island;
 
 public enum AgentStatus { Idle, Working, NeedsYou, Done, Ended }
 public enum AgentKind { Terminal, Island }
-public enum TeamView { Grid, Focus, List, New }
+public enum TeamView { Grid, Focus, New }
 public enum TeamPanel { Activity, Plan, Files }
 
 /// <summary>One Claude agent, embodied as a coloured Bloub: a session running in your terminal, or one the island launched.</summary>
@@ -50,7 +50,7 @@ public sealed class Agent
     public string? ForkOf;        // name of the terminal session it was forked from (side questions)
     public string? LastError;
 
-    // Motion: absolute island DIPs, so a Bloub flies continuously between the pill, the grid and the list.
+    // Motion: absolute island DIPs, so a Bloub flies continuously between the pill, the grid and its own console.
     public readonly Spring X = new(400, new SpringSpec(0.5f, 0.8f), 0.05f);
     public readonly Spring Y = new(25, new SpringSpec(0.5f, 0.8f), 0.05f);
     public readonly Spring R = new(0, new SpringSpec(0.46f, 0.7f), 0.01f);
@@ -115,7 +115,7 @@ public sealed class Agent
 /// Your Claude agents as a team of coloured Bloubs (animation replicates agent-widget.mp4).
 /// Two kinds live together: sessions running in your terminal (read from Claude Code's session registry
 /// and transcripts) and agents the island launches itself (headless Claude, fully controllable).
-/// Views: grid → focus (live log, chat, plan, changes, actions, message box) → list; plus "New agent".
+/// Views: grid → focus (live log, chat, plan, changes, actions, message box); plus "New agent".
 /// </summary>
 public sealed class AgentTeam
 {
@@ -138,13 +138,16 @@ public sealed class AgentTeam
     float _scrollMax;
 
     public readonly TextField Message = new("Message…");
-    public readonly TextField Task = new("Describe the task…");
+    public readonly TextField Task = new("What should it do?");
     List<string> _recent = new();
     string? _newFolder;
     int _newMode;
     static readonly (string? mode, string label)[] Modes = [(null, "Your default"), ("default", "Ask first"), ("plan", "Read-only"), ("acceptEdits", "Auto edits")];
-    static readonly string[] Templates =
-        ["Find and fix bugs", "Write tests for the main code", "Review my recent changes", "Explain this codebase", "Improve the README", "Make it faster"];
+    /// <summary>Starters under the task box: a short label, and the task it writes.</summary>
+    static readonly (string label, string task)[] Templates =
+        [("Fix bugs", "Find and fix bugs"), ("Write tests", "Write tests for the main code"), ("Review my changes", "Review my recent changes"),
+         ("Explain the code", "Explain this codebase"), ("Make it faster", "Make it faster")];
+    float _formH = 440; // the form hugs its content: one or two rows of projects
 
     readonly Random _rng = new();
     readonly ClaudeSessions _sessions = new();
@@ -174,7 +177,7 @@ public sealed class AgentTeam
     public (float W, float H, float R) Size => View switch
     {
         TeamView.Focus => (480, 440, 50),
-        TeamView.New => (500, 440, 56),
+        TeamView.New => (500, _formH, 56),
         _ => (400, 352, 54),
     };
 
@@ -531,8 +534,7 @@ public sealed class AgentTeam
             case "team":
                 switch (p[1])
                 {
-                    case "list": SetView(TeamView.List); break;
-                    case "grid": case "back": SetView(TeamView.Grid); m.FocusField(null); break;
+                    case "back": SetView(TeamView.Grid); m.FocusField(null); break;
                     case "home": m.SetMode(Mode.Full); break;
                     case "new": SetView(TeamView.New); m.FocusField(Task); break;
                 }
@@ -589,7 +591,7 @@ public sealed class AgentTeam
                 {
                     case "folder": _newFolder = _recent[int.Parse(p[2])]; break;
                     case "mode": _newMode = int.Parse(p[2]); break;
-                    case "tpl": Task.Set(Templates[int.Parse(p[2])]); m.FocusField(Task); break;
+                    case "tpl": Task.Set(Templates[int.Parse(p[2])].task); m.FocusField(Task); break;
                     case "launch": LaunchFromForm(m); break;
                 }
                 return true;
@@ -671,7 +673,7 @@ public sealed class AgentTeam
         _ => ([new(-112, -64), new(0, -64), new(112, -64), new(-112, 64), new(0, 64), new(112, 64)], 38),
     };
 
-    public const float FocusR = 60, ListR = 15, MiniR = 7.5f;
+    public const float FocusR = 60, MiniR = 7.5f;
 
     /// <summary>Where the focused Bloub sits: big in the middle, or small in the corner while a panel is open.</summary>
     (Vector2 c, float r) FocusPose(float left, float top, float w) => (new Vector2(left + HeroBallX, top + HeroBallY), HeroBallR);
@@ -699,7 +701,6 @@ public sealed class AgentTeam
         foreach (var a in Agents) if (_now >= a.HopAt) { a.Hop.Velocity = -150; a.HopAt = double.MaxValue; }
 
         var (offs, gridR) = GridLayout(live.Count);
-        float rowH = live.Count <= 4 ? 62 : 46;
         PillTeamLeft = float.MaxValue;
         var (fc, fr) = FocusPose(left, top, w);
 
@@ -724,17 +725,9 @@ public sealed class AgentTeam
                     case TeamView.Focus:
                         pos = new(Selected!.X, Selected.Y); r = 0; alpha = 0; // absorbed into the selected one
                         break;
-                    case TeamView.New:
+                    default: // New
                         pos = new(left + w - 52, top + 22); r = 0; alpha = 0; // they all hop into the "+"
                         break;
-                    default: // List
-                    {
-                        var row = new Vector2(left + 20 + 27, top + 56 + rowH / 2 + i * rowH);
-                        bool shown = a == Selected || ViewTime > 0.08f + 0.07f * i;
-                        if (!shown || a.R.Value < 0.6f && a != Selected) { a.X.Snap(row.X); a.Y.Snap(row.Y); }
-                        pos = row; r = shown ? (rowH > 50 ? ListR : 13) : 0;
-                        break;
-                    }
                 }
             }
             else if (pill)
@@ -963,7 +956,7 @@ public sealed class AgentTeam
 
     const char IcChat = '', IcPlan = '', IcChanges = '', IcCopy = '', IcFolder = '', IcCode = '',
         IcWindow = '', IcStop = '', IcTerminal = '', IcClose = '', IcSend = '', IcAdd = '',
-        IcList = '', IcGrid = '', IcHome = '', IcBack = '', IcRestart = '', IcCheck = '', IcRead = '', IcSearch = '', IcPeople = '', IcDot = '';
+        IcHome = '', IcBack = '', IcRestart = '', IcCheck = '', IcRead = '', IcSearch = '', IcPeople = '', IcDot = '';
 
     public void DrawScene(Canvas c, IslandModel m, float x0, float y0, float w, float h)
     {
@@ -976,7 +969,6 @@ public sealed class AgentTeam
         string title = View switch
         {
             TeamView.Focus when sel != null => sel.Name,
-            TeamView.List => "All agents",
             TeamView.New => "New agent",
             _ => "Claude Code",
         };
@@ -997,14 +989,12 @@ public sealed class AgentTeam
         else
         {
             IconButton(c, m, "team:home", bx, y0 + 22, IcHome);
-            if (live.Count > 0) IconButton(c, m, View == TeamView.Grid ? "team:list" : "team:grid", bx - 36, y0 + 22, View == TeamView.Grid ? IcList : IcGrid);
-            IconButton(c, m, "team:new", bx - (live.Count > 0 ? 72 : 36), y0 + 22, IcAdd, Rgba(0xBF5AF2));
+            IconButton(c, m, "team:new", bx - 36, y0 + 22, IcAdd, Rgba(0xBF5AF2));
         }
 
         switch (View)
         {
             case TeamView.Grid: Grid(c, m, live, x0, y0, w, h, vf); break;
-            case TeamView.List: List(c, m, live, x0, y0, w, h); break;
             case TeamView.New: NewForm(c, m, x0, y0, w, h, vf); break;
             case TeamView.Focus when sel != null: FocusBody(c, m, sel, x0, y0, w, h, vf); break;
         }
@@ -1028,26 +1018,6 @@ public sealed class AgentTeam
             float ty = a.Y + rr - (hov ? 4 : 8);
             if (hov) c.Round(a.X - tw / 2, ty, tw, 22, 11, WithA(Rgba(0x1C1C1E), 0.96f));
             c.Text(tag, a.X - (tw - 18) / 2, ty + 3.5f, 11.5f, WhiteA((hov ? 0.92f : 0.6f) * vf), FontWeight.SemiBold, 0, 200);
-        }
-    }
-
-    void List(Canvas c, IslandModel m, List<Agent> live, float x0, float y0, float w, float h)
-    {
-        float rowH = live.Count <= 4 ? 62 : 46, pillH = rowH - 12;
-        for (int i = 0; i < live.Count; i++)
-        {
-            var a = live[i];
-            float k = Math.Clamp((ViewTime - 0.06f - 0.07f * i) / 0.22f, 0, 1);
-            float ry = y0 + 56 + rowH / 2 + i * rowH, slide = (1 - k) * 14;
-            bool hov = m.Hit($"ag:k{a.Key}", x0 + 20, ry - pillH / 2, w - 40, pillH);
-            c.Round(x0 + 20 + slide, ry - pillH / 2, w - 40, pillH, pillH / 2, WhiteA((hov ? 0.13f : 0.075f) * k));
-            if (rowH > 50)
-            {
-                c.Text(a.Name, x0 + 72 + slide, ry - 10, 14, WhiteA(0.92f * k), FontWeight.SemiBold, 0, w - 200);
-                c.Text(a.Activity, x0 + 72 + slide, ry + 9, 11, WhiteA(0.45f * k), maxWidth: w - 190);
-            }
-            else c.Text(a.Name, x0 + 72 + slide, ry - 9, 13.5f, WhiteA(0.92f * k), FontWeight.SemiBold, 0, w - 200);
-            c.Text(a.StatusText, x0 + w - 38 + slide, ry - 8, 12, WithA(Rgba(a.StatusColor), k), FontWeight.SemiBold, 1);
         }
     }
 
@@ -1396,71 +1366,180 @@ public sealed class AgentTeam
     }
 
     // ---------------------------------------------------------------- new agent form
+    //
+    //  ┌ header ─ New agent · runs in the background ─── ← ┐
+    //  │ ┌ What should it do? ─────────────────────────┐   │   the task first: it wraps, Enter launches
+    //  │ └─────────────────────────────────────────────┘   │
+    //  │ [Fix bugs] [Write tests] [Review my changes] …    │   starters
+    //  │ Project                          …\dev\aurora-web │   which folder, in full (two can share a name)
+    //  │ [aurora-web] [pixel-api] [notes-cli] …            │
+    //  │ Permissions                                       │
+    //  │ ( Your default | Ask first | Read-only | Auto )   │
+    //  │ what the chosen one means                         │
+    //  │ (             Launch in aurora-web            ↵ ) │   says where it will run, and what is missing
+    //  └───────────────────────────────────────────────────┘
+
+    const float TaskSize = 14.5f, TaskLine = 21, TaskRows = 3;
+    static readonly uint Accent = 0xBF5AF2;
+
+    // Where each line of the task starts (kept until the text or the width changes).
+    string? _wrapOf; float _wrapW; readonly List<int> _wrap = new();
+
+    List<int> WrapTask(Canvas c, string text, float width)
+    {
+        if (text == _wrapOf && width == _wrapW) return _wrap;
+        _wrapOf = text; _wrapW = width; _wrap.Clear(); _wrap.Add(0);
+        int start = 0, space = -1;
+        for (int i = 0; i < text.Length; i++)
+        {
+            if (text[i] == ' ') { space = i; continue; }
+            if (i == start || c.Measure(text[start..(i + 1)], TaskSize) <= width) continue;
+            start = space >= start ? space + 1 : i; // after the last space, or inside a word longer than the line
+            _wrap.Add(start);
+        }
+        return _wrap;
+    }
+
+    /// <summary>A path shortened from the left, so the folders nearest the project stay readable.</summary>
+    static string TailPath(Canvas c, string path, float size, float max)
+    {
+        string s = path;
+        while (c.Measure(s, size) > max)
+        {
+            int cut = s.IndexOf('\\', s[0] == '…' ? 2 : 1);
+            if (cut < 0) break;
+            s = "…" + s[cut..];
+        }
+        return s;
+    }
 
     void NewForm(Canvas c, IslandModel m, float x0, float y0, float w, float h, float vf)
     {
-        float x = x0 + 18, iw = w - 36;
+        float x = x0 + 18, iw = w - 36, y = y0 + 52;
         float Pop(int i) => Math.Clamp((ViewTime - i * 0.05f) / 0.25f, 0, 1);
+        var accent = Rgba(Accent);
 
-        // where
-        float p0 = Pop(0);
-        c.Text("Where should it work?", x, y0 + 54 + (1 - p0) * 6, 12.5f, WhiteA(0.55f * vf * p0), FontWeight.SemiBold);
-        float fx = x, fy = y0 + 76;
-        if (_recent.Count == 0) c.Text("No recent projects found in ~/.claude/history.jsonl", x, fy + 6, 12, WhiteA(0.4f * vf));
-        for (int i = 0; i < _recent.Count; i++)
+        // ---- what: the task, up to three lines in view
         {
-            string name = Path.GetFileName(_recent[i].TrimEnd('\\'));
-            float cw = MathF.Min(c.Measure(name, 12.5f, FontWeight.SemiBold), 170) + 36;
-            if (fx + cw > x + iw) { fx = x; fy += 36; }
-            if (fy > y0 + 116) break;
-            bool on = string.Equals(_newFolder, _recent[i], StringComparison.OrdinalIgnoreCase);
-            bool hov = m.Hit($"new:folder:{i}", fx, fy, cw, 30);
-            float pk = Pop(1 + i);
-            c.Round(fx, fy + (1 - pk) * 6, cw, 30, 15, on ? WithA(Rgba(0xBF5AF2), 0.85f * vf * pk) : WhiteA((hov ? 0.17f : 0.09f) * vf * pk));
-            c.Icon(IcFolder, fx + 15, fy + 15 + (1 - pk) * 6, 11, WhiteA((on ? 1 : 0.6f) * vf * pk));
-            c.Text(name, fx + 27, fy + 6 + (1 - pk) * 6, 12.5f, WhiteA((on ? 1 : 0.8f) * vf * pk), FontWeight.SemiBold, 0, 170);
-            fx += cw + 8;
+            float p = Pop(0), k = vf * p, ch = TaskRows * TaskLine + 30, ry = y + (1 - p) * 6;
+            bool focused = m.Focused == Task, hov = m.Hit("input:task", x, y, iw, ch);
+            c.Round(x, ry, iw, ch, 22, WhiteA((focused ? 0.11f : hov ? 0.1f : 0.075f) * k));
+            float tx = x + 18, tw = iw - 36, ty = ry + 14;
+            bool blink = focused && (m.Clock - Task.ChangedAt) % 1.06 < 0.6;
+            if (Task.Text.Length == 0)
+            {
+                c.Text(Task.Placeholder, tx, ty, TaskSize, WhiteA(0.36f * k), FontWeight.Regular, 0, tw);
+                if (blink) c.Round(tx, ty + 1, 1.6f, TaskLine - 2, 0.8f, WithA(accent, k));
+            }
+            else
+            {
+                var lines = WrapTask(c, Task.Text, tw);
+                int at = lines.Count - 1;
+                while (at > 0 && lines[at] > Task.Caret) at--;
+                int first = Math.Clamp(at - ((int)TaskRows - 1), 0, Math.Max(0, lines.Count - (int)TaskRows)); // keep the caret's line in view
+                c.PushClip(x + 8, ry + 6, iw - 16, ch - 12);
+                for (int i = first; i < lines.Count && i < first + TaskRows; i++)
+                {
+                    int s = lines[i], e = i + 1 < lines.Count ? lines[i + 1] : Task.Text.Length;
+                    c.Text(Task.Text[s..e], tx, ty + (i - first) * TaskLine, TaskSize, WhiteA(0.95f * k));
+                }
+                if (blink) c.Round(tx + c.Measure(Task.Text[lines[at]..Task.Caret], TaskSize), ty + 1 + (at - first) * TaskLine, 1.6f, TaskLine - 2, 0.8f, WithA(accent, k));
+                c.PopClip();
+            }
+            y += ch + 10;
         }
 
-        // what
-        c.Text("What should it do?", x, y0 + 156, 12.5f, WhiteA(0.55f * vf * Pop(3)), FontWeight.SemiBold);
-        Field(c, m, Task, "input:task", x, y0 + 176, iw, 44, vf * Pop(3), false);
-        float tx = x, tyy = y0 + 230;
-        for (int i = 0; i < Templates.Length; i++)
+        // ---- starters: one row, as many as fit
         {
-            float cw = c.Measure(Templates[i], 11.5f, FontWeight.SemiBold) + 20;
-            if (tx + cw > x + iw) { tx = x; tyy += 30; }
-            if (tyy > y0 + 262) break;
-            bool hov = m.Hit($"new:tpl:{i}", tx, tyy, cw, 24);
-            float pk = Pop(4 + i);
-            c.Round(tx, tyy, cw, 24, 12, WhiteA((hov ? 0.17f : 0.07f) * vf * pk));
-            c.Text(Templates[i], tx + 10, tyy + 4, 11.5f, WhiteA((hov ? 0.95f : 0.6f) * vf * pk), FontWeight.SemiBold);
-            tx += cw + 6;
+            float k = vf * Pop(1), tx = x;
+            for (int i = 0; i < Templates.Length; i++)
+            {
+                float cw = c.Measure(Templates[i].label, 11.5f, FontWeight.SemiBold) + 22;
+                if (tx + cw > x + iw) break;
+                bool hov = m.Hit($"new:tpl:{i}", tx, y, cw, 26);
+                c.Round(tx, y, cw, 26, 13, WhiteA((hov ? 0.16f : 0.065f) * k));
+                c.Text(Templates[i].label, tx + 11, y + 5, 11.5f, WhiteA((hov ? 0.95f : 0.58f) * k), FontWeight.SemiBold);
+                tx += cw + 6;
+            }
+            y += 26 + 18;
         }
 
-        // permissions
-        c.Text("Permissions", x, y0 + 300, 12.5f, WhiteA(0.55f * vf * Pop(6)), FontWeight.SemiBold);
-        float sw = iw / Modes.Length;
-        c.Round(x, y0 + 320, iw, 32, 16, WhiteA(0.07f * vf));
-        for (int i = 0; i < Modes.Length; i++)
+        // ---- where
+        string project = _newFolder == null ? "" : Path.GetFileName(_newFolder.TrimEnd('\\'));
         {
-            bool on = i == _newMode;
-            bool hov = m.Hit($"new:mode:{i}", x + i * sw, y0 + 320, sw, 32);
-            if (on) c.Round(x + i * sw + 2, y0 + 322, sw - 4, 28, 14, WhiteA(0.2f * vf));
-            else if (hov) c.Round(x + i * sw + 2, y0 + 322, sw - 4, 28, 14, WhiteA(0.08f * vf));
-            c.Text(Modes[i].label, x + i * sw + sw / 2, y0 + 327, 12, WhiteA((on ? 1 : 0.6f) * vf), FontWeight.SemiBold, 0.5f);
+            float p = Pop(2), k = vf * p, rise = (1 - p) * 6;
+            c.Text("Project", x + 2, y + rise, 12, WhiteA(0.5f * k), FontWeight.SemiBold);
+            if (_newFolder != null) c.Text(TailPath(c, _newFolder, 11, iw - 80), x + iw - 2, y + 1 + rise, 11, WhiteA(0.3f * k), FontWeight.Regular, 1);
+            y += 22;
+            if (_recent.Count == 0)
+            {
+                c.Text("No recent projects yet. Run `claude` in a folder once and it shows up here.", x + 2, y + 5 + rise, 12, WhiteA(0.4f * k), FontWeight.Regular, 0, iw);
+                y += 28;
+            }
+            else
+            {
+                float fx = x; int row = 0;
+                for (int i = 0; i < _recent.Count; i++)
+                {
+                    string name = Path.GetFileName(_recent[i].TrimEnd('\\'));
+                    float cw = MathF.Min(c.Measure(name, 12.5f, FontWeight.SemiBold), 170) + 38;
+                    if (fx + cw > x + iw) { if (++row > 1) break; fx = x; }
+                    float fy = y + row * 34 + rise;
+                    bool on = string.Equals(_newFolder, _recent[i], StringComparison.OrdinalIgnoreCase);
+                    bool hov = m.Hit($"new:folder:{i}", fx, y + row * 34, cw, 28);
+                    c.Round(fx, fy, cw, 28, 14, on ? WithA(accent, (hov ? 1 : 0.9f) * k) : WhiteA((hov ? 0.17f : 0.085f) * k));
+                    c.Icon(IcFolder, fx + 16, fy + 14, 11, WhiteA((on ? 1 : 0.55f) * k));
+                    c.Text(name, fx + 28, fy + 5, 12.5f, WhiteA((on ? 1 : 0.78f) * k), FontWeight.SemiBold, 0, 170);
+                    fx += cw + 6;
+                }
+                y += 28 + row * 34;
+            }
+            y += 18;
         }
-        c.Text(_newMode switch
-        {
-            1 => "It asks you here before every edit or command",
-            2 => "It can read and plan, but won't change files or run commands",
-            3 => "File edits are accepted automatically; anything else asks you here",
-            _ => "Same rules as your terminal; anything it needs to ask, it asks you here",
-        }, x + iw / 2, y0 + 358, 11, WhiteA(0.38f * vf), FontWeight.Regular, 0.5f, iw);
 
-        // launch
-        bool ready = _newFolder != null && Task.Text.Trim().Length > 0;
-        BigButton(c, m, "new:launch", "Launch agent", IcAdd, x, y0 + 384, iw, 42, Rgba(ready ? 0xBF5AF2u : 0x48484Au), vf * Pop(7));
+        // ---- how much it may do on its own
+        {
+            float p = Pop(3), k = vf * p, rise = (1 - p) * 6;
+            c.Text("Permissions", x + 2, y + rise, 12, WhiteA(0.5f * k), FontWeight.SemiBold);
+            y += 22;
+            float sw = iw / Modes.Length, sy = y + rise;
+            c.Round(x, sy, iw, 32, 16, WhiteA(0.07f * k));
+            for (int i = 0; i < Modes.Length; i++)
+            {
+                bool on = i == _newMode;
+                bool hov = m.Hit($"new:mode:{i}", x + i * sw, y, sw, 32);
+                if (on) c.Round(x + i * sw + 2, sy + 2, sw - 4, 28, 14, WhiteA(0.2f * k));
+                else if (hov) c.Round(x + i * sw + 2, sy + 2, sw - 4, 28, 14, WhiteA(0.08f * k));
+                c.Text(Modes[i].label, x + i * sw + sw / 2, sy + 7, 12, WhiteA((on ? 1 : 0.6f) * k), FontWeight.SemiBold, 0.5f);
+            }
+            y += 32 + 7;
+            c.Text(_newMode switch
+            {
+                1 => "Asks you here before every edit or command.",
+                2 => "Reads and plans. Never changes files or runs commands.",
+                3 => "Edits files on its own. Asks you here for anything else.",
+                _ => "Follows your terminal's rules. Its questions come to you here.",
+            }, x + 2, y + rise, 11, WhiteA(0.4f * k), FontWeight.Regular, 0, iw);
+            y += 15 + 14;
+        }
+
+        // ---- go: the button says where it will run, or what is still missing
+        {
+            float p = Pop(4), k = vf * p, by = y + (1 - p) * 6;
+            bool ready = _newFolder != null && Task.Text.Trim().Length > 0;
+            bool hov = m.Hit("new:launch", x, y, iw, 44);
+            c.Round(x, by, iw, 44, 22, ready ? WithA(accent, (hov ? 1 : 0.88f) * k) : WhiteA((hov ? 0.11f : 0.08f) * k));
+            string label = ready ? $"Launch in {project}" : _newFolder == null ? "Pick a project to launch" : "Type a task to launch";
+            c.Text(label, x + iw / 2, by + 12, 14, WhiteA((ready ? 1 : 0.42f) * k), FontWeight.SemiBold, 0.5f, iw - 130);
+            if (ready)
+            {
+                c.Round(x + iw - 46, by + 11, 32, 22, 8, new Color4(0, 0, 0, 0.2f * k)); // Enter does the same
+                c.Text("↵", x + iw - 30, by + 10.5f, 15, WhiteA(0.9f * k), FontWeight.SemiBold, 0.5f);
+            }
+            y += 44;
+        }
+
+        _formH = y - y0 + 18;
     }
 
     // ---------------------------------------------------------------- controls
