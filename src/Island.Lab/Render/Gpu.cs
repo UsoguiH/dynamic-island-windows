@@ -23,6 +23,9 @@ public sealed class Gpu : IDisposable
     public readonly ID2D1DeviceContext D2D;
     public readonly IDWriteFactory DWrite;
 
+    readonly GpuDevice _dev;
+    readonly bool _ownsDevice;
+
     readonly IDCompositionDevice _dcomp;
     readonly IDCompositionTarget _target;
     readonly IDCompositionVisual _visual;
@@ -45,15 +48,19 @@ public sealed class Gpu : IDisposable
     public readonly int Width, Height;
     public readonly float Scale;
 
-    public Gpu(nint hwnd, int width, int height, float scale)
+    /// <summary>A window's surface on a graphics device of its own (the island).</summary>
+    public Gpu(nint hwnd, int width, int height, float scale) : this(new GpuDevice(), hwnd, width, height, scale, true) { }
+
+    /// <summary>A window's surface on a device that outlives it (the stage scenes: see <see cref="GpuDevice"/>).</summary>
+    public Gpu(GpuDevice device, nint hwnd, int width, int height, float scale) : this(device, hwnd, width, height, scale, false) { }
+
+    Gpu(GpuDevice device, nint hwnd, int width, int height, float scale, bool ownsDevice)
     {
         Width = width; Height = height; Scale = scale;
-
-        D3D11.D3D11CreateDevice(null, DriverType.Hardware, DeviceCreationFlags.BgraSupport | DeviceCreationFlags.PreventInternalThreadingOptimizations,
-            [Vortice.Direct3D.FeatureLevel.Level_11_1, Vortice.Direct3D.FeatureLevel.Level_11_0], out Device!, out Context!).CheckError();
+        _dev = device; _ownsDevice = ownsDevice;
+        Device = device.Device; Context = device.Context; D2DFactory = device.D2DFactory; DWrite = device.DWrite;
 
         using var dxgiDevice = Device.QueryInterface<IDXGIDevice>();
-        using (var d1 = dxgiDevice.QueryInterface<IDXGIDevice1>()) d1.MaximumFrameLatency = 1;
         using var factory = DXGI.CreateDXGIFactory2<IDXGIFactory2>(false);
 
         SwapChain = factory.CreateSwapChainForComposition(Device, new SwapChainDescription1
@@ -76,9 +83,7 @@ public sealed class Gpu : IDisposable
         _target.SetRoot(_visual);
         _dcomp.Commit();
 
-        D2DFactory = D2D1.D2D1CreateFactory<ID2D1Factory1>(Vortice.Direct2D1.FactoryType.SingleThreaded);
-        using var d2dDevice = D2DFactory.CreateDevice(dxgiDevice);
-        D2D = d2dDevice.CreateDeviceContext(DeviceContextOptions.None);
+        D2D = device.D2DDevice.CreateDeviceContext(DeviceContextOptions.None);
         _frameTex = Device.CreateTexture2D(new Texture2DDescription
         {
             Width = (uint)width, Height = (uint)height, MipLevels = 1, ArraySize = 1,
@@ -93,9 +98,6 @@ public sealed class Gpu : IDisposable
         D2D.Target = _frame;
         D2D.SetDpi(96f * scale, 96f * scale);
         D2D.TextAntialiasMode = Vortice.Direct2D1.TextAntialiasMode.Grayscale;
-
-        DWrite = Vortice.DirectWrite.DWrite.DWriteCreateFactory<IDWriteFactory>();
-
     }
 
     /// <summary>Presents the whole frame. Sync 1 waits for vsync; 0 presents immediately.</summary>
@@ -141,8 +143,52 @@ public sealed class Gpu : IDisposable
 
     public void Dispose()
     {
-        _frame.Dispose(); _frameTex.Dispose(); _backTex.Dispose(); D2D.Dispose(); D2DFactory.Dispose(); DWrite.Dispose();
+        D2D.Target = null;
+        _frame.Dispose(); _frameTex.Dispose(); _backTex.Dispose(); D2D.Dispose();
         _visual.Dispose(); _target.Dispose(); _dcomp.Dispose();
-        SwapChain.Dispose(); Context.Dispose(); Device.Dispose();
+        SwapChain.Dispose();
+        if (_ownsDevice) _dev.Dispose(); else _dev.Trim();
     }
+}
+
+/// <summary>
+/// A graphics device and the factories that go with it. The island has one. The stage scenes (the intro, the
+/// "done" celebration) share a second one that is made once and kept: making a device for every scene left
+/// two system handles behind each time (the driver's own), started and stopped ten driver threads, and one
+/// object forgotten by a scene kept the whole device, with its full-screen frames, alive for good.
+/// </summary>
+public sealed class GpuDevice : IDisposable
+{
+    public readonly ID3D11Device Device;
+    public readonly ID3D11DeviceContext Context;
+    public readonly ID2D1Factory1 D2DFactory;
+    public readonly ID2D1Device D2DDevice;
+    public readonly IDWriteFactory DWrite;
+
+    public GpuDevice()
+    {
+        D3D11.D3D11CreateDevice(null, DriverType.Hardware, DeviceCreationFlags.BgraSupport | DeviceCreationFlags.PreventInternalThreadingOptimizations,
+            [Vortice.Direct3D.FeatureLevel.Level_11_1, Vortice.Direct3D.FeatureLevel.Level_11_0], out Device!, out Context!).CheckError();
+        using var dxgiDevice = Device.QueryInterface<IDXGIDevice>();
+        using (var d1 = dxgiDevice.QueryInterface<IDXGIDevice1>()) d1.MaximumFrameLatency = 1;
+        D2DFactory = D2D1.D2D1CreateFactory<ID2D1Factory1>(Vortice.Direct2D1.FactoryType.SingleThreaded);
+        D2DDevice = D2DFactory.CreateDevice(dxgiDevice);
+        DWrite = Vortice.DirectWrite.DWrite.DWriteCreateFactory<IDWriteFactory>();
+    }
+
+    /// <summary>The driver was reset or updated: this device can't draw any more and must be replaced.</summary>
+    public bool Lost => Device.DeviceRemovedReason.Failure;
+
+    /// <summary>
+    /// Gives back what a closed surface held. D3D frees a released texture only at the next flush, and nothing
+    /// flushes a device that has no surface left: without this a full-screen frame would stay in video memory.
+    /// </summary>
+    public void Trim()
+    {
+        Context.ClearState();
+        Context.Flush();
+        D2DDevice.ClearResources(0);
+    }
+
+    public void Dispose() { DWrite.Dispose(); D2DDevice.Dispose(); D2DFactory.Dispose(); Context.Dispose(); Device.Dispose(); }
 }

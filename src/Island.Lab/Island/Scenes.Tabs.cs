@@ -36,7 +36,7 @@ public static partial class Scenes
         bool eh = m.Hit("tabs:edit", ex, y0 + 16, ew, 32);
         if (!tb.Discovered && edit < 0.01f)
         {
-            float pulse = (m.Clock * 0.8f) % 1;
+            float pulse = (float)((m.Clock * 0.8f) % 1);
             c.StrokeCircle(ex + 16, y0 + 32, 16 + pulse * 9, 1.5f, WithA(Rgba(0x0A84FF), 0.6f * (1 - pulse)));
         }
         bool cancel = m.Maker.Active && m.Maker.Now != TabMaker.Stage.Adding;
@@ -51,7 +51,7 @@ public static partial class Scenes
         c.Round(x0 + dl, y0 + 16, dr - dl, 32, 16, WhiteA(th ? 0.16f : 0.08f));
         if (m.Team.AnyNeeds)
         {
-            float p = 0.5f + 0.5f * MathF.Sin(m.Clock * 5);
+            float p = 0.5f + 0.5f * (float)Math.Sin(m.Clock * 5);
             c.StrokeRound(x0 + dl + 0.5f, y0 + 16.5f, dr - dl - 1, 31, 15.5f, 1.4f, WithA(Rgba(Orange), 0.45f + 0.45f * p));
         }
         if (shown == 0)
@@ -105,7 +105,7 @@ public static partial class Scenes
             if (a < 0.01f || def.Id == tb.HiddenTab) continue;
             bool on = ids.Contains(def.Id);
             float x = x0 + s.X.Value, tw = MathF.Max(0, s.W.Value) * (on ? 1 : a);
-            float wob = edit * MathF.Sin(m.Clock * 9 + i++ * 1.7f) * 0.9f;
+            float wob = edit * (float)Math.Sin(m.Clock * 9 + i++ * 1.7f) * 0.9f;
             float y = y0 + TabY + wob;
             bool selected = def.Id == tb.Selected;
             bool hover = on && m.Hit("tab:" + def.Id, x, y0 + TabY, tw, TabH);
@@ -498,7 +498,7 @@ public static partial class Scenes
         {
             float tx = px + 42 - 6 * (1 - Smooth(0.17f, 1, ov)), ty = y + 12 - 5 * (1 - back), avail = pw - 42 - 50;
             bool focused = m.Focused == f;
-            bool blink = focused && (m.Clock - f.ChangedAt) % 1.06 < 0.6;
+            bool blink = focused && (float)((m.Clock - f.ChangedAt) % 1.06) < 0.6;
             c.PushClip(px + 38, y, MathF.Max(0, avail + 6), 44);
             if (f.Text.Length == 0)
             {
@@ -754,7 +754,7 @@ public static partial class Scenes
             c.Text(f.Name, x + 52, ry + bh / 2 - 17, 13.5f, White, FontWeight.SemiBold, 0, w - 260);
             if (f.Partial)
             {
-                float t = (m.Clock * 0.6f) % 1.4f - 0.2f, bw = w - 300;
+                float t = (float)((m.Clock * 0.6f) % 1.4f) - 0.2f, bw = w - 300;
                 c.Round(x + 52, ry + bh / 2 + 6, bw, 4, 2, WhiteA(0.1f));
                 c.PushClip(x + 52, ry, bw, bh);
                 c.Round(x + 52 + bw * t, ry + bh / 2 + 6, bw * 0.3f, 4, 2, Rgba(Blue));
@@ -879,7 +879,7 @@ public static partial class Scenes
         float cw = 300;
         Card(c, m, x, y, cw, h, "Battery", state);
         float rcx = x + cw / 2, rcy = y + h / 2 + 12, rr = 92;
-        float breathe = p.Charging ? 0.5f + 0.5f * MathF.Sin(m.Clock * 2.4f) : 0;
+        float breathe = p.Charging ? 0.5f + 0.5f * (float)Math.Sin(m.Clock * 2.4f) : 0;
         c.Glow(rcx, rcy, rr + 26, rr + 26, col, 0.08f + 0.1f * breathe);
         c.Ring(rcx, rcy, rr, 12, p.Percent, WithA(Rgba(col), 0.16f), Rgba(col));
         c.Text($"{p.Percent * 100:0}%", rcx, rcy - 30, 44, White, FontWeight.SemiBold, 0.5f);
@@ -1076,7 +1076,7 @@ public static partial class Scenes
         c.Round(x, y, w, h, 16, WhiteA(0.06f + 0.05f * hv));
 
         uint col = ServerColor(s);
-        float pulse = 0.6f + 0.4f * MathF.Sin(m.Clock * 2.6f + s.Port);
+        float pulse = 0.6f + 0.4f * (float)Math.Sin(m.Clock * 2.6f + s.Port);
         c.Circle(x + 15, y + h / 2, 3.5f + 2.5f * (1 - pulse), Rgba(col, 0.25f * pulse));
         c.Circle(x + 15, y + h / 2, 3.5f, Rgba(col, pulse));
 

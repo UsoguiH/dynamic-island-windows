@@ -1,0 +1,1322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Describe a Tab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,200..600,0..1,-25..200&display=block" rel="stylesheet">
+<style>
+:root {
+  /* a calm spring: about 1% overshoot */
+  --calm: linear(0, 0.021, 0.076, 0.151, 0.238, 0.329, 0.419, 0.506, 0.586, 0.659, 0.724, 0.780, 0.828, 0.868, 0.902, 0.929, 0.951, 0.968, 0.982, 0.992, 0.999, 1.004, 1.008, 1.010, 1.011, 1.011, 1.011, 1.010, 1.009, 1.008, 1.007, 1.006, 1.005, 1.005, 1.004, 1.003, 1.002, 1.002, 1.001, 1.001, 1);
+  --k: 1;
+  --page: #f2f1f4; --ink: #121214; --sub: #6a6772;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --page: #0e0e10; --ink: #f2f1f4; --sub: #8d8996; } }
+:root[data-theme="dark"] { --page: #0e0e10; --ink: #f2f1f4; --sub: #8d8996; }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { min-height: 100vh; background: var(--page); color: var(--ink); font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+.page { max-width: 1000px; margin: 0 auto; padding: 44px 16px 70px; display: flex; flex-direction: column; align-items: center; }
+.page h1 { font: 760 34px/1.05 Inter; letter-spacing: -.04em; margin: 0 0 10px; text-align: center; }
+.page .lede { font: 450 15px/1.55 Inter; color: var(--sub); margin: 0 0 34px; text-align: center; max-width: 560px; }
+.ms { font-family: 'Material Symbols Rounded'; font-weight: normal; font-style: normal; line-height: 1; display: inline-block; white-space: nowrap; -webkit-font-smoothing: antialiased; font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; user-select: none; }
+
+/* ---------------------------------------------------------------- island */
+.scale { width: 724px; max-width: 100%; }
+.island { position: relative; width: 724px; height: 404px; border-radius: 46px; background: #000; color: #fff; overflow: hidden; transform-origin: top left;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.05), 0 40px 90px -20px rgba(0,0,0,.45); }
+@media (max-width: 760px) { .scale { height: calc((100vw - 32px) / 724 * 404); } .island { transform: scale(calc((100vw - 32px) / 724px)); } }
+.top { position: absolute; left: 26px; right: 22px; top: 18px; height: 40px; display: flex; align-items: center; gap: 10px; z-index: 2; }
+.slot { width: 40px; height: 40px; flex: none; }
+.tabs { display: flex; gap: 2px; margin-left: 20px; flex: 1; align-items: center; }
+.tab { height: 32px; padding: 0 13px; border-radius: 16px; font: 560 13px Inter; color: rgba(255,255,255,.5); display: flex; gap: 7px; align-items: center; white-space: nowrap; cursor: pointer; transition: color .3s, background .4s; }
+.tab:hover { color: #fff; }
+.tab.on { background: rgba(255,255,255,.12); color: #fff; }
+.tab .ms { font-size: 17px; font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20; }
+.tab.plus { width: 32px; padding: 0; justify-content: center; color: rgba(255,255,255,.7); }
+.tab.plus:hover { background: rgba(255,255,255,.08); color: #fff; }
+.tab.plus .ms { font-size: 20px; font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20; transition: transform calc(.7s * var(--k)) var(--calm); }
+.tab.plus.x { background: rgba(255,255,255,.1); color: #fff; }
+.tab.plus.x .ms { transform: rotate(45deg); }
+.avs { display: flex; padding: 4px 9px 4px 13px; border-radius: 999px; background: rgba(255,255,255,.07); }
+.avs svg { margin-left: -5px; }
+/* customize: pencil → Done (library) → Cancel (describing) */
+.edit { all: unset; position: relative; cursor: pointer; flex: none; width: 36px; height: 32px; border-radius: 16px; display: grid; place-items: center; background: rgba(255,255,255,.1); color: #fff; overflow: hidden; transition: width calc(.55s * var(--k)) var(--calm), background .3s; }
+.edit:hover { background: rgba(255,255,255,.18); }
+.edit > * { grid-area: 1 / 1; transition: opacity .25s, transform calc(.45s * var(--k)) var(--calm); }
+.edit .ms { font-size: 17px; }
+.edit .lb { font: 620 13px Inter; white-space: nowrap; opacity: 0; transform: scale(.8); }
+.edit.done { width: 72px; background: #0A84FF; }
+.edit.done:hover { background: #3D9BFF; }
+.edit.cancel { width: 78px; background: rgba(255,255,255,.14); }
+.edit.done .ms, .edit.cancel .ms { opacity: 0; transform: scale(.6) rotate(-30deg); }
+.edit.done .lb, .edit.cancel .lb { opacity: 1; transform: none; }
+.tabs .tab { outline: 1px dashed transparent; outline-offset: -1px; transition: color .3s, background .4s, outline-color .4s; }
+.tabs.editing .tab { outline-color: rgba(255,255,255,.28); animation: wob calc(1.1s * var(--k)) ease-in-out infinite; }
+.tabs.editing .tab:not(.on) { background: rgba(255,255,255,.06); }
+.tabs.editing .tab:nth-child(2n) { animation-delay: -.4s; }
+.tabs.editing .tab:nth-child(3n) { animation-delay: -.75s; }
+@keyframes wob { 0%, 100% { translate: 0 -.9px; } 50% { translate: 0 .9px; } }
+.panel { position: absolute; left: 20px; top: 70px; width: 684px; height: 314px; }
+.view { position: absolute; inset: 0; }
+
+/* Bloub lives on top and travels between places */
+#bl { position: absolute; left: 0; top: 0; width: 100px; height: 100px; z-index: 6; pointer-events: none; transform-origin: 0 0; will-change: transform; }
+#bl .sq { width: 100%; height: 100%; transform-origin: 50% 92%; }
+#bl svg { display: block; width: 100%; height: 100%; overflow: visible; transform-origin: 50% 50%; }
+.fx { position: absolute; left: 0; top: 0; border-radius: 50%; pointer-events: none; z-index: 5; }
+#bl .rig { width: 100%; height: 100%; transform-origin: 50% 96%; }
+#bl .eyes { transform-box: fill-box; transform-origin: center; }
+#bl .badge, #bl .cut { transform: scale(0); transform-box: fill-box; transform-origin: center; }
+#bl .tick { stroke-dasharray: 9; stroke-dashoffset: 9; }
+.ring { position: absolute; left: 0; top: 0; width: 80px; height: 18px; margin: -9px 0 0 -40px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.75); pointer-events: none; z-index: 5; }
+.zip { position: absolute; left: 0; top: 0; width: 10px; height: 2px; margin: -1px 0 0 -5px; border-radius: 1px; background: #fff; pointer-events: none; z-index: 5; }
+#bl .lid { transform-box: fill-box; transform-origin: center; }
+#chip { position: absolute; left: 0; top: 0; z-index: 7; pointer-events: none; height: 32px; padding: 0 14px 0 11px; border-radius: 16px; display: none; align-items: center; gap: 7px; background: #fff; color: #000; font: 620 13px Inter; white-space: nowrap; transform-origin: 50% 50%; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+#chip .ms { font-size: 17px; font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20; }
+
+/* ---------------------------------------------------------------- customize: the tab library, as in the app */
+.lib { position: absolute; inset: 0; }
+.lcap { position: absolute; left: -4px; width: 196px; top: 4px; display: flex; justify-content: center; align-items: center; gap: 8px; font: 600 13px Inter; color: rgba(255,255,255,.62); }
+.lcap span { font: 600 11px Inter; padding: 2px 8px; border-radius: 10px; background: rgba(255,255,255,.1); }
+.lglow { position: absolute; left: 94px; top: 124px; width: 192px; height: 172px; margin: -86px 0 0 -96px; border-radius: 50%; background: #2F6BFF; opacity: .2; filter: blur(40px); pointer-events: none; }
+.lfloor { position: absolute; left: 94px; top: 182px; width: 120px; height: 14px; margin: -7px 0 0 -60px; border-radius: 50%; background: #2F6BFF; opacity: .45; filter: blur(9px); pointer-events: none; }
+.lorb { all: unset; position: absolute; left: 44px; top: 70px; width: 100px; height: 100px; border-radius: 50%; cursor: pointer; }
+.lstat { position: absolute; left: -4px; width: 196px; top: 196px; height: 18px; overflow: hidden; }
+.lstat > span { position: absolute; left: 50%; top: 0; transform: translateX(-50%); display: flex; gap: 6px; align-items: center; font: 600 12.5px/18px Inter; color: rgba(255,255,255,.55); white-space: nowrap; }
+.lstat .ms { font-size: 15px; }
+.ldone { all: unset; cursor: pointer; position: absolute; left: 52px; top: 234px; width: 84px; height: 32px; border-radius: 16px; background: #0A84FF; color: #fff; font: 620 13px Inter; text-align: center; line-height: 32px; transition: background .2s, transform .4s var(--calm); }
+.ldone:hover { background: #3D9BFF; }
+.ldone:active { transform: scale(.95); }
+.lgrid { position: absolute; left: 208px; right: -4px; top: -8px; height: 326px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-content: center; }
+.qt { all: unset; position: relative; overflow: hidden; isolation: isolate; height: var(--th, 47px); border-radius: 24px; background: var(--bg); display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: 11px; align-content: center; padding: 0 12px 0 16px; cursor: pointer; transition: border-radius calc(.4s * var(--k)) var(--calm), transform .4s var(--calm), filter .2s; }
+.qt:hover { filter: brightness(1.15); }
+.qt:active { transform: scale(.96); }
+.qt.on { border-radius: 16px; }
+.qt .fill { position: absolute; inset: 0; z-index: -1; background: var(--t80); clip-path: circle(0 at var(--fx, 50%) var(--fy, 50%)); transition: clip-path calc(.55s * var(--k)) cubic-bezier(.3,0,.2,1); }
+.qt.on .fill { clip-path: circle(160% at var(--fx, 50%) var(--fy, 50%)); }
+.qt > .ms { grid-row: 1 / 3; align-self: center; font-size: 20px; color: var(--t80); font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20; transition: color .3s; }
+.qt b { font: 600 13px Inter; color: #E6E0E9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color .3s; }
+.qt small { font: 450 11px Inter; color: #CAC4D0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color .3s; }
+.qt.on > .ms, .qt.on b, .qt.on small { color: var(--t20); }
+.qt.new { background: rgba(255,255,255,.03); outline: 1.5px dashed rgba(255,255,255,.3); outline-offset: -1.5px; }
+.qt.new:hover { outline-color: rgba(255,255,255,.65); background: rgba(255,255,255,.06); filter: none; }
+.qt.new .face { grid-row: 1 / 3; align-self: center; width: 22px; height: 22px; }
+.qt.new b { color: #fff; }
+.qt.new small { color: rgba(255,255,255,.5); }
+.moon { position: absolute; left: 0; top: 0; width: 15px; height: 15px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #d3dbe6 55%, #8b98aa); pointer-events: none; opacity: 0; z-index: 5; }
+
+/* ---------------------------------------------------------------- dashboard */
+.dash { display: grid; grid-template-columns: 1.1fr 1fr; gap: 10px; height: 100%; align-content: start; }
+.card { background: rgba(255,255,255,.055); border-radius: 22px; padding: 15px 16px; }
+.card h4 { margin: 0 0 12px; font: 600 13px Inter; display: flex; justify-content: space-between; color: rgba(255,255,255,.92); }
+.card h4 small { font: 500 11.5px Inter; color: rgba(255,255,255,.4); }
+.arow { display: flex; align-items: center; gap: 10px; font: 600 12.5px Inter; margin-bottom: 10px; }
+.arow small { display: block; font: 500 11px Inter; color: rgba(255,255,255,.4); margin-top: 2px; }
+.trow { display: flex; align-items: center; gap: 10px; font: 600 12.5px Inter; margin-bottom: 11px; }
+.trow i { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.35); flex: none; }
+.trow.done { color: rgba(255,255,255,.35); text-decoration: line-through; font-weight: 500; }
+.trow.done i { background: #30D158; box-shadow: none; }
+.nudge { grid-column: 1 / -1; height: 48px; border-radius: 24px; display: flex; align-items: center; gap: 12px; padding: 0 8px 0 18px; font: 500 13px Inter; color: rgba(255,255,255,.5); cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); transition: box-shadow .3s, color .3s; }
+.nudge:hover { box-shadow: inset 0 0 0 1px rgba(255,255,255,.28); color: rgba(255,255,255,.8); }
+.nudge b { color: #fff; font-weight: 600; }
+.nudge .k { margin-left: auto; height: 32px; padding: 0 13px; border-radius: 16px; background: #fff; color: #000; font: 620 12.5px Inter; display: flex; align-items: center; gap: 6px; }
+.nudge .k .ms { font-size: 18px; font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 20; }
+
+/* ---------------------------------------------------------------- describe: Bloub stretches into the line; his eyes are your caret */
+.ask { position: absolute; inset: 0; }
+#morph { position: absolute; left: 0; top: 0; z-index: 6; display: none; border-radius: 999px; background: #f4f4f6; color: #0b0b10; transform-origin: 0 50%; --fs: 23px; }
+#morph .shade { position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(circle var(--sr, 68.4px) at var(--sx, 34.7px) var(--sy, 27.4px), #fff 0, #e9e9ef 72%, #bdbdc7 100%, transparent 100%); pointer-events: none; }
+#morph .ph, #morph .txt, #morph .meas, #morph input { position: absolute; top: 0; height: 64px; font-family: Inter; font-weight: 600; line-height: 64px; letter-spacing: -.025em; white-space: pre; }
+#morph .ph { left: 69px; right: 64px; top: 14px; height: 36px; line-height: 36px; font-size: 23px; color: #a2a2ac; pointer-events: none; overflow: hidden; opacity: 0; transition: opacity .25s; }
+#morph .ph span { position: absolute; left: 0; top: 0; }
+#morph .txt { left: 69px; right: 64px; font-size: var(--fs); overflow: hidden; pointer-events: none; opacity: 0; transition: opacity .25s, font-size calc(.45s * var(--k)) var(--calm); }
+#morph .txt .w { color: #7a7a84; }
+#morph .txt .w.hit { color: #0b0b10; }
+#morph .meas { left: 69px; font-size: var(--fs); visibility: hidden; pointer-events: none; }
+#morph input { all: unset; position: absolute; left: 69px; right: 64px; top: 0; height: 64px; font-family: Inter; font-weight: 600; font-size: var(--fs); line-height: 64px; letter-spacing: -.025em; color: transparent; caret-color: #0b0b10; transition: font-size calc(.45s * var(--k)) var(--calm); }
+#morph input::selection { background: rgba(0,0,0,.12); color: transparent; }
+#morph.open .ph, #morph.open .txt { opacity: 1; }
+#morph.typing .ph { opacity: 0; }
+#morph .eyes2 { position: absolute; left: 0; top: 0; width: 33px; height: 26px; transform-origin: 16px 13px; pointer-events: none; }
+#morph .eyes2 i { position: absolute; left: 0; top: 0; width: 11px; height: 25.2px; border-radius: 5.5px; background: #0b0b10; transform: rotate(8deg); }
+#morph .eyes2 i + i { left: 21.6px; top: -1.2px; }
+#morph .side { position: absolute; right: 10px; top: 50%; margin-top: -22px; height: 44px; display: flex; align-items: center; gap: 8px; opacity: 0; transition: opacity .15s; }
+#morph.armed .side { opacity: 1; }
+#morph .kchip { max-width: 0; opacity: 0; overflow: hidden; transition: max-width calc(.6s * var(--k)) var(--calm), opacity .3s; }
+#morph.ready .kchip { max-width: 170px; opacity: 1; }
+#morph .kin { height: 32px; padding: 0 12px 0 9px; border-radius: 16px; background: #e2e2e7; display: flex; gap: 6px; align-items: center; font: 620 12.5px Inter; white-space: nowrap; }
+#morph .kin .ms { font-size: 17px; font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20; }
+#morph .go { all: unset; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; background: #e2e2e7; color: #a2a2ac; transition: background .35s, color .35s, transform .5s var(--calm); }
+#morph .go .ms { font-size: 22px; font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24; }
+#morph.ready .go { background: #0b0b10; color: #fff; }
+#morph .go:active { transform: scale(.9); }
+/* one quiet line under it: a hint, or what Bloub understood */
+.voice { position: absolute; left: 0; right: 0; top: 104px; height: 22px; overflow: hidden; }
+.voice > span { position: absolute; left: 50%; top: 0; transform: translateX(-50%); height: 22px; font: 540 13.5px/22px Inter; color: rgba(255,255,255,.5); white-space: nowrap; display: flex; align-items: center; gap: 7px; }
+.voice b { color: #fff; font-weight: 640; }
+.voice kbd { font: 650 10px Inter; padding: 2px 6px; border-radius: 5px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); color: rgba(255,255,255,.75); }
+.voice .ok { width: 16px; height: 16px; border-radius: 50%; background: #30D158; display: grid; place-items: center; flex: none; }
+.voice .ok .ms { font-size: 12px; color: #000; font-variation-settings: 'FILL' 0, 'wght' 700, 'GRAD' 0, 'opsz' 20; }
+/* living previews to start from; the one Bloub thinks you mean steps forward */
+.pick-l { position: absolute; left: 2px; top: 146px; font: 650 10px Inter; letter-spacing: .09em; text-transform: uppercase; color: rgba(255,255,255,.3); }
+.tiles { position: absolute; left: 0; right: 0; top: 148px; height: 138px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.tile { all: unset; position: relative; cursor: pointer; border-radius: 20px; background: rgba(255,255,255,.055); overflow: hidden; transition: transform calc(.6s * var(--k)) var(--calm), opacity .45s, box-shadow .35s, background .3s; }
+.tile:hover { background: rgba(255,255,255,.085); }
+.tile.pick { box-shadow: inset 0 0 0 1.5px #fff; background: rgba(255,255,255,.08); transform: translateY(-6px); }
+.tiles.has-pick .tile:not(.pick) { opacity: .32; transform: scale(.97); }
+.tile .ft { position: absolute; left: 14px; bottom: 13px; display: flex; gap: 7px; align-items: center; font: 600 12.5px Inter; color: rgba(255,255,255,.82); }
+.tile .ft .ms { font-size: 17px; }
+.tile .ar { position: absolute; right: 11px; bottom: 9px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: #fff; color: #000; opacity: 0; transform: scale(.6); transition: opacity .3s, transform .5s var(--calm); }
+.tile .ar .ms { font-size: 16px; font-variation-settings: 'FILL' 0, 'wght' 600, 'GRAD' 0, 'opsz' 20; }
+.tile:hover .ar, .tile.pick .ar { opacity: 1; transform: none; }
+.mini { position: absolute; left: 12px; right: 12px; top: 12px; height: 80px; }
+.mm, .mp { display: flex; flex-direction: column; gap: 4px; }
+.mr { height: 24px; border-radius: 8px; background: rgba(255,255,255,.06); display: grid; grid-template-columns: 5px 1fr auto 1fr; gap: 7px; align-items: center; padding: 0 9px; font: 640 10.5px Inter; letter-spacing: .02em; }
+.mr .d { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,.28); }
+.mr .d.live { background: #30D158; animation: pulse 1.6s ease-in-out infinite; }
+.mr .h { text-align: right; }
+.mr .s { display: flex; gap: 3px; font: 720 11px Inter; font-variant-numeric: tabular-nums; }
+.mr .s em { font-style: normal; color: rgba(255,255,255,.3); font-weight: 500; }
+.mr .n { display: inline-block; height: 14px; line-height: 14px; overflow: hidden; }
+.mr .n span { display: block; }
+.mr.goal { animation: goal calc(1.4s * var(--k)) ease-out; }
+.mc .pv { display: flex; align-items: baseline; gap: 6px; }
+.mc .pv b { font: 720 19px Inter; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.mc .pv small { font: 640 10px Inter; color: #30D158; }
+.mc .spk { position: absolute; left: -12px; right: -12px; bottom: 0; height: 46px; overflow: hidden; }
+.mc .spk svg { display: block; width: 200%; height: 100%; animation: slide calc(9s * var(--k)) linear infinite; }
+@keyframes slide { to { transform: translateX(-50%); } }
+.mw .wt { display: flex; align-items: center; gap: 7px; }
+.mw .wt .ms { font-size: 24px; font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; animation: spin calc(24s * var(--k)) linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.mw .wt b { font: 720 19px Inter; letter-spacing: -.03em; }
+.mw .wt small { font: 560 10.5px Inter; color: rgba(255,255,255,.4); }
+.mw .wb { position: absolute; left: 0; right: 0; bottom: 0; height: 42px; display: flex; gap: 8px; align-items: flex-end; }
+.mw .c { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.mw .c i { width: 100%; border-radius: 4px; background: rgba(255,255,255,.2); transform-origin: bottom; }
+.mw .c:first-child i { background: #fff; }
+.mw .c small { font: 600 8.5px Inter; color: rgba(255,255,255,.4); }
+.pr { height: 24px; border-radius: 8px; background: rgba(255,255,255,.06); display: flex; align-items: center; gap: 7px; padding: 0 9px; font: 600 10.5px Inter; white-space: nowrap; overflow: hidden; }
+.pr .d { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.pr span { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.pr small { font: 560 9.5px Inter; color: rgba(255,255,255,.4); }
+
+/* ---------------------------------------------------------------- building */
+.head { position: absolute; left: 56px; right: 0; top: 0; height: 44px; }
+.head .title { position: absolute; left: 0; top: 1px; font: 620 16px/20px Inter; letter-spacing: -.015em; white-space: nowrap; transform-origin: 0 0; }
+.head .step { position: absolute; left: 0; top: 24px; height: 16px; right: 0; overflow: hidden; }
+.head .step > span { position: absolute; left: 0; top: 0; font: 520 12px/16px Inter; color: rgba(255,255,255,.45); white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.head .step b { color: rgba(255,255,255,.85); font-weight: 600; }
+.head .step .ok { flex: none; width: 14px; height: 14px; border-radius: 50%; background: #30D158; display: grid; place-items: center; }
+.head .step .ok .ms { font-size: 11px; color: #000; font-variation-settings: 'FILL' 0, 'wght' 700, 'GRAD' 0, 'opsz' 20; }
+.head .step .live { flex: none; width: 6px; height: 6px; border-radius: 50%; background: #30D158; }
+canvas.dots { position: absolute; left: 0; top: 56px; width: 684px; height: 258px; pointer-events: none; }
+.content { position: absolute; left: 0; top: 56px; width: 684px; height: 204px; display: flex; flex-direction: column; gap: 5px; }
+.content .shape { opacity: 0; }
+.bar { position: absolute; left: 0; right: 0; bottom: 0; height: 40px; display: flex; align-items: center; gap: 8px; opacity: 0; pointer-events: none; }
+.bar .src { font: 520 11.5px Inter; color: rgba(255,255,255,.4); display: flex; align-items: center; gap: 7px; margin-right: auto; white-space: nowrap; }
+.bar .src .live { width: 6px; height: 6px; border-radius: 50%; background: #30D158; }
+.adj { all: unset; cursor: pointer; height: 34px; padding: 0 13px 0 10px; border-radius: 17px; display: flex; align-items: center; gap: 6px; font: 560 12.5px Inter; color: rgba(255,255,255,.7); background: rgba(255,255,255,.06); transition: background .25s, color .25s, transform .4s var(--calm), opacity .3s; white-space: nowrap; }
+.adj .ms { font-size: 17px; }
+.adj:hover { background: rgba(255,255,255,.12); color: #fff; }
+.adj:active { transform: scale(.95); }
+.addb { all: unset; cursor: pointer; height: 36px; padding: 0 15px 0 17px; border-radius: 18px; display: flex; align-items: center; gap: 8px; font: 640 13px Inter; background: #fff; color: #000; transition: transform .4s var(--calm); white-space: nowrap; }
+.addb kbd { font: 650 10.5px Inter; padding: 2px 5px; border-radius: 5px; background: rgba(0,0,0,.08); }
+.addb:hover { transform: scale(1.03); }
+.addb:active { transform: scale(.96); }
+
+/* ---------------------------------------------------------------- the widgets (monochrome; colour only from the data) */
+.lg { font: 650 10px/14px Inter; letter-spacing: .09em; text-transform: uppercase; color: rgba(255,255,255,.35); padding: 3px 2px 0; flex: none; height: 17px; }
+.m { position: relative; height: 34px; flex: none; border-radius: 12px; background: rgba(255,255,255,.06); display: grid; grid-template-columns: 58px 1fr 70px 1fr; align-items: center; gap: 10px; padding: 0 14px 0 8px; font: 580 13px Inter; }
+.m .st { justify-self: start; height: 20px; padding: 0 8px; border-radius: 10px; display: flex; align-items: center; gap: 5px; font: 640 10.5px Inter; color: rgba(255,255,255,.5); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); font-variant-numeric: tabular-nums; }
+.m .st.live { color: #fff; box-shadow: none; background: rgba(48,209,88,.16); }
+.m .st.live::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: #30D158; animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .25; } }
+.m .h { text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m .a { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m .sc { display: flex; justify-content: center; gap: 7px; font: 700 15px Inter; font-variant-numeric: tabular-nums; }
+.m .sc .n { display: inline-block; height: 20px; overflow: hidden; line-height: 20px; }
+.m .sc .n span { display: block; }
+.m .sc i { font-style: normal; color: rgba(255,255,255,.3); font-weight: 500; }
+.m .sc.vs { font: 560 12px Inter; color: rgba(255,255,255,.35); }
+.m.goal { animation: goal calc(1.4s * var(--k)) ease-out; }
+@keyframes goal { 0% { box-shadow: inset 0 0 0 1.5px rgba(48,209,88,.9); background: rgba(48,209,88,.14); } 100% { box-shadow: inset 0 0 0 1.5px rgba(48,209,88,0); background: rgba(255,255,255,.06); } }
+.big { padding: 2px 2px 0; flex: none; display: flex; align-items: baseline; gap: 14px; height: 50px; }
+.big .v { font: 720 40px/48px Inter; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.big .ch { font: 600 13px Inter; color: #30D158; }
+.chart { position: relative; height: 140px; flex: none; }
+.chart svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.chart .ax { position: absolute; bottom: -2px; font: 520 10.5px Inter; color: rgba(255,255,255,.3); }
+.days { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; height: 150px; flex: none; margin-top: 8px; }
+.day { border-radius: 18px; background: rgba(255,255,255,.06); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+.day small { font: 560 11.5px Inter; color: rgba(255,255,255,.45); }
+.day .ms { font-size: 34px; font-variation-settings: 'FILL' 0, 'wght' 250, 'GRAD' 0, 'opsz' 40; }
+.day b { font: 680 18px Inter; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.p { height: 38px; flex: none; border-radius: 12px; background: rgba(255,255,255,.06); display: flex; align-items: center; gap: 12px; padding: 0 14px 0 12px; font: 580 13px Inter; }
+.p .ms { font-size: 19px; }
+.p .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p small { font: 520 11.5px Inter; color: rgba(255,255,255,.4); white-space: nowrap; }
+
+/* the tab, added */
+.tabview .vh { position: absolute; left: 0; right: 0; top: 0; height: 44px; display: flex; align-items: center; gap: 12px; }
+.tabview .vh .ic { width: 36px; height: 36px; border-radius: 12px; background: rgba(255,255,255,.08); display: grid; place-items: center; }
+.tabview .vh .ic .ms { font-size: 20px; font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20; }
+.tabview .vh b { display: block; font: 620 16px Inter; letter-spacing: -.015em; }
+.tabview .vh small { display: flex; gap: 6px; align-items: center; font: 520 11.5px Inter; color: rgba(255,255,255,.4); margin-top: 2px; }
+.tabview .vh small .live { width: 6px; height: 6px; border-radius: 50%; background: #30D158; animation: pulse 1.6s ease-in-out infinite; }
+.tabview .content { height: 252px; }
+.tabview .content .shape { opacity: 1; }
+
+.toast { position: absolute; left: 50%; bottom: 16px; z-index: 8; transform: translate(-50%, 24px); opacity: 0; padding: 9px 15px; border-radius: 999px; background: #fff; color: #000; font: 620 12px Inter; transition: transform .5s var(--calm), opacity .25s; pointer-events: none; white-space: nowrap; }
+.toast.on { transform: translate(-50%, 0); opacity: 1; }
+
+/* ---------------------------------------------------------------- under the island */
+.below { margin-top: 26px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.pill { height: 38px; padding: 0 16px 0 7px; border-radius: 19px; background: #000; color: #fff; display: flex; align-items: center; gap: 10px; font: 600 13px Inter; box-shadow: 0 0 0 1px rgba(255,255,255,.06), 0 16px 40px -10px rgba(0,0,0,.45); overflow: hidden; }
+.pill svg { flex: none; }
+.pill .g { max-width: 0; overflow: hidden; white-space: nowrap; color: #30D158; font: 760 11.5px Inter; letter-spacing: .08em; transition: max-width .6s var(--calm), margin .6s var(--calm); }
+.pill.goal .g { max-width: 60px; }
+.pill .sc { font-variant-numeric: tabular-nums; font-weight: 700; }
+.pill .mn { color: #30D158; font: 640 11.5px Inter; font-variant-numeric: tabular-nums; }
+.pillcap { font: 520 12px Inter; color: var(--sub); margin-top: -8px; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.controls button { all: unset; cursor: pointer; height: 34px; padding: 0 14px; border-radius: 17px; display: flex; align-items: center; gap: 7px; font: 580 12.5px Inter; color: var(--ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 14%, transparent); transition: background .2s; }
+.controls button:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.controls button.on { background: var(--ink); color: var(--page); box-shadow: none; }
+.controls .ms { font-size: 18px; }
+.note { font: 450 12.5px/1.6 Inter; color: var(--sub); text-align: center; max-width: 620px; }
+.note a { color: var(--ink); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <radialGradient id="shade" cx="38%" cy="30%" r="75%"><stop offset="0" stop-color="#fff"/><stop offset=".72" stop-color="#e9e9ef"/><stop offset="1" stop-color="#bdbdc7"/></radialGradient>
+</defs></svg>
+
+<div class="page">
+  <h1>Describe a tab</h1>
+  <p class="lede">In Customize tabs, tap New tab and say what you want to keep an eye on. Bloub turns into the line you type in, builds the tab in front of you, then tosses it into your bar.</p>
+
+  <div class="scale"><div class="island" id="isl">
+    <div class="top"><span class="slot"></span><div class="tabs" id="tabs"></div><div class="avs" id="avs"></div><button class="edit" id="editB" title="Customize tabs"><span class="ms">edit</span><span class="lb">Done</span></button></div>
+    <div class="panel" id="panel"></div>
+    <div id="bl"><div class="sq"></div></div>
+    <div id="morph"><div class="shade"></div><div class="ph" id="ph"></div><div class="txt" id="txt"><span class="mt"></span></div><span class="meas" id="meas"></span><input id="inp" maxlength="48" autocomplete="off" spellcheck="false"><div class="eyes2"><i></i><i></i></div><div class="side"><span class="kchip"><span class="kin" id="kin"></span></span><button class="go" id="go" title="Build it"><span class="ms">arrow_forward</span></button></div></div>
+    <div id="chip"></div>
+    <div class="toast" id="toast"></div>
+  </div></div>
+
+  <div class="below">
+    <div class="pill" id="pill" style="display:none"></div>
+    <div class="pillcap" id="pillcap" style="display:none">The same tab, with the island closed</div>
+    <div class="controls">
+      <button id="goalB"><span class="ms">sports_soccer</span>Simulate a goal</button>
+      <button id="slowB"><span class="ms">slow_motion_video</span>Slow motion</button>
+      <button id="resetB"><span class="ms">replay</span>Start over</button>
+    </div>
+    <p class="note">Click the <b>pencil</b> at the top right to customize your tabs, then <b>New tab</b> (or tap Bloub). Type, press <b>Tab</b> to take the suggestion, or pick a preview, then <b>Enter</b>. Try football, bitcoin, weather or pull requests. The explanation of how it works is in <a href="custom-tabs.html">custom-tabs.html</a>.</p>
+  </div>
+</div>
+
+<script>
+/* ================================================================ basics */
+const CALM = getComputedStyle(document.documentElement).getPropertyValue('--calm').trim();
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+let K = 1;
+const sleep = t => new Promise(r => setTimeout(r, t * K));
+const ms = (n, st = '') => `<span class="ms" style="${st}">${n}</span>`;
+const anim = (el, kf, o) => el.animate(kf, { ...o, duration: (o.duration || 400) * K, delay: (o.delay || 0) * K });
+const isl = $('#isl');
+let session = 0; // bumps on every reset: stale async steps stop
+const alive = s => s === session;
+function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 1900 * K); }
+
+function bloubSVG(color, lids) {
+  const body = color || 'url(#shade)';
+  return `<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="${body}"/>${color ? '<circle cx="20" cy="20" r="19" fill="url(#shade)" opacity=".2"/>' : ''}
+    <g class="eyes"><g class="lid"><rect x="13.2" y="12.5" width="4.6" height="10.5" rx="2.3" fill="#0b0b10" transform="rotate(8 15.5 17.75)"/><rect x="22.2" y="12" width="4.6" height="10.5" rx="2.3" fill="#0b0b10" transform="rotate(8 24.5 17.25)"/></g></g></svg>`;
+}
+const mini = (c, s = 22) => `<svg width="${s}" height="${s}" viewBox="0 0 40 40" style="display:block;overflow:visible">${bloubSVG(c).replace(/^<svg viewBox="0 0 40 40">/, '').replace(/<\/svg>$/, '')}</svg>`;
+
+/* ================================================================ Bloub: one body that travels */
+const B = { x: 46, y: 38, s: 40, el: $('#bl'), sq: $('#bl .sq') };
+B.sq.innerHTML = `<div class="rig"><svg viewBox="0 0 40 40">
+  <defs><mask id="bnotch" maskUnits="userSpaceOnUse" x="-20" y="-20" width="80" height="80"><rect x="-20" y="-20" width="80" height="80" fill="#fff"/><circle class="cut" cx="7" cy="7" r="8.9" fill="#000"/></mask></defs>
+  <g mask="url(#bnotch)"><circle cx="20" cy="20" r="19" fill="url(#shade)"/>
+    <g class="eyes"><g class="lid"><rect x="13.2" y="12.5" width="4.6" height="10.5" rx="2.3" fill="#0b0b10" transform="rotate(8 15.5 17.75)"/><rect x="22.2" y="12" width="4.6" height="10.5" rx="2.3" fill="#0b0b10" transform="rotate(8 24.5 17.25)"/></g></g></g>
+  <g class="badge"><circle cx="7" cy="7" r="6.6" fill="#30D158"/><path class="tick" d="M4.1 7.3 L6.1 9.2 L9.9 5.3" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg></div>`;
+const HOME = () => ({ x: 46, y: 38, s: 40 });
+const xf = (x, y, s) => `translate(${x - s / 2}px, ${y - s / 2}px) scale(${s / 100})`;
+function place(x, y, s) { Object.assign(B, { x, y, s }); B.el.style.transform = xf(x, y, s); }
+place(46, 38, 40);
+/* moves along a gentle arc (lift > 0 bows it upward) */
+function go(x, y, s, dur = 800, lift = 0, ease = CALM) {
+  const from = { x: B.x, y: B.y, s: B.s }, kf = [];
+  for (let i = 0; i <= 16; i++) {
+    const u = i / 16, bow = Math.sin(u * Math.PI) * lift;
+    kf.push({ transform: xf(from.x + (x - from.x) * u, from.y + (y - from.y) * u - bow, from.s + (s - from.s) * u) });
+  }
+  place(x, y, s);
+  return anim(B.el, kf, { duration: dur, easing: ease });
+}
+function squash(sx, sy, dur = 160) { return anim(B.sq, [{ transform: 'none' }, { transform: `scale(${sx}, ${sy})` }], { duration: dur, easing: 'ease-out', fill: 'forwards' }); }
+function hop(h = 12) {
+  return anim(B.sq, [{ transform: 'none' }, { transform: 'scale(1.1, .86)', offset: .18 }, { transform: `translateY(-${h}px) scale(.95, 1.07)`, offset: .5 }, { transform: 'scale(1.05, .95)', offset: .82 }, { transform: 'none' }], { duration: 640, easing: 'ease-out' });
+}
+
+/* ---------------------------------------------------------------- his body: springs and gravity, like the app's Bloub
+   squash & stretch keep his volume, he breathes, his eyes lag behind his body, and every jump lands */
+class Spr {
+  constructor(v, resp, damp) { this.v = this.t = v; this.vel = 0; this.set(resp, damp); }
+  set(resp, damp) { this.k = (2 * Math.PI / resp) ** 2; this.c = 4 * Math.PI * damp / resp; return this; }
+  to(t) { this.t = t; return this; }
+  snap(v) { this.v = this.t = v; this.vel = 0; return this; }
+  step(dt) { this.vel += (-this.k * (this.v - this.t) - this.c * this.vel) * dt; this.v += this.vel * dt; }
+}
+const RIG = { el: $('#bl .rig'), eyes: $('#bl .eyes'), sq: new Spr(1, .38, .45), tilt: new Spr(0, .5, .55), ex: new Spr(0, .2, .78), ey: new Spr(0, .2, .78), es: new Spr(1, .3, .45), jy: 0, vy: 0, air: false, land: null, t: 0, last: 0 };
+const G = 2600; // gravity, in his own pixels
+function look(dx, dy) { RIG.ex.to(dx); RIG.ey.to(dy); }
+function nod(k = 1) { RIG.sq.vel -= 1.6 * k; }
+function jump(v, land) { RIG.vy = v; RIG.air = true; RIG.land = land || null; RIG.jy = Math.min(RIG.jy, -.01); }
+const leap = v => new Promise(r => jump(v, r));
+(function rig(now) {
+  const dt = Math.min(1 / 30, (now - (RIG.last || now)) / 1000) / K; RIG.last = now; RIG.t += dt;
+  const n = Math.max(1, Math.ceil(dt * 240)), h = dt / n;
+  for (let i = 0; i < n; i++) {
+    for (const sp of [RIG.sq, RIG.tilt, RIG.ex, RIG.ey, RIG.es]) sp.step(h);
+    if (!RIG.air) continue;
+    RIG.vy += G * h; RIG.jy += RIG.vy * h;
+    if (RIG.jy >= 0) {
+      // touchdown: the harder he lands, the flatter he squashes; his eyes keep going for a moment
+      const v = RIG.vy, f = RIG.land;
+      RIG.jy = 0; RIG.vy = 0; RIG.air = false; RIG.land = null;
+      RIG.sq.snap(1 - Math.min(.3, v / 2400)).to(1);
+      RIG.ey.vel += v / 28;
+      f && f(v);
+    }
+  }
+  const st = RIG.air ? Math.min(.14, Math.abs(RIG.vy) / 4200) : 0;   // stretched along the jump
+  const br = Math.sin(RIG.t * 2.3) * .012;                           // breathing
+  const sy = RIG.sq.v * (1 + st) * (1 + br), sx = (1 + (1 - RIG.sq.v) * .85) * (1 - st * .7) * (1 - br * .6);
+  RIG.el.style.transform = `translateY(${RIG.jy.toFixed(2)}px) rotate(${RIG.tilt.v.toFixed(2)}deg) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
+  const drag = RIG.air ? Math.max(-1.6, Math.min(1.6, -RIG.vy / 500)) : 0;
+  RIG.eyes.style.transform = `translate(${RIG.ex.v.toFixed(2)}px, ${(RIG.ey.v + drag).toFixed(2)}px) scale(${RIG.es.v.toFixed(3)})`;
+  requestAnimationFrame(rig);
+})(performance.now());
+
+/* blinks now and then */
+(function blink() {
+  setTimeout(() => {
+    const l = $('#bl .lid'); l && l.animate([{ transform: 'scaleY(1)' }, { transform: 'scaleY(.1)' }, { transform: 'scaleY(1)' }], { duration: 170 });
+    if (M.on) $$('#morph .eyes2 i').forEach(i => i.animate([{ transform: 'rotate(8deg)' }, { transform: 'rotate(8deg) scaleY(.1)' }, { transform: 'rotate(8deg)' }], { duration: 170 }));
+    blink();
+  }, 2600 + Math.random() * 3200);
+})();
+/* when nothing else steers them, his eyes follow your cursor */
+let freeLook = true;
+isl.addEventListener('mousemove', e => {
+  if (!freeLook) return;
+  const r = isl.getBoundingClientRect(), sc = r.width / 724;
+  const dx = ((e.clientX - r.left) / sc - B.x) / 260, dy = ((e.clientY - r.top) / sc - B.y) / 200;
+  look(Math.max(-1, Math.min(1, dx)) * 2.4, Math.max(-1, Math.min(1, dy)) * 2);
+});
+isl.addEventListener('mouseleave', () => freeLook && look(0, 0));
+function lookAtEl(el) {
+  const ir = isl.getBoundingClientRect(), sc = ir.width / 724, r = el.getBoundingClientRect();
+  const dx = (r.left + r.width / 2 - ir.left) / sc - B.x, dy = (r.top + r.height / 2 - ir.top) / sc - B.y, d = Math.hypot(dx, dy) || 1;
+  look(dx / d * 2.8, dy / d * 2.4);
+}
+
+/* ---------------------------------------------------------------- "I made it!": the done act
+   anticipation → a leap with a full flip → touchdown (the floor rings, the rows feel it) →
+   the ✓ stamps onto him and bites a notch out of his face → two proud hops, looking at what he made */
+async function celebrate(s) {
+  freeLook = false;
+  const svg = $('#bl svg');
+  look(.4, 2.6); RIG.sq.set(.14, 1).to(.72);                       // he gathers himself
+  await sleep(200); if (!alive(s)) return;
+  RIG.sq.set(.38, .45).snap(1.16).to(1);                           // and goes
+  look(0, -2.6);
+  const landed = leap(-680);
+  anim(svg, [{ transform: 'rotate(0)' }, { transform: 'rotate(360deg)' }], { duration: 470, delay: 40, easing: 'cubic-bezier(.45,.05,.35,1)' });
+  await landed; if (!alive(s)) return;
+  impact(); ripple();
+  look(.5, 2.4);
+  await sleep(120); if (!alive(s)) return;
+  stamp();
+  await sleep(760); if (!alive(s)) return;
+  look(2.8, 1.4);                                                  // proud: he looks at the tab
+  RIG.tilt.to(-7);
+  await leap(-340); if (!alive(s)) return;
+  RIG.tilt.to(6);
+  await leap(-250); if (!alive(s)) return;
+  RIG.tilt.to(0);
+  await sleep(300); if (!alive(s)) return;
+  freeLook = true;
+}
+/* the ✓ badge slams onto his top-left edge like a stamp and punches a notch out of him */
+let badged = false;
+function stamp() {
+  const b = $('#bl .badge'), cut = $('#bl .cut'), tick = $('#bl .tick');
+  badged = true;
+  b.style.transform = 'none';
+  anim(b, [{ transform: 'scale(2.8) rotate(-80deg)', opacity: 0 }, { transform: 'scale(.8) rotate(8deg)', opacity: 1, offset: .52 }, { transform: 'scale(1.1) rotate(-3deg)', offset: .76 }, { transform: 'none' }], { duration: 460, easing: 'cubic-bezier(.3,0,.4,1)' });
+  setTimeout(() => {
+    if (!badged) return;
+    cut.style.transform = 'none';
+    anim(cut, [{ transform: 'scale(0)' }, { transform: 'scale(1.2)', offset: .4 }, { transform: 'none' }], { duration: 420, easing: 'ease-out' });
+    RIG.sq.snap(.84).to(1); RIG.es.vel += 5; look(-2.6, -2.2);          // he feels the tap and glances at it
+  }, 240 * K);
+  tick.style.strokeDashoffset = 0;
+  anim(tick, [{ strokeDashoffset: 9 }, { strokeDashoffset: 0 }], { duration: 280, delay: 330, easing: 'ease-out', fill: 'backwards' });
+}
+function unbadge(instant) {
+  const b = $('#bl .badge'), cut = $('#bl .cut');
+  if (!badged) return; badged = false;
+  b.style.transform = cut.style.transform = 'scale(0)';
+  if (instant) return;
+  anim(b, [{ transform: 'none' }, { transform: 'scale(1.15)', offset: .3 }, { transform: 'scale(0)' }], { duration: 380, easing: 'ease-in' });
+  anim(cut, [{ transform: 'none' }, { transform: 'scale(0)' }], { duration: 420, delay: 120, easing: CALM, fill: 'backwards' });
+}
+/* touchdown: a ring on the floor and a few speed lines kicked up at his feet */
+function impact() {
+  const x = B.x, y = B.y + B.s * .47, w = B.s / 44;
+  const ring = document.createElement('i'); ring.className = 'ring'; isl.appendChild(ring);
+  anim(ring, [{ transform: `translate(${x}px, ${y}px) scale(${.25 * w})`, opacity: .9 }, { transform: `translate(${x}px, ${y}px) scale(${.95 * w})`, opacity: 0 }], { duration: 640, easing: 'cubic-bezier(.15,.7,.3,1)', fill: 'forwards' }).onfinish = () => ring.remove();
+  [-1, 1].forEach(side => [0, 1, 2].forEach(j => {
+    const deg = side < 0 ? 202 + j * 24 : -22 - j * 24, a = deg * Math.PI / 180, r0 = B.s * .42;
+    const z = document.createElement('i'); z.className = 'zip'; isl.appendChild(z);
+    const at = r => `translate(${x + Math.cos(a) * r}px, ${y - 4 + Math.sin(a) * r}px) rotate(${deg}deg)`;
+    anim(z, [{ transform: at(r0) + ' scaleX(.2)', opacity: 1 }, { transform: at(r0 + 8 * w) + ' scaleX(1)', opacity: 1, offset: .4 }, { transform: at(r0 + 18 * w) + ' scaleX(.3)', opacity: 0 }], { duration: 480, delay: j * 25, easing: 'ease-out', fill: 'both' }).onfinish = () => z.remove();
+  }));
+}
+/* …and the rows he just made feel the landing, nearest first */
+function ripple() {
+  const ir = isl.getBoundingClientRect(), sc = ir.width / 724;
+  $$('#content .shape').forEach(el => {
+    const r = el.getBoundingClientRect(), d = Math.hypot((r.left - ir.left) / sc + 40 - B.x, (r.top - ir.top) / sc - B.y);
+    anim(el, [{ transform: 'none' }, { transform: 'translateY(3px)', offset: .3 }, { transform: 'translateY(-1px)', offset: .65 }, { transform: 'none' }], { duration: 520, delay: d * .9, easing: 'ease-out' });
+  });
+}
+
+/* ================================================================ the four kinds of tab */
+let matches, onlyPL = false;
+const MATCHES = () => [
+  { lg: 'Saudi Pro League', h: 'Al Hilal', a: 'Al Nassr', hs: 1, as: 1, st: 'live', min: 34 },
+  { lg: 'Premier League', h: 'Arsenal', a: 'Chelsea', hs: 2, as: 1, st: 'live', min: 67 },
+  { lg: 'Premier League', h: 'Liverpool', a: 'Man City', hs: 2, as: 2, st: 'ft' },
+  { lg: 'La Liga', h: 'Real Madrid', a: 'Barcelona', st: 'soon', at: '22:00' },
+];
+const CHART = (() => { const p = []; let v = 50; for (let i = 0; i < 40; i++) { v += Math.sin(i * .55) * 4 + Math.cos(i * .21) * 3 + (i > 26 ? 2.2 : .5); p.push(v); } return p; })();
+function chartPath(w, h) {
+  const mn = Math.min(...CHART), mx = Math.max(...CHART);
+  return CHART.map((v, i) => `${i ? 'L' : 'M'}${(i / (CHART.length - 1) * w).toFixed(1)},${(h - 14 - (v - mn) / (mx - mn) * (h - 28)).toFixed(1)}`).join(' ');
+}
+const KINDS = {
+  football: {
+    test: /(match|score|football|soccer|game|league|goal)/, name: 'Matches', icon: 'sports_soccer', title: 'Today’s matches', src: 'espn.com', every: '30 s',
+    starter: 'Live scores of today’s matches',
+    steps: ['Understanding <b>live scores · today</b>', 'Found a live source <b>espn.com</b>', 'Laying it out <b>score rows by league</b>', 'Filling in <b>real data</b>', 'Ready <b>4 matches today</b>'],
+    adjust: [['Only the Premier League', 'filter_alt', () => { onlyPL = true; }]],
+    html: () => {
+      let last = '', out = '';
+      for (const m of matches.filter(m => !onlyPL || m.lg === 'Premier League')) {
+        if (m.lg !== last) { out += `<div class="lg shape" data-k="lg-${m.lg}" data-d>${m.lg}</div>`; last = m.lg; }
+        const st = m.st === 'live' ? `<span class="st live" data-min>${m.min}’</span>` : `<span class="st">${m.st === 'ft' ? 'FT' : m.at}</span>`;
+        const sc = m.st === 'soon' ? `<span class="sc vs">vs</span>` : `<span class="sc"><span class="n" data-n>${m.hs}</span><i>–</i><span class="n">${m.as}</span></span>`;
+        out += `<div class="m shape" data-k="${m.h}">${st}<span class="h" data-d>${m.h}</span>${sc}<span class="a" data-d>${m.a}</span></div>`;
+      }
+      return out;
+    },
+  },
+  crypto: {
+    test: /(bitcoin|crypto|btc|eth|price|stock)/, name: 'Bitcoin', icon: 'currency_bitcoin', title: 'Bitcoin', src: 'coingecko.com', every: '60 s',
+    starter: 'Bitcoin price with a chart',
+    steps: ['Understanding <b>bitcoin · price</b>', 'Found a live source <b>coingecko.com</b>', 'Laying it out <b>big number + 24 h chart</b>', 'Filling in <b>real data</b>', 'Ready <b>288 prices today</b>'],
+    adjust: [['Show it in riyals', 'currency_exchange', () => { KINDS.crypto.sar = true; }]],
+    html: () => `<div class="big shape" data-k="big"><span class="v" data-count="${KINDS.crypto.sar ? 253410 : 67582}" data-pre="${KINDS.crypto.sar ? 'SAR ' : '$'}">${KINDS.crypto.sar ? 'SAR 253,410' : '$67,582'}</span><span class="ch">+2.4% today</span></div>
+      <div class="chart shape curve" data-k="chart"><svg viewBox="0 0 684 140" preserveAspectRatio="none"><path d="${chartPath(684, 140)}" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg><span class="ax" style="left:0">00:00</span><span class="ax" style="left:50%">12:00</span><span class="ax" style="right:0">now</span></div>`,
+  },
+  weather: {
+    test: /(weather|temperature|rain|forecast|sun)/, name: 'Weather', icon: 'partly_cloudy_day', title: 'Riyadh · this week', src: 'open-meteo.com', every: '15 min',
+    starter: 'Weather in Riyadh this week',
+    steps: ['Understanding <b>weather · Riyadh</b>', 'Found a live source <b>open-meteo.com</b>', 'Laying it out <b>five days</b>', 'Filling in <b>real data</b>', 'Ready <b>5 days</b>'],
+    adjust: [['In Fahrenheit', 'device_thermostat', () => { KINDS.weather.f = true; }]],
+    html: () => `<div class="days">${[['Thu', 'sunny', 38], ['Fri', 'sunny', 39], ['Sat', 'partly_cloudy_day', 36], ['Sun', 'air', 34], ['Mon', 'sunny', 37]].map(([d, i, t]) => `<div class="day shape" data-k="${d}"><small data-d>${d}</small>${ms(i)}<b data-count="${KINDS.weather.f ? Math.round(t * 9 / 5 + 32) : t}" data-post="°">${KINDS.weather.f ? Math.round(t * 9 / 5 + 32) : t}°</b></div>`).join('')}</div>`,
+  },
+  prs: {
+    test: /(pr\b|prs|pull|github|review)/, name: 'My PRs', icon: 'merge', title: 'Pull requests waiting', src: 'github.com', every: '2 min',
+    starter: 'My open pull requests',
+    steps: ['Understanding <b>your pull requests</b>', 'Found a source <b>github.com, as you</b>', 'Laying it out <b>a list with review state</b>', 'Filling in <b>real data</b>', 'Ready <b>3 open</b>'],
+    adjust: [['Only ones waiting on me', 'person', () => { KINDS.prs.mine = true; }]],
+    html: () => [['check_circle', '#30D158', 'Dark mode for settings', 'approved'], ['rate_review', '#FF9F0A', 'Fix flaky auth tests', 'changes requested'], ['schedule', 'rgba(255,255,255,.5)', 'Hero parallax', 'waiting on you']]
+      .filter(r => !KINDS.prs.mine || r[3] === 'waiting on you')
+      .map(([i, c, t, s]) => `<div class="p shape" data-k="${t}">${ms(i, `color:${c}`)}<span class="t" data-d>${t}</span><small data-d>${s}</small></div>`).join(''),
+  },
+};
+const kindOf = t => Object.keys(KINDS).find(k => KINDS[k].test.test(t.toLowerCase()));
+Object.entries({ football: 0x30D158, crypto: 0xFF9F0A, weather: 0x64D2FF, prs: 0xBF5AF2 }).forEach(([k, c]) => KINDS[k].color = c);
+
+/* ================================================================ tabs + views */
+let tabs = [{ id: 'overview', name: 'Overview' }, { id: 'agents', name: 'Agents' }, { id: 'tasks', name: 'Tasks' }];
+let selected = 'overview', mode = 'dash', built = null;
+function drawTabs(hidden) {
+  $('#tabs').innerHTML = tabs.map(t => `<span class="tab${t.id === selected ? ' on' : ''}" data-id="${t.id}" ${t.id === hidden ? 'style="visibility:hidden"' : ''}>${t.icon ? ms(t.icon) : ''}${t.name}</span>`).join('');
+}
+function tabsFlip(mutate, hidden) {
+  const before = new Map($$('#tabs .tab').map(el => [el.dataset.id, el.getBoundingClientRect().left]));
+  mutate(); drawTabs(hidden);
+  $$('#tabs .tab').forEach(el => { const b = before.get(el.dataset.id); if (b == null) { if (el.dataset.id !== hidden) anim(el, [{ opacity: 0, transform: 'scale(.7)' }, { opacity: 1, transform: 'none' }], { duration: 520, easing: CALM }); return; } const dx = b - el.getBoundingClientRect().left; if (Math.abs(dx) > .5) anim(el, [{ transform: `translateX(${dx}px)` }, { transform: 'none' }], { duration: 650, easing: CALM }); });
+}
+function swap(html, cls = '', enter = true, quick = false) {
+  const p = $('#panel'), old = p.firstElementChild;
+  const v = document.createElement('div'); v.className = 'view ' + cls; v.innerHTML = html; p.appendChild(v);
+  if (old) { anim(old, [{ opacity: getComputedStyle(old).opacity }, { opacity: 0, transform: quick ? 'translateY(-6px)' : 'scale(.985)' }], { duration: quick ? 170 : 260, easing: 'ease-in', fill: 'forwards' }).onfinish = () => old.remove(); }
+  if (enter) anim(v, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 620, delay: old ? 120 : 0, easing: CALM, fill: 'backwards' });
+  return v;
+}
+$('#avs').innerHTML = ['#2D8CFF', '#F0479B', '#E5374C'].map(c => mini(c)).join('');
+
+function showDash() {
+  mode = 'dash'; drawTabs();
+  const v = swap(`<div class="dash">
+    <div class="card"><h4>Agents <small>2 working</small></h4>
+      <div class="arow">${mini('#2D8CFF', 26)}<div>aurora-web<small>Editing SettingsPage.tsx</small></div></div>
+      <div class="arow" style="margin:0">${mini('#E5374C', 26)}<div>pixel-api<small>Running pytest tests/auth</small></div></div></div>
+    <div class="card"><h4>Today <small>1/3</small></h4><div class="trow"><i></i>Review the dark-mode PR</div><div class="trow"><i></i>Reply to design feedback</div><div class="trow done" style="margin:0"><i></i>Fix flaky auth tests</div></div>
+    <div class="nudge" id="nudge">Missing something? <b>Describe a tab</b> and Bloub builds it.<span class="k">${ms('add')}New tab</span></div></div>`);
+  $('#nudge', v).onclick = async () => { openLibrary(); const s = session; await sleep(1150); if (alive(s) && mode === 'lib') openMake(); };
+}
+
+/* ================================================================ 0 · customize: the tab library (as in the app)
+   Bloub in his orb with his two moons on the left, every tab as a tile on the right; the last tile, or Bloub himself,
+   starts a new tab you describe. */
+const CATALOGUE = [['overview', 'Overview', 'dashboard', 0x5E5CE6], ['agents', 'Agents', 'smart_toy', 0x0A84FF], ['usage', 'Usage', 'data_usage', 0x30D158], ['projects', 'Projects', 'folder', 0xFF9F0A], ['media', 'Music', 'music_note', 0xFF375F], ['focus', 'Focus', 'self_improvement', 0x30D158], ['tasks', 'Tasks', 'checklist', 0x64D2FF], ['calendar', 'Calendar', 'calendar_month', 0xFF453A], ['timer', 'Timer', 'timer', 0xFF9F0A], ['notes', 'Notes', 'sticky_note_2', 0xFFD60A], ['clipboard', 'Clipboard', 'content_paste', 0xBF5AF2], ['downloads', 'Downloads', 'download', 0x0A84FF], ['clocks', 'Clocks', 'schedule', 0x64D2FF], ['network', 'Network', 'swap_vert', 0x30D158], ['system', 'System', 'memory', 0x8E8E93], ['battery', 'Battery', 'battery_5_bar', 0x66D4CF], ['servers', 'Servers', 'dns', 0xFF6482]]
+  .map(([id, name, icon, color]) => ({ id, name, icon, color }));
+let CUSTOM = [];                                   // the tabs you described
+const ORB = { x: 114, y: 190, s: 105.3 };          // Bloub in his orb (r 50), island coords
+const MAXPIN = 5;
+const hex = n => '#' + n.toString(16).padStart(6, '0');
+const mixC = (a, b, t) => { const c = [16, 8, 0].map(sh => { const x = a >> sh & 255, y = b >> sh & 255; return Math.round(x + (y - x) * t); }); return (c[0] << 16) | (c[1] << 8) | c[2]; };
+const tileCols = c => ({ bg: hex(mixC(c, 0x2A292F, .93)), t80: hex(mixC(c, 0xFFFFFF, .45)), t20: hex(mixC(c, 0x000000, .7)) });
+function setEdit(st) {
+  const b = $('#editB'); b.className = 'edit' + (st === 'pencil' ? '' : ' ' + st);
+  $('.lb', b).textContent = st === 'cancel' ? 'Cancel' : 'Done';
+  $('#tabs').classList.toggle('editing', st !== 'pencil');
+}
+function libHTML() {
+  const all = [...CATALOGUE, ...CUSTOM], rows = Math.ceil((all.length + 1) / 3), th = Math.min(54, (326 - 8 * (rows - 1)) / rows);
+  const tiles = all.map(t => {
+    const i = tabs.findIndex(x => x.id === t.id), c = tileCols(t.color);
+    return `<button class="qt${i >= 0 ? ' on' : ''}" data-id="${t.id}" style="--bg:${c.bg};--t80:${c.t80};--t20:${c.t20}"><span class="fill"></span>${ms(t.icon)}<b>${t.name}</b><small>${i >= 0 ? `Pinned · ${i + 1}` : 'Off'}</small></button>`;
+  }).join('') + `<button class="qt new" data-id="new"><span class="face">${mini(null, 22)}</span><b>New tab</b><small>Describe it</small></button>`;
+  return `<div class="lib"><div class="lglow"></div><div class="lfloor"></div>
+    <div class="lcap">Tab library<span id="lcnt">${tabs.length} / ${MAXPIN}</span></div>
+    <button class="lorb" id="lorb" title="Describe a new tab"></button>
+    <div class="lstat" id="lstat"><span>${ms('touch_app')}Tap a tile to pin it</span></div>
+    <button class="ldone" id="ldone">Done</button>
+    <div class="lgrid" style="--th:${th.toFixed(1)}px">${tiles}</div></div>`;
+}
+let libNow = '';
+function libSay(text, icon) {
+  const html = `${ms(icon)}${text}`; if (html === libNow) return; libNow = html;
+  const box = $('#lstat'); if (!box) return;
+  $$(':scope > span', box).forEach(o => { if (o.dataset.out) return; o.dataset.out = 1; anim(o, [{ opacity: 1 }, { opacity: 0, translate: '0 -10px' }], { duration: 300, easing: 'ease-in', fill: 'forwards' }).onfinish = () => o.remove(); });
+  const sp = document.createElement('span'); sp.innerHTML = html; box.appendChild(sp);
+  anim(sp, [{ opacity: 0, translate: '0 10px' }, { opacity: 1, translate: '0 0' }], { duration: 480, easing: CALM });
+}
+function openLibrary() { ++session; showLibrary(false); }
+function showLibrary(back, here) {
+  const s = session; mode = 'lib'; freeLook = true; libNow = ''; drawTabs(); setEdit('done');
+  const v = swap(libHTML(), 'lib', false);
+  // the tiles cascade in, the column fades up, the glow wakes
+  $$('.qt', v).forEach((t, i) => anim(t, [{ opacity: 0, transform: 'scale(.92)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: (back ? 90 : 180) + i * (back ? 12 : 22), easing: CALM, fill: 'backwards' }));
+  $$('.lcap, .lstat, .ldone', v).forEach((el, i) => anim(el, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: (back ? 160 : 240) + i * 50, easing: CALM, fill: 'backwards' }));
+  anim($('.lglow', v), [{ opacity: 0 }, { opacity: .2 }], { duration: 800, delay: 400, fill: 'backwards' });
+  anim($('.lfloor', v), [{ opacity: 0 }, { opacity: .45 }], { duration: 800, delay: 500, fill: 'backwards' });
+  // Bloub flies to his orb, and his moons come out of him and start to circle
+  if (!here) { B.el.style.visibility = ''; B.el.style.opacity = 1; }
+  if (here) setTimeout(() => alive(s) && moonsOut(), 420 * K);     // the line is pulling back into his orb; his moons come out once he's whole
+  else {
+    go(ORB.x, ORB.y, ORB.s, 760, back ? 34 : 46, 'cubic-bezier(.4,0,.3,1)');
+    look(0, .6);
+    setTimeout(() => { if (!alive(s)) return; RIG.sq.snap(.8).to(1); RIG.ey.vel += 16; moonsOut(); }, 740 * K);
+  }
+  $('.lgrid', v).onclick = e => { const t = e.target.closest('.qt'); if (t) tapTile(t, e); };
+  $('#ldone', v).onclick = closeLibrary;
+  const orb = $('#lorb', v);
+  orb.onclick = () => openMake();
+  orb.onmouseenter = () => { libSay('Tap me to describe a new tab', 'auto_awesome'); nod(.8); };
+  orb.onmouseleave = () => libSay('Tap a tile to pin it', 'touch_app');
+  const nt = $('.qt.new', v);
+  nt.onmouseenter = () => { freeLook = false; lookAtEl(nt); libSay('Describe any tab you want', 'auto_awesome'); };
+  nt.onmouseleave = () => { freeLook = true; libSay('Tap a tile to pin it', 'touch_app'); };
+}
+function closeLibrary() {
+  if (mode !== 'lib') return;
+  ++session; moonsAway();
+  mode = built && selected === 'custom' ? 'tab' : 'dash'; setEdit('pencil'); drawTabs();
+  go(46, 38, 40, 800, 30); look(0, 0); freeLook = true;
+  if (mode === 'tab') showTab(); else showDash();
+}
+/* pin / unpin, like the app: the colour spreads from your finger, the bar makes room */
+function tapTile(t, e) {
+  const id = t.dataset.id; if (id === 'new') return openMake();
+  const r = t.getBoundingClientRect(), def = [...CATALOGUE, ...CUSTOM].find(x => x.id === id);
+  t.style.setProperty('--fx', ((e.clientX - r.left) / r.width * 100).toFixed(1) + '%');
+  t.style.setProperty('--fy', ((e.clientY - r.top) / r.height * 100).toFixed(1) + '%');
+  const i = tabs.findIndex(x => x.id === id);
+  if (i >= 0) {
+    if (tabs.length <= 1) { libSay('Keep at least one tab', 'info'); shrugB(); return; }
+    tabsFlip(() => { tabs.splice(i, 1); if (selected === id) selected = tabs[0].id; });
+    t.classList.remove('on'); libSay(`${def.name} unpinned`, 'remove_circle'); shrugB();
+  } else {
+    if (tabs.length >= MAXPIN) { libSay('Your bar is full', 'warning'); shrugB(); return; }
+    tabsFlip(() => tabs.push({ id, name: def.name, icon: id === 'custom' ? def.icon : undefined }));
+    t.classList.add('on'); libSay(`${def.name} pinned`, 'push_pin'); jump(-380);
+  }
+  $$('.qt', $('.lgrid')).forEach(q => { const j = tabs.findIndex(x => x.id === q.dataset.id); if (q.dataset.id !== 'new') $('small', q).textContent = j >= 0 ? `Pinned · ${j + 1}` : 'Off'; });
+  $('#lcnt').textContent = `${tabs.length} / ${MAXPIN}`;
+}
+function shrugB() { RIG.tilt.set(.3, .25).snap(0); RIG.tilt.vel = 220; setTimeout(() => RIG.tilt.set(.5, .55), 900 * K); }
+
+/* his two moons: they circle him in the library, and fall into him when he goes to work */
+const MOONS = { els: [0, 1].map(() => { const m = document.createElement('i'); m.className = 'moon'; isl.appendChild(m); return m; }), a: 0, last: 0, show: new Spr(0, .3, 1), pull: new Spr(1, .42, .9) };
+function moonsOut() { MOONS.pull.snap(1).to(0); MOONS.show.to(1); }
+function moonsIn() { MOONS.pull.to(1); setTimeout(() => { MOONS.show.to(0); RIG.sq.snap(.88).to(1); RIG.es.vel += 4; }, 380 * K); }
+function moonsAway() { MOONS.show.to(0); MOONS.pull.to(1); }
+(function moonLoop(now) {
+  const dt = Math.min(1 / 30, (now - (MOONS.last || now)) / 1000) / K; MOONS.last = now;
+  MOONS.a += dt * .9;
+  for (let i = 0; i < 4; i++) { MOONS.show.step(dt / 4); MOONS.pull.step(dt / 4); }
+  const sh = Math.max(0, Math.min(1, MOONS.show.v)), p = Math.max(0, Math.min(1, MOONS.pull.v));
+  if (sh > .005) {
+    // around wherever he is right now, even mid-flight
+    const m = new DOMMatrix(getComputedStyle(B.el).transform), bs = m.a * 100, bx = m.e + bs / 2, by = m.f + bs / 2, k = bs / ORB.s;
+    MOONS.els.forEach((el, i) => {
+      const a = MOONS.a + i * Math.PI, near = Math.sin(a) > 0;
+      const x = bx + Math.cos(a) * 88 * k, y = by + (6 + Math.sin(a) * 32 - Math.cos(a) * 10) * k;
+      const sc = (near ? 1 : .78) * k * (1 - p);
+      el.style.transform = `translate(${(x + (bx - x) * p - 7.5).toFixed(2)}px, ${(y + (by - y) * p - 7.5).toFixed(2)}px) scale(${sc.toFixed(3)})`;
+      el.style.opacity = (sh * (near ? 1 : .75)).toFixed(3); el.style.zIndex = near ? 7 : 5;
+    });
+  } else MOONS.els.forEach(el => el.style.opacity = 0);
+  requestAnimationFrame(moonLoop);
+})(performance.now());
+
+/* ================================================================ 1 · describe: Bloub stretches into the line; his eyes are your caret */
+const QUESTION = 'What should I keep an eye on?';
+const HINT = 'Press <kbd>Tab</kbd> for the suggestion, or start from one below';
+const SUGGEST = Object.values(KINDS).map(k => k.starter.toLowerCase());
+const WHEN = /^(today|tonight|now|tomorrow|week|weekly|weekend|daily|hourly|live|morning|evening)$/;
+const WHO = /^(my|mine|me|our)$/;
+const STOP = /^(the|a|an|of|in|at|for|this|with|and|on|to|show|keep|eye|me|my)$/;
+const MEANS = {
+  football: r => `<b>live scores</b>${r.when ? ' for today' : ''}, by league`,
+  crypto: () => `<b>the price</b>, with a 24-hour chart`,
+  weather: r => `<b>a 5-day forecast</b>${r.where ? ` for ${r.where}` : ''}`,
+  prs: () => `<b>your pull requests</b> and their reviews`,
+};
+const esc = t => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let phHover = null, sugI = 0, phT = null, tileT = null, idleT = null, lookT = null, lastKind = null, lastHits = new Set(), hovering = null, voiceNow = '', typing = false, phShows = '';
+
+/* what Bloub understands in a sentence: which tab, and the words that told him */
+function read(text) {
+  const toks = [], re = /\S+/g; let m;
+  while ((m = re.exec(text))) toks.push({ i: m.index, w: m[0], n: m[0].toLowerCase().replace(/[’']s$/, '').replace(/[^a-z0-9]/g, '') });
+  const seen = new Set(); let where = null;
+  toks.forEach((t, j) => {
+    let tag = null;
+    if (WHEN.test(t.n)) tag = 'when';
+    else if (WHO.test(t.n)) tag = 'whose';
+    else if (t.n && Object.values(KINDS).some(k => k.test.test(t.n))) tag = 'what';
+    else if (j > 0 && /^(in|at|for)$/.test(toks[j - 1].n) && t.n.length > 2 && !STOP.test(t.n)) { tag = 'where'; where = where || t.n.replace(/^./, c => c.toUpperCase()); }
+    t.hit = !!tag;
+    if (tag && !seen.has(tag)) seen.add(tag);
+  });
+  return { kind: kindOf(text), toks, where, when: seen.has('when') };
+}
+
+/* ---------------------------------------------------------------- the line: Bloub's own body, stretched
+   He sits at its left end; the white of the line is him, and his two eyes stay there while you type. */
+const PILL = { x: 72.4, cy: 132, w: 584, h: 64 };   // island coords; the line grows rightward from where he sits
+const BALL = 91.2;                                   // his body in a 96 px Bloub (r = 19 of 40)
+const M = { el: $('#morph'), eyes: $('#morph .eyes2'), on: false, last: 0,
+  ex: new Spr(26, .26, .74), ey: new Spr(19.4, .26, .74), lx: new Spr(0, .3, .7), ly: new Spr(0, .3, .7),
+  hop: new Spr(0, .32, .4), tilt: new Spr(0, .42, .5), es: new Spr(1, .3, .45), ps: new Spr(1, .34, .42), sx: new Spr(0, .3, .2) };
+/* a spring's path from 0 to 1, sampled, for keyframes */
+function series(resp, damp, n, dur) { const sp = new Spr(0, resp, damp).to(1), out = []; for (let i = 0; i < n; i++) { out.push(sp.v); for (let k = 0; k < 8; k++) sp.step(dur / n / 8); } out.push(1); return out; }
+function morphLoop(now) {
+  if (!M.on) return;
+  const dt = Math.min(1 / 30, (now - (M.last || now)) / 1000) / K; M.last = now;
+  const n = Math.max(1, Math.ceil(dt * 240)), h = dt / n;
+  for (let i = 0; i < n; i++) for (const sp of [M.ex, M.ey, M.lx, M.ly, M.hop, M.tilt, M.es, M.ps, M.sx]) sp.step(h);
+  M.eyes.style.transform = `translate(${(M.ex.v + M.lx.v).toFixed(2)}px, ${(M.ey.v + M.ly.v + M.hop.v).toFixed(2)}px) rotate(${M.tilt.v.toFixed(2)}deg) scale(${M.es.v.toFixed(3)})`;
+  M.el.style.transform = `translateX(${M.sx.v.toFixed(2)}px) scale(${(1 + (1 - M.ps.v) * .25).toFixed(4)}, ${M.ps.v.toFixed(4)})`;
+  requestAnimationFrame(morphLoop);
+}
+/* a ball is { cx, cy, d }: where Bloub's body is, in island coords */
+const bloubBall = () => ({ cx: B.x, cy: B.y, d: B.s * .95 });
+const LEFT_BALL = { cx: PILL.x + BALL / 2, cy: PILL.cy, d: BALL };
+const px = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v.toFixed(2) + 'px']));
+/* where his left eye sits inside a ball of that size (the line's eyes are drawn at the 96 px size) */
+function eyesIn(b, lx = 0, ly = 0) { const k = b.d / .95 / 40, off = (b.d / .95 - b.d) / 2; return { x: (15.5 + lx) * k - off - 5.5, y: (17.75 + ly) * k - off - 12.6, s: 4.6 * k / 11 }; }
+function setShade(d) { M.el.style.setProperty('--sr', (.75 * d) + 'px'); M.el.style.setProperty('--sx', (.38 * d) + 'px'); M.el.style.setProperty('--sy', (.3 * d) + 'px'); }
+/* in one motion, the ball travels to the line's left end and stretches into it, like jelly: longer, flatter, a little overshoot */
+function stretch(from) {
+  const el = M.el, shade = $('.shade', el), e0 = eyesIn(from, RIG.ex.v, RIG.ey.v);
+  M.on = true; M.last = 0;
+  el.className = '';
+  setShade(from.d);
+  const l0 = from.cx - from.d / 2;
+  Object.assign(el.style, px({ left: l0, top: from.cy - from.d / 2, width: from.d, height: from.d }), { display: 'block' });
+  B.el.style.visibility = 'hidden';
+  M.ex.snap(e0.x); M.ey.snap(e0.y); M.es.snap(e0.s).to(1); M.lx.snap(0); M.ly.snap(0); M.hop.snap(0); M.tilt.snap(0); M.ps.snap(1); M.sx.snap(0);
+  M.ex.to(26); M.ey.to(19.4);
+  const dur = 900, W = series(.6, .58, 54, dur / 1000), H = series(.44, .38, 54, dur / 1000), P = series(.42, .8, 54, dur / 1000);
+  const kf = W.map((u, i) => {
+    const w = from.d + (PILL.w - from.d) * u, h = from.d + (PILL.h - from.d) * H[i], cy = from.cy + (PILL.cy - from.cy) * P[i];
+    return px({ left: l0 + (PILL.x - l0) * P[i], top: cy - h / 2, width: w, height: h });
+  });
+  Object.assign(el.style, px({ left: PILL.x, top: PILL.cy - PILL.h / 2, width: PILL.w, height: PILL.h }));
+  anim(el, kf, { duration: dur, easing: 'linear' });
+  shade.getAnimations().forEach(a => a.cancel());
+  anim(shade, [{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: 'ease-out', fill: 'forwards' });
+  requestAnimationFrame(morphLoop);
+}
+/* …and pulls back into a ball (by default at its left end, or back into his orb), and becomes Bloub again */
+function ballBack(dur = 460, to = LEFT_BALL) {
+  return new Promise(res => {
+    if (!M.on) return res();
+    const el = M.el, shade = $('.shade', el), w0 = el.offsetWidth, h0 = el.offsetHeight, l0 = el.offsetLeft, c0 = el.offsetTop + h0 / 2;
+    el.classList.remove('open', 'armed', 'ready');
+    const e1 = eyesIn(to); M.ex.to(e1.x); M.ey.to(e1.y); M.es.to(e1.s); M.lx.to(0); M.ly.to(0); M.tilt.to(0);
+    setShade(to.d);
+    const S = series(.4, .74, 36, dur / 1000), P = series(.38, .86, 36, dur / 1000), l1 = to.cx - to.d / 2;
+    Object.assign(el.style, px({ left: l1, top: to.cy - to.d / 2, width: to.d, height: to.d }));
+    el.getAnimations().forEach(a => a.cancel());
+    anim(el, S.map((u, i) => { const w = w0 + (to.d - w0) * u, h = h0 + (to.d - h0) * u, cy = c0 + (to.cy - c0) * P[i]; return px({ left: l0 + (l1 - l0) * P[i], top: cy - h / 2, width: w, height: h }); }), { duration: dur, easing: 'linear' }).onfinish = () => {
+      M.on = false; el.style.display = 'none';
+      place(to.cx, to.cy, to.d / .95); RIG.ex.snap(0); RIG.ey.snap(0); look(0, 0);
+      B.el.style.visibility = ''; B.el.style.opacity = 1; RIG.sq.snap(.86).to(1);
+      res();
+    };
+    shade.getAnimations().forEach(a => a.cancel());
+    anim(shade, [{ opacity: 0 }, { opacity: 1 }], { duration: dur * .3, delay: dur * .7, fill: 'forwards' });
+  });
+}
+
+/* the living previews: a tiny real tab each, ticking along */
+const sparkPath = () => { let d = ''; for (let i = 0; i <= 140; i++) { const x = i * 2, u = x / 140 * 2 * Math.PI; d += (i ? 'L' : 'M') + x + ',' + (23 - 8 * Math.sin(u) - 5 * Math.sin(2 * u + 1) - 3 * Math.sin(5 * u + .5)).toFixed(1); } return d; };
+let MINI = [], miniPrice = 67582, tileN = 0;
+const TILES = {
+  football: () => `<div class="mini mm">${MINI.map((m, i) => `<div class="mr" data-i="${i}"><i class="d${m.live ? ' live' : ''}"></i><span class="h">${m.h}</span><span class="s"><b class="n" data-h><span>${m.hs}</span></b><em>–</em><b class="n" data-a><span>${m.as}</span></b></span><span>${m.a}</span></div>`).join('')}</div>`,
+  crypto: () => `<div class="mini mc"><div class="pv"><b data-p>$67,582</b><small>+2.4%</small></div><div class="spk"><svg viewBox="0 0 280 46" preserveAspectRatio="none"><path d="${sparkPath()}" fill="none" stroke="#fff" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke" opacity=".85"/></svg></div></div>`,
+  weather: () => `<div class="mini mw"><div class="wt"><span class="ms">sunny</span><b>38°</b><small>Riyadh</small></div><div class="wb">${[['T', 38], ['F', 39], ['S', 36], ['S', 34], ['M', 37]].map(([d, t]) => `<span class="c"><i style="height:${((t - 31) * 3.4).toFixed(0)}px"></i><small>${d}</small></span>`).join('')}</div></div>`,
+  prs: () => `<div class="mini mp">${[['#30D158', 'Dark mode', 'approved'], ['#FF9F0A', 'Flaky tests', 'changes'], ['rgba(255,255,255,.35)', 'Hero parallax', 'waiting']].map(([c, t, st], i) => `<div class="pr" data-i="${i}"><i class="d" style="background:${c}"></i><span>${t}</span><small>${st}</small></div>`).join('')}</div>`,
+};
+function tileTick() {
+  const T = $('#tiles'); if (!T) return clearInterval(tileT);
+  const n = ++tileN;
+  if (n % 4 === 2) {                                   // a goal somewhere
+    const i = (n >> 2) % 2, m = MINI[i], side = (n >> 3) % 2 ? 'a' : 'h', old = m[side + 's'];
+    m[side + 's']++;
+    const row = $(`.mr[data-i="${i}"]`, T), el = $(`[data-${side}]`, row);
+    el.innerHTML = `<span>${old}</span><span>${m[side + 's']}</span>`;
+    $$('span', el).forEach(sp => anim(sp, [{ transform: 'none' }, { transform: 'translateY(-100%)' }], { duration: 560, easing: CALM, fill: 'forwards' }));
+    row.classList.remove('goal'); void row.offsetWidth; row.classList.add('goal');
+    setTimeout(() => { el.innerHTML = `<span>${m[side + 's']}</span>`; }, 700 * K);
+  }
+  if (n % 2 === 0) {                                   // the price moves
+    const d = Math.round((Math.random() - .42) * 90), el = $('[data-p]', T);
+    miniPrice += d; el.textContent = '$' + miniPrice.toLocaleString('en-US');
+    anim(el, [{ color: d >= 0 ? '#30D158' : '#FF453A' }, { color: '#fff' }], { duration: 900, easing: 'ease-out' });
+  }
+  if (n % 5 === 3) {                                   // someone reviews your PR
+    const row = $('.pr[data-i="2"]', T), ok = !row.dataset.ok;
+    row.dataset.ok = ok ? 1 : '';
+    $('.d', row).style.background = ok ? '#30D158' : 'rgba(255,255,255,.35)';
+    $('small', row).textContent = ok ? 'approved' : 'waiting';
+    anim($('.d', row), [{ transform: 'scale(2.2)' }, { transform: 'none' }], { duration: 520, easing: CALM });
+  }
+  if (n % 6 === 5) $$('.c i', T).forEach((b, j) => anim(b, [{ transform: 'scaleY(.35)' }, { transform: 'none' }], { duration: 700, delay: j * 60, easing: CALM, fill: 'backwards' }));
+}
+
+async function openMake() {
+  if (mode === 'make') return;
+  const s = ++session; mode = 'make'; freeLook = false; drawTabs(); setEdit('cancel');
+  lastKind = null; lastHits = new Set(); hovering = null; voiceNow = ''; typing = false; tileN = 0; miniPrice = 67582; phShows = '';
+  MINI = [{ h: 'ARS', a: 'CHE', hs: 2, as: 1, live: 1 }, { h: 'HIL', a: 'NAS', hs: 1, as: 1, live: 1 }, { h: 'LIV', a: 'MCI', hs: 2, as: 2 }];
+  const inp = $('#inp');
+  inp.value = ''; $('#txt').innerHTML = '<span class="mt"></span>'; $('#ph').innerHTML = ''; $('#ph').style.left = '69px'; $('#txt').style.visibility = $('#ph').style.visibility = '';
+  M.el.style.setProperty('--fs', '23px');
+  // the library steps back while Bloub, in one motion, pours himself out of his orb into the line
+  const old = $('#panel .view.lib');
+  if (old) {
+    const c0 = $('.qt.new', old).getBoundingClientRect();
+    $$('.qt', old).forEach(t => { const r = t.getBoundingClientRect(), d = Math.hypot(r.left - c0.left, r.top - c0.top); anim(t, [{ opacity: 1 }, { opacity: 0, transform: 'scale(.92)' }], { duration: 260, delay: d * .12, easing: 'ease-in', fill: 'forwards' }); });
+    $$('.lcap, .lstat, .ldone, .lglow, .lfloor', old).forEach(el => anim(el, [{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration: 200, fill: 'forwards' }));
+  }
+  moonsAway();
+  stretch(bloubBall());
+  const v = swap(`<div class="ask">
+      <div class="voice" id="voice"></div>
+      <div class="tiles" id="tiles">${Object.entries(KINDS).map(([k, d]) => `<button class="tile" data-k="${k}">${TILES[k]()}<span class="ft">${ms(d.icon)}${d.name}</span><span class="ar">${ms('arrow_forward')}</span></button>`).join('')}</div>
+    </div>`, 'make', false, true);
+  // the previews rise right behind him and start ticking
+  $$('.tile', v).forEach((t, i) => {
+    anim(t, [{ opacity: 0, transform: 'translateY(16px)' }, { opacity: 1, transform: 'none' }], { duration: 640, delay: 240 + i * 50, easing: CALM, fill: 'backwards' });
+    $$('.mr, .pr, .pv, .wt', t).forEach((el, j) => anim(el, [{ opacity: 0, transform: 'translateX(-8px)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: 340 + i * 50 + j * 50, easing: CALM, fill: 'backwards' }));
+    $$('.spk', t).forEach(el => anim(el, [{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0 0 0)' }], { duration: 1000, delay: 360 + i * 50, easing: 'cubic-bezier(.3,0,.2,1)', fill: 'backwards' }));
+    $$('.c i', t).forEach((el, j) => anim(el, [{ transform: 'scaleY(0)' }, { transform: 'none' }], { duration: 640, delay: 380 + i * 50 + j * 40, easing: CALM, fill: 'backwards' }));
+    const phrase = KINDS[t.dataset.k].starter.toLowerCase();
+    t.onmouseenter = () => { hovering = t; eyesAt(t); clearTimeout(phHover); phHover = setTimeout(() => { if (hovering === t && !inp.value && M.el.classList.contains('armed')) phTo(SUGGEST.indexOf(phrase)); }, 140 * K); };
+    t.onmouseleave = () => { hovering = null; caret(); };
+    t.onclick = async () => { if (typing || !M.on) return; const s2 = session; hovering = null; await typeOut(phrase, 22); if (!alive(s2)) return; await sleep(340); if (alive(s2)) submit(); };
+  });
+  inp.focus({ preventScroll: true });
+  await sleep(380); if (!alive(s)) return;
+  // the line is ready: the question is already there, waiting, and he looks at you
+  // (through the same one-line roll, so a card you're already hovering can never stack its sentence on top)
+  $('#ph').style.color = '#a2a2ac';
+  if (!phShows) phPut(QUESTION);
+  M.el.classList.add('open', 'armed');
+  voice(HINT);
+  render(false);
+  tileT = setInterval(tileTick, 1000 * K);
+  phT = setInterval(phNext, 3000 * K);
+}
+function leaveMake() { clearInterval(phT); clearInterval(tileT); clearTimeout(idleT); clearTimeout(lookT); lookT = null; RIG.tilt.to(0); }
+
+/* every keystroke: the words he understood go dark, his eyes ride along, he reacts */
+function render(fromTyping) {
+  const inp = $('#inp'); if (!M.on) return;
+  const text = inp.value, r = read(text), hits = new Set();
+  let html = '', at = 0;
+  for (const t of r.toks) {
+    html += esc(text.slice(at, t.i)); at = t.i + t.w.length;
+    if (t.hit) hits.add(String(t.i));
+    html += `<span class="w${t.hit ? ' hit' : ''}" data-key="${t.i}">${esc(t.w)}</span>`;
+  }
+  $('#txt').innerHTML = `<span class="mt">${html}${esc(text.slice(at))}</span>`;
+  let fresh = false;
+  $$('#txt .w.hit').forEach(el => { if (lastHits.has(el.dataset.key)) return; fresh = true; anim(el, [{ color: '#7a7a84' }, { color: '#0b0b10' }], { duration: 480, easing: 'ease-out' }); });
+  lastHits = hits;
+  if (r.kind) $('#kin').innerHTML = `${ms(KINDS[r.kind].icon)}${KINDS[r.kind].name}`;
+  M.el.classList.toggle('typing', text.length > 0);
+  M.el.classList.toggle('ready', !!r.kind);
+  fit(r);
+  caret();
+  // the preview he thinks you mean steps forward
+  const T = $('#tiles');
+  if (T) { $$('.tile', T).forEach(t => t.classList.toggle('pick', t.dataset.k === r.kind)); T.classList.toggle('has-pick', !!r.kind); }
+  if (r.kind) voice(`<span class="ok">${ms('check')}</span>Got it · ${MEANS[r.kind](r)}`);
+  else if (!text.trim() || !voiceNow.startsWith('Press')) voice(HINT);
+  // and how he reacts: a bounce of the eyes when he gets it, a tiny pulse per key, a puzzled tilt
+  clearTimeout(idleT); M.tilt.to(0);
+  if (fromTyping) { M.ps.vel -= .14; M.hop.vel -= 45; }
+  if (r.kind && r.kind !== lastKind) aha(r.kind);
+  else if (fromTyping && fresh) { M.hop.vel -= 160; M.ps.vel -= .2; }
+  if (!r.kind && text.trim()) idleT = setTimeout(() => { M.tilt.to(-12); M.ly.to(-2.4); voice('Hmm… <b>scores</b>, <b>prices</b>, <b>weather</b> or <b>PRs</b>?'); }, 1600 * K);
+  lastKind = r.kind;
+}
+/* long sentences shrink to fit the line */
+function fit(r) {
+  const inp = $('#inp'), mt = $('#txt .mt');
+  const cur = parseFloat(getComputedStyle(inp).fontSize), avail = PILL.w - 69 - 10 - (r.kind ? 176 : 62);
+  const want = Math.max(15, Math.min(23, 23 * avail / ((mt.offsetWidth / cur * 23) || 1)));
+  if (Math.abs(parseFloat(M.el.style.getPropertyValue('--fs')) - want) > .3) M.el.style.setProperty('--fs', want.toFixed(1) + 'px');
+}
+/* his eyes stay at the left end and glance along your words */
+function caret() {
+  if (!M.on) return;
+  M.ex.to(26); M.ey.to(19.4);
+  if (hovering || lookT) return;
+  M.lx.to(0); M.ly.to(0); return;                                 // he looks at you
+  const inp = $('#inp'), meas = $('#meas');
+  if (!inp.value) { M.lx.to(0); M.ly.to(0); return; }
+  meas.textContent = inp.value.slice(0, inp.selectionStart ?? inp.value.length);
+  M.lx.to(Math.min(3.4, .8 + meas.offsetWidth / 140)); M.ly.to(.6);
+}
+document.addEventListener('selectionchange', () => { if (M.on && document.activeElement === $('#inp')) caret(); });
+function aha(kind) {
+  M.hop.vel -= 330; M.es.vel += 6; M.ps.vel -= .5;
+  const tile = $(`.tile[data-k="${kind}"]`); if (!tile) return;
+  eyesAt(tile); clearTimeout(lookT);
+  lookT = setTimeout(() => { lookT = null; caret(); }, 900 * K);
+}
+/* his eyes glance toward something on screen */
+function eyesAt(el) {
+  const ir = isl.getBoundingClientRect(), sc = ir.width / 724, r = el.getBoundingClientRect();
+  const dx = (r.left + r.width / 2 - ir.left) / sc - (PILL.x + 42), dy = (r.top + r.height / 2 - ir.top) / sc - PILL.cy, d = Math.hypot(dx, dy) || 1;
+  M.lx.to(dx / d * 3.4); M.ly.to(dy / d * 3.4);
+}
+/* "no": the line shakes its head */
+function shake() { M.sx.snap(0); M.sx.vel = 420; M.tilt.to(0); RIG.tilt.set(.32, .18).snap(0); RIG.tilt.vel = 320; setTimeout(() => RIG.tilt.set(.5, .55), 1000 * K); }
+/* the line under it: a hint, or what he understood */
+function voice(html) {
+  if (html === voiceNow) return; voiceNow = html;
+  const box = $('#voice'); if (!box) return;
+  $$(':scope > span', box).forEach(o => { if (o.dataset.out) return; o.dataset.out = 1; anim(o, [{ opacity: 1 }, { opacity: 0, translate: '0 -12px' }], { duration: 340, easing: 'ease-in', fill: 'forwards' }).onfinish = () => o.remove(); });
+  const sp = document.createElement('span'); sp.innerHTML = html; box.appendChild(sp);
+  anim(sp, [{ opacity: 0, translate: '0 12px' }, { opacity: 1, translate: '0 0' }], { duration: 560, easing: CALM });
+}
+/* the grey suggestion in the empty line rolls to the next one now and then */
+function phPut(text) {
+  const ph = $('#ph'); if (text === phShows) return; phShows = text;
+  $$('span', ph).forEach(o => {
+    if (o.dataset.out) { o.remove(); return; }                     // anything still leaving goes at once
+    o.dataset.out = 1;
+    anim(o, [{ opacity: getComputedStyle(o).opacity, transform: getComputedStyle(o).transform }, { opacity: 0, transform: 'translateY(-26px)' }], { duration: 240, easing: 'ease-in', fill: 'forwards' }).onfinish = () => o.remove();
+  });
+  const sp = document.createElement('span'); sp.textContent = text; ph.appendChild(sp);
+  anim(sp, [{ opacity: 0, transform: 'translateY(26px)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: 90, easing: CALM, fill: 'backwards' });
+}
+function phNext() { if (!M.on || $('#inp').value || hovering) return; if (phShows !== QUESTION) sugI = (sugI + 1) % SUGGEST.length; phPut(SUGGEST[sugI]); }
+function phTo(i) { if (i < 0) return; sugI = i; phPut(SUGGEST[i]); clearInterval(phT); phT = setInterval(phNext, 3000 * K); }
+/* types a sentence into the line, as if you did */
+async function typeOut(str, every = 24) {
+  const inp = $('#inp'), s = session;
+  typing = true; inp.value = ''; render(false);
+  for (const ch of str) {
+    if (!alive(s) || !M.on) { typing = false; return; }
+    inp.value += ch; render(true);
+    await sleep(every + (ch === ' ' ? 30 : 0));
+  }
+  typing = false;
+  inp.focus({ preventScroll: true });
+}
+async function submit() {
+  const inp = $('#inp'); if (mode !== 'make' || typing || !M.on) return;
+  const s = session;
+  if (!inp.value.trim()) { await typeOut(SUGGEST[sugI], 18); if (!alive(s)) return; await sleep(280); if (!alive(s)) return; }
+  if (!kindOf(inp.value)) { shake(); voice('I can build <b>scores</b>, <b>prices</b>, <b>weather</b> or <b>PRs</b> in this demo'); return; }
+  M.ps.vel -= .6;
+  build(inp.value);
+}
+$('#inp').oninput = () => render(true);
+$('#inp').onkeydown = e => {
+  if (e.key === 'Tab') { e.preventDefault(); if (!$('#inp').value && !typing) typeOut(SUGGEST[sugI], 18); }
+  if (e.key === 'Enter') submit();
+  if (e.key === 'Escape') closeMake();
+};
+$('#go').onclick = submit;
+M.el.addEventListener('mousedown', e => { if (!e.target.closest('.go') && e.target !== $('#inp')) { e.preventDefault(); $('#inp').focus(); } });
+function closeMake() {
+  if (mode !== 'make') return;
+  const s = ++session; leaveMake(); stopDots(); unbadge();
+  const wasLine = M.on;
+  ballBack(440, { cx: ORB.x, cy: ORB.y, d: ORB.s * .95 });
+  showLibrary(true, wasLine);
+}
+
+/* ================================================================ 2 · build */
+async function build(text) {
+  text = (text || '').trim();
+  const kind = kindOf(text);
+  if (!kind) { shake(); return; }
+  const s = ++session, D = KINDS[kind];
+  leaveMake();
+  matches = MATCHES(); onlyPL = false; D.sar = D.f = D.mine = false;
+  const v = $('#panel .view');
+  const mt = $('#txt .mt'), from = mt.getBoundingClientRect(), sc = isl.getBoundingClientRect().width / 724, fs = parseFloat(getComputedStyle($('#inp')).fontSize);
+  $('#txt').style.visibility = $('#ph').style.visibility = 'hidden';
+  // the panel becomes the build view; your sentence travels up and becomes the title
+  const nv = swap(`<div class="head"><div class="title" id="ttl"></div><div class="step" id="step"></div></div>
+    <canvas class="dots" id="dots" width="1368" height="516"></canvas>
+    <div class="content" id="content"></div>
+    <div class="bar" id="bar"></div>`, 'build', false, true);
+  const ttl = $('#ttl', nv);
+  ttl.textContent = text.charAt(0).toUpperCase() + text.slice(1);
+  const to = ttl.getBoundingClientRect();
+  const k = fs / 16;
+  anim(ttl, [{ transform: `translate(${(from.left - to.left) / sc}px, ${(from.top - to.top) / sc}px) scale(${k})`, color: '#0b0b10' }, { color: '#fff', offset: .3 }, { transform: 'none', color: '#fff' }], { duration: 820, easing: CALM });
+  // the line pulls back into Bloub, and he springs up beside the title
+  ballBack(420).then(() => { if (!alive(s)) return; RIG.sq.snap(.8).to(1); go(20 + 22, 70 + 22, 44, 760, 22); look(1, 3); });
+  look(1, 3);
+  // the dot field wakes up, rippling out from him
+  startDots(kind);
+  await sleep(560); if (!alive(s)) return;
+  for (let i = 0; i < 4; i++) {
+    say(D.steps[i], i === 1);
+    if (i === 3) { await sleep(300); if (!alive(s)) return; await solidify(s); if (!alive(s)) return; }
+    await sleep(i === 3 ? 500 : i === 0 ? 900 : 1250); if (!alive(s)) return;
+  }
+  // done
+  say(D.steps[4], false, true);
+  stopDots(true);
+  celebrate(s);
+  await sleep(1150); if (!alive(s)) return;
+  const bar = $('#bar');
+  bar.innerHTML = `<span class="src"><span class="live"></span>${D.src} · live every ${D.every}</span>
+    ${D.adjust.map(([t, i], j) => `<button class="adj" data-j="${j}">${ms(i)}${t}</button>`).join('')}
+    <button class="addb" id="addb">Add to island <kbd>↵</kbd></button>`;
+  bar.style.pointerEvents = 'auto';
+  anim(bar, [{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }], { duration: 640, easing: CALM, fill: 'forwards' });
+  bar.onclick = e => {
+    const a = e.target.closest('.adj');
+    if (a) { D.adjust[+a.dataset.j][2](); adjust(kind); anim(a, [{ opacity: 1 }, { opacity: 0, transform: 'scale(.9)' }], { duration: 260, fill: 'forwards' }).onfinish = () => a.remove(); }
+    if (e.target.closest('#addb')) addToIsland(kind);
+  };
+  document.onkeydown = e => { if (e.key === 'Enter' && mode === 'make' && $('#addb')) { document.onkeydown = null; addToIsland(kind); } };
+}
+function say(html, live, done) {
+  const box = $('#step'); if (!box) return;
+  const old = box.firstElementChild;
+  const sp = document.createElement('span');
+  sp.innerHTML = (done ? `<span class="ok">${ms('check')}</span>` : live ? '<span class="live"></span>' : '') + html;
+  box.appendChild(sp);
+  anim(sp, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], { duration: 560, easing: CALM });
+  if (old) anim(old, [{ opacity: 1 }, { opacity: 0, transform: 'translateY(-14px)' }], { duration: 380, easing: 'ease-in', fill: 'forwards' }).onfinish = () => old.remove();
+}
+
+/* ---------------------------------------------------------------- the dot field: the loader */
+const SP = 12; // dot spacing
+let dots = [], dotRaf = 0, dotT0 = 0, fadeOut = 0;
+function startDots(kind) {
+  const c = $('#dots'); if (!c) return;
+  dots = [];
+  for (let y = SP / 2; y < 258; y += SP) for (let x = SP / 2; x < 684; x += SP) dots.push({ x, y });
+  dotT0 = performance.now(); fadeOut = 0;
+  // the content is laid out now, invisible, ready to appear where the dots are
+  $('#content').innerHTML = KINDS[kind].html();
+  cancelAnimationFrame(dotRaf);
+  const ctx = c.getContext('2d');
+  const frame = now => {
+    const t = (now - dotT0) / 1000 / K;
+    ctx.setTransform(2, 0, 0, 2, 0, 0);
+    ctx.clearRect(0, 0, 684, 258);
+    const ox = 22, oy = -34; // Bloub, just above the field
+    const intro = Math.min(1, t / .6);
+    const gone = fadeOut ? Math.min(1, (now - fadeOut) / 1000 / K / .55) : 0;
+    ctx.fillStyle = '#fff';
+    for (const d of dots) {
+      const dist = Math.hypot(d.x - ox, d.y - oy);
+      // two soft rings travel out from Bloub
+      let wave = 0;
+      for (const off of [0, .9]) { const R = ((t + off) % 1.8) * 520; wave = Math.max(wave, Math.max(0, 1 - Math.abs(dist - R) / 34)); }
+      wave *= wave * intro;
+      let a = (.09 + wave * .55) * intro, r = 1.05 + wave * .9;
+      if (gone) a *= 1 - gone;
+      if (a < .01) continue;
+      ctx.globalAlpha = Math.min(1, a);
+      ctx.beginPath(); ctx.arc(d.x, d.y, r, 0, 6.283); ctx.fill();
+    }
+    if (gone >= 1) { ctx.clearRect(0, 0, 684, 258); dotRaf = 0; return; }
+    dotRaf = requestAnimationFrame(frame);
+  };
+  anim(c, [{ opacity: 0 }, { opacity: 1 }], { duration: 500, delay: 250, fill: 'backwards' });
+  dotRaf = requestAnimationFrame(frame);
+}
+function stopDots(soft) {
+  if (!soft) { cancelAnimationFrame(dotRaf); dotRaf = 0; return; }
+  fadeOut = performance.now();
+}
+
+/* ---------------------------------------------------------------- the shapes turn solid; the data decodes in */
+async function solidify(s) {
+  const content = $('#content');
+  const shapes = $$('.shape', content);
+  fadeOut = performance.now();
+  shapes.forEach((el, i) => {
+    anim(el, [{ opacity: 0, transform: 'scale(.97)', filter: 'blur(3px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }], { duration: 640, delay: 80 + i * 70, easing: CALM, fill: 'forwards' });
+    setTimeout(() => { if (!alive(s)) return; decodeIn(el); }, (180 + i * 70) * K);
+  });
+  const curve = $('.curve path', content);
+  if (curve) { const L = curve.getTotalLength(); curve.style.strokeDasharray = L; anim(curve, [{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: 1100, delay: 200, easing: 'cubic-bezier(.3,0,.2,1)', fill: 'backwards' }); }
+  await sleep(300 + shapes.length * 70);
+}
+/* text scrambles for a moment and settles left to right; numbers count up */
+const GLYPHS = 'abcdefghijklmnopqrstuvwxyz0123456789';
+function decodeIn(root) {
+  const nodes = [...(root.matches('[data-d]') ? [root] : []), ...$$('[data-d]', root)];
+  nodes.forEach(el => {
+    const final = el.textContent; const t0 = performance.now(), dur = 520 * K;
+    const tick = now => {
+      const u = Math.min(1, (now - t0) / dur), n = Math.floor(u * final.length);
+      el.textContent = final.slice(0, n) + [...final.slice(n)].map(ch => ch === ' ' ? ' ' : GLYPHS[Math.random() * GLYPHS.length | 0]).join('');
+      if (u < 1) requestAnimationFrame(tick); else el.textContent = final;
+    };
+    requestAnimationFrame(tick);
+  });
+  $$('[data-count]', root).forEach(el => {
+    const end = +el.dataset.count, pre = el.dataset.pre || '', post = el.dataset.post || '', t0 = performance.now(), dur = 900 * K;
+    const tick = now => {
+      const u = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - u, 3);
+      el.textContent = pre + Math.round(end * e).toLocaleString('en-US') + post;
+      if (u < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+/* ---------------------------------------------------------------- adjust: rows glide; what leaves folds away */
+function adjust(kind) {
+  const content = $('#content');
+  const before = new Map($$('[data-k]', content).map(el => [el.dataset.k, el.getBoundingClientRect().top]));
+  const sc = content.getBoundingClientRect().width / 684;
+  content.innerHTML = KINDS[kind].html();
+  $$('[data-k]', content).forEach((el, i) => {
+    el.style.opacity = 1;
+    const b = before.get(el.dataset.k);
+    if (b == null) { anim(el, [{ opacity: 0, filter: 'blur(3px)' }, { opacity: 1, filter: 'blur(0)' }], { duration: 520, delay: 120, easing: CALM, fill: 'backwards' }); decodeIn(el); return; }
+    const dy = (b - el.getBoundingClientRect().top) / sc;
+    if (Math.abs(dy) > .5) anim(el, [{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 700, easing: CALM });
+    if (el.querySelector('[data-count]') || el.matches('[data-count]')) decodeIn(el);
+  });
+  hop(8);
+}
+
+/* ================================================================ 3 · add: the tab glides into the bar, Bloub jumps home for joy */
+async function addToIsland(kind) {
+  const s = ++session, D = KINDS[kind];
+  freeLook = false;
+  const v = $('#panel .view');
+  // the preview gathers itself into a chip
+  $$('.content > *, .bar, .head', v).forEach((el, i) => anim(el, [{ opacity: 1 }, { opacity: 0, transform: 'scale(.95)' }], { duration: 340, delay: i * 22, easing: 'ease-in', fill: 'forwards' }));
+  const chip = $('#chip');
+  chip.innerHTML = `${ms(D.icon)}${D.name}`; chip.style.display = 'flex';
+  const cw = chip.offsetWidth, cx = 362, cy = 210;
+  const at = (x, y, sc = 1, r = 0) => `translate(${x - cw / 2}px, ${y - 16}px) rotate(${r}deg) scale(${sc})`;
+  chip.style.transform = at(cx, cy);
+  anim(chip, [{ transform: at(cx, cy, .3), opacity: 0 }, { transform: at(cx, cy), opacity: 1 }], { duration: 560, delay: 120, easing: CALM, fill: 'backwards' });
+  // Bloub gets ready: a little crouch
+  look(2, -2);
+  squash(1.12, .84, 260);
+  await sleep(520); if (!alive(s)) return;
+
+  // the tabs part to make room, and the chip glides straight into its slot
+  tabsFlip(() => { tabs = tabs.filter(t => t.id !== 'custom'); tabs.push({ id: 'custom', name: D.name, icon: D.icon }); selected = 'custom'; mode = 'tab'; }, 'custom');
+  const tabEl = $('#tabs [data-id="custom"]'), ir = isl.getBoundingClientRect(), sc = ir.width / 724, tr = tabEl.getBoundingClientRect();
+  const tx = (tr.left - ir.left) / sc + tr.width / sc / 2, ty = (tr.top - ir.top) / sc + tr.height / sc / 2;
+  const kf = [];
+  for (let i = 0; i <= 24; i++) {
+    const u = i / 24;
+    kf.push({ transform: at(cx + (tx - cx) * u, cy + (ty - cy) * u - Math.sin(u * Math.PI) * 46, 1 - .04 * Math.sin(u * Math.PI)) });
+  }
+  const flight = anim(chip, kf, { duration: 760, easing: CALM, fill: 'forwards' });
+
+  // …and Bloub jumps home with a twirl, popping confetti at the top
+  const svg = $('#bl svg');
+  anim(B.sq, [{ transform: 'scale(1.12, .84)' }, { transform: 'scale(.92, 1.1)', offset: .25 }, { transform: 'none' }], { duration: 420, easing: 'ease-out', fill: 'forwards' });
+  go(46, 38, 40, 980, 70, 'cubic-bezier(.3,.0,.25,1)');
+  anim(svg, [{ transform: 'rotate(0)' }, { transform: 'rotate(360deg)' }], { duration: 760, delay: 80, easing: 'cubic-bezier(.45,0,.25,1)' });
+  look(0, -3);
+  setTimeout(() => alive(s) && confetti(B.x, B.y), 430 * K);
+
+  await flight.finished; if (!alive(s)) return;
+  chip.style.display = 'none';
+  setEdit('pencil');
+  CUSTOM = CUSTOM.filter(c => c.id !== 'custom'); CUSTOM.push({ id: 'custom', name: D.name, icon: D.icon, color: D.color });
+  tabEl.style.visibility = '';
+  tabEl.classList.add('on');
+  anim(tabEl, [{ transform: 'scale(1.16)' }, { transform: 'none' }], { duration: 620, easing: CALM });
+  await sleep(230); if (!alive(s)) return;
+
+  // he lands in his spot: a squash, then a happy wiggle
+  look(0, 1);
+  await anim(B.sq, [{ transform: 'none' }, { transform: 'scale(1.16, .82)', offset: .3 }, { transform: 'scale(.96, 1.05)', offset: .65 }, { transform: 'none' }], { duration: 460, easing: 'ease-out' }).finished;
+  anim(svg, [{ transform: 'rotate(0)' }, { transform: 'rotate(-12deg)', offset: .2 }, { transform: 'rotate(10deg)', offset: .45 }, { transform: 'rotate(-6deg)', offset: .7 }, { transform: 'rotate(0)' }], { duration: 700, easing: 'ease-in-out' });
+  freeLook = true;
+  built = kind;
+  setTimeout(unbadge, 1100 * K);
+  showTab();
+  toast(`“${D.name}” is on your island`);
+}
+
+/* a little burst of dots from Bloub: mostly white, a few in the team's colours */
+function confetti(x, y) {
+  const cols = ['#fff', '#fff', '#fff', '#fff', '#30D158', '#2D8CFF', '#F0479B', '#FFD60A', '#fff', '#E5374C'];
+  for (let i = 0; i < 18; i++) {
+    const d = document.createElement('i'), sz = 3 + Math.random() * 3.5;
+    d.className = 'fx'; d.style.width = d.style.height = sz + 'px'; d.style.background = cols[i % cols.length];
+    isl.appendChild(d);
+    const a = (i / 18) * Math.PI * 2 + Math.random() * .3, r = 34 + Math.random() * 30;
+    const ex = x + Math.cos(a) * r, ey = y + Math.sin(a) * r * .8;
+    anim(d, [
+      { transform: `translate(${x}px, ${y}px) scale(.4)`, opacity: 1 },
+      { transform: `translate(${ex}px, ${ey}px) scale(1)`, opacity: 1, offset: .45 },
+      { transform: `translate(${ex + Math.cos(a) * 6}px, ${ey + 26}px) scale(.6)`, opacity: 0 },
+    ], { duration: 900 + Math.random() * 300, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' }).onfinish = () => d.remove();
+  }
+}
+
+/* ================================================================ the tab itself, live */
+let liveT = null;
+function showTab() {
+  const D = KINDS[built]; mode = 'tab'; selected = 'custom'; drawTabs();
+  const v = swap(`<div class="vh">${''}<span class="ic">${ms(D.icon)}</span><div><b>${D.title}</b><small><span class="live"></span>${D.src} · updated just now</small></div></div><div class="content" style="top:56px" id="live">${D.html()}</div>`, 'tabview');
+  $$('#live .shape', v).forEach((el, i) => anim(el, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 620, delay: 160 + i * 60, easing: CALM, fill: 'backwards' }));
+  if (built === 'football') { $('#pill').style.display = ''; $('#pillcap').style.display = ''; drawPill(); clearInterval(liveT); liveT = setInterval(tickMinutes, 2000); }
+}
+function tickMinutes() {
+  matches.forEach(m => { if (m.st === 'live' && m.min < 90) m.min++; });
+  $$('#live [data-min]').forEach(el => { const m = matches.find(x => x.h === el.parentElement.dataset.k); if (m) el.textContent = m.min + '’'; });
+  drawPill($('#pill').classList.contains('goal'));
+}
+function drawPill(goal) {
+  const m = matches[1];
+  $('#pill').innerHTML = `${mini(null, 26)}<span class="g">GOAL</span><span>ARS</span><span class="sc">${m.hs} – ${m.as}</span><span>CHE</span><span class="mn">${m.min}’</span>`;
+  $('#pill').classList.toggle('goal', !!goal);
+}
+function goal() {
+  if (built !== 'football' || selected !== 'custom') { toast('Build the football tab first'); return; }
+  const m = matches[1]; m.hs++;
+  const row = $(`#live [data-k="${m.h}"]`);
+  if (row) {
+    const n = $('[data-n]', row);
+    n.innerHTML = `<span>${m.hs - 1}</span><span>${m.hs}</span>`;
+    $$('span', n).forEach(sp => anim(sp, [{ transform: 'none' }, { transform: 'translateY(-20px)' }], { duration: 640, easing: CALM, fill: 'forwards' }));
+    row.classList.remove('goal'); void row.offsetWidth; row.classList.add('goal');
+  }
+  drawPill(true);
+  const svg = $('#pill svg');
+  svg.animate([{ transform: 'none' }, { transform: 'translateY(-5px) scale(.95, 1.07)' }, { transform: 'none' }], { duration: 480 * K, iterations: 2, easing: 'ease-out' });
+  hop(10);
+  setTimeout(() => drawPill(false), 3400 * K);
+}
+
+/* ================================================================ wiring */
+$('#tabs').onclick = e => {
+  const t = e.target.closest('.tab'); if (!t || mode === 'lib' || mode === 'make') return;   // while customizing, the bar is being edited
+  selected = t.dataset.id;
+  if (selected === 'custom' && built) showTab(); else showDash();
+};
+$('#editB').onclick = () => { if (mode === 'lib') closeLibrary(); else if (mode === 'make') closeMake(); else openLibrary(); };
+$('#goalB').onclick = goal;
+$('#slowB').onclick = e => { K = K === 1 ? 3 : 1; document.documentElement.style.setProperty('--k', K); e.currentTarget.classList.toggle('on', K !== 1); };
+$('#resetB').onclick = () => {
+  ++session; clearInterval(liveT); leaveMake(); stopDots(); unbadge(true);
+  M.on = false; M.el.style.display = 'none'; B.el.style.visibility = ''; B.el.style.opacity = 1;
+  MOONS.show.snap(0); MOONS.pull.snap(1); CUSTOM = []; setEdit('pencil');
+  Object.assign(RIG, { air: false, jy: 0, vy: 0, land: null }); RIG.sq.snap(1); RIG.tilt.snap(0); $('#bl svg').getAnimations().forEach(a => a.cancel());
+  tabs = tabs.filter(t => t.id !== 'custom'); selected = 'overview'; built = null; mode = 'dash';
+  $('#pill').style.display = 'none'; $('#pillcap').style.display = 'none'; $('#chip').style.display = 'none';
+  B.el.getAnimations().forEach(a => a.cancel()); B.sq.getAnimations().forEach(a => a.cancel()); place(46, 38, 40); look(0, 0); freeLook = true;
+  showDash();
+};
+showDash();
+
+/* ?auto=lib|idle|type|cancel|build|add plays the flow by itself (for checking the page) */
+const auto = new URLSearchParams(location.search).get('auto');
+if (auto) (async () => {
+  await sleep(600); openLibrary(); await sleep(1500);
+  if (auto === 'lib') return;
+  openMake(); await sleep(1400);
+  if (auto === 'idle') return;
+  if (auto === 'type') { await sleep(600); typeOut('weather in riyadh this week', 60); return; }
+  if (auto === 'cancel') { await sleep(900); closeMake(); return; }
+  await typeOut('live scores of today’s matches', 40); await sleep(500);
+  submit();
+  if (auto === 'add') { await sleep(9000); addToIsland('football'); await sleep(3200); goal(); }
+})();
+</script>
+</body>
+</html>

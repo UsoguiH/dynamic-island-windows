@@ -154,7 +154,8 @@ public sealed class BloubHost
         if (wantShape != _shape) { _shape = wantShape; Engine.SetShape(wantShape, now); }
 
         // Eyes follow the cursor when it is anywhere near the top of the screen.
-        Vector2? delta = Vector2.Distance(m.Cursor, center) < 700 ? m.Cursor - center : null;
+        // (…or the words you are typing into the New agent form)
+        Vector2? delta = m.Team.FormGaze(m) is { } words ? words - center : Vector2.Distance(m.Cursor, center) < 700 ? m.Cursor - center : null;
         _tracker.Update(Engine, now, delta, new Vector2(240, 150));
         Squish.Step((float)Math.Min(0.05, Math.Max(0, now - _lastStep)));
         _lastStep = now;
@@ -168,12 +169,15 @@ public sealed class BloubHost
             AlertKind.ClaudePermission => (BloubState.Exclaim, BloubExpressionId.Surpris),
             AlertKind.Allowed => (BloubState.Wink, BloubExpressionId.Heureux),
             AlertKind.Info => (BloubState.Notify, BloubExpressionId.Curieux),
+            AlertKind.File or AlertKind.Drop => (BloubState.Idle, BloubExpressionId.Neutre),
             AlertKind.Agent => m.AlertAgent?.Status == AgentStatus.NeedsYou ? (BloubState.Exclaim, BloubExpressionId.Surpris) : (BloubState.Wink, BloubExpressionId.Heureux),
             _ => (BloubState.Wide, BloubExpressionId.Heureux),
         },
         Mode.Media or Mode.Split or Mode.Expanded => (m.Playing ? BloubState.Play : BloubState.Idle, BloubExpressionId.Heureux),
         Mode.Focus => (m.FocusPaused ? BloubState.Idle : BloubState.Thinking, BloubExpressionId.Attentif),
         Mode.Command => (BloubState.Thinking, BloubExpressionId.Attentif),
+        // asking the New agent form's questions: a face for each
+        Mode.Agents when m.Team.FormMood(m) is { } asking => (BloubState.Idle, asking),
         Mode.Full or Mode.Agents => (BloubState.Idle, BloubExpressionId.Neutre),
         // Peeking out of the folded line: curious about the cursor.
         _ when m.Peeking => (BloubState.Idle, BloubExpressionId.Curieux),

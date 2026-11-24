@@ -30,7 +30,7 @@ public static partial class Scenes
         float sx = x + 48;
         if (ok)
         {
-            c.Circle(sx + 3, y + 30, 3, Rgba(Green, 0.55f + 0.45f * MathF.Abs(MathF.Sin(m.Clock * 2.2f))));
+            c.Circle(sx + 3, y + 30, 3, Rgba(Green, 0.55f + 0.45f * MathF.Abs((float)Math.Sin(m.Clock * 2.2f))));
             sx += 12;
         }
         c.Text($"{d.Host} · {fresh}", sx, y + 22, 11.5f, Tertiary, FontWeight.Regular, 0, w - 80);
@@ -167,7 +167,7 @@ public static partial class Scenes
         float cx = x + w / 2, cy = y + h / 2 - 20;
         for (int i = 0; i < 3; i++)
         {
-            float k = 0.5f + 0.5f * MathF.Sin(m.Clock * 5 - i * 0.7f);
+            float k = 0.5f + 0.5f * (float)Math.Sin(m.Clock * 5 - i * 0.7f);
             c.Circle(cx - 16 + i * 16, cy, 3.5f + k * 1.5f, WhiteA(0.25f + 0.6f * k));
         }
         c.Text($"Fetching from {host}", cx, cy + 20, 12.5f, Tertiary, FontWeight.Regular, 0.5f);
@@ -276,7 +276,7 @@ public static partial class Scenes
             string clock = row.GetValueOrDefault("clock", "LIVE");
             float cw = c.Measure(clock, 10.5f, FontWeight.SemiBold) + 24;
             c.Round(chipX, chipY, cw, chipH, 10, Rgba(Green, 0.16f));
-            c.Circle(chipX + 10, chipY + 10, 2.5f, Rgba(Green, 0.4f + 0.6f * MathF.Abs(MathF.Sin(m.Clock * 2.4f))));
+            c.Circle(chipX + 10, chipY + 10, 2.5f, Rgba(Green, 0.4f + 0.6f * MathF.Abs((float)Math.Sin(m.Clock * 2.4f))));
             c.Text(clock, chipX + 17, chipY + 2.5f, 10.5f, White, FontWeight.SemiBold);
         }
         else

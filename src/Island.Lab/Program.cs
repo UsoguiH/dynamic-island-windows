@@ -44,6 +44,18 @@ static class Program
             Environment.ExitCode = TabBuilder.Cli(argv.ElementAtOrDefault(bi + 1) ?? "", change);
             return;
         }
+        // `IslandLab --pick-folder <start folder> <result file>`: Windows' folder window by itself (dev: the New agent form's "Other folder…")
+        if (Array.IndexOf(argv, "--pick-folder") is > 0 and var pf)
+        {
+            File.WriteAllText(argv.ElementAtOrDefault(pf + 2) ?? "pick.txt", FolderPick.SelfTest(argv.ElementAtOrDefault(pf + 1)));
+            return;
+        }
+        // `IslandLab --done-check <result file> [samples a second]`: the film's Finished as it is now played, sample by sample (dev: no pose may be held)
+        if (Array.IndexOf(argv, "--done-check") is > 0 and var dc)
+        {
+            File.WriteAllText(argv.ElementAtOrDefault(dc + 1) ?? "done.txt", OrbFilm.DoneCheck(int.TryParse(argv.ElementAtOrDefault(dc + 2), out int hz) ? hz : 120));
+            return;
+        }
         // One island at a time: launching it again (shortcut, Start menu) just opens the running one.
         _single = new Mutex(true, "IslandLab.SingleInstance", out bool first);
         // measuring: the instance just killed may still be letting go of the mutex
@@ -52,7 +64,8 @@ static class Program
         if (!first)
         {
             var other = FindWindowW("IslandLabWindow", "Island");
-            if (other != 0) PostMessageW(other, WM_APP_SHOW, 0, 0);
+            // `IslandLab --file-demo`: the running island plays the file animation (as if a file had been dropped on it)
+            if (other != 0) PostMessageW(other, Array.IndexOf(argv, "--file-demo") > 0 ? WM_APP_FILE : Array.IndexOf(argv, "--done-demo") > 0 ? WM_APP_DONE : WM_APP_SHOW, 0, 0);
             return;
         }
         timeBeginPeriod(1);
@@ -87,6 +100,14 @@ static class Program
         using var gpu = new Gpu(_hwnd, pw, ph, _scale);
         using var renderer = new FrameRenderer(gpu);
         _model = new IslandModel { Hwnd = _hwnd };
+        // dev: ISLAND_UPTIME=253000 starts his clock as if the island had been running that many seconds (nothing may coarsen or freeze after days)
+        if (double.TryParse(Environment.GetEnvironmentVariable("ISLAND_UPTIME"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double uptime)) _model.Clock = uptime;
+        // the island is a real drop target: it knows when a file comes over it, leaves, and lands (see Platform/DragDrop)
+        DragDrop.Register(_hwnd, p => _model.DragEntered(p), () => _model.DragLeft(), p =>
+        {
+            GetCursorPos(out var at);
+            _model.DropLanded(p, new Vector2((at.X - _winX) / _scale, (at.Y - _winY) / _scale));
+        });
         ShowWindow(_hwnd, SW_SHOWNOACTIVATE);
         _tray = new Tray(_hwnd);
 
@@ -96,6 +117,8 @@ static class Program
         RegisterHotKey(_hwnd, 103, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 'W');
         RegisterHotKey(_hwnd, 104, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 'A');
         RegisterHotKey(_hwnd, 105, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 'D'); // preview the "done" celebration
+        Diag.Log("hotkey Ctrl+Alt+G (done, in the island): " + RegisterHotKey(_hwnd, 107, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 'G'));
+        Diag.Log("hotkey Ctrl+Alt+F (file animation): " + RegisterHotKey(_hwnd, 106, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 'F'));
         // Auto-retract: first free key wins (Ctrl+Alt+R is often taken by other apps).
         foreach (char k in "HRJ")
             if (RegisterHotKey(_hwnd, 102, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, k)) { _retractKey = k; break; }
@@ -126,7 +149,15 @@ static class Program
             }
             _hMsg += Stopwatch.GetTimestamp() - _pBusyFrom;
             if (!tick) continue;
+            if (Frame()) return;
+            // a row of the Pocket was dragged out: Windows runs the drag in its own loop, and the island keeps drawing from a timer
+            if (_model.Pocket.DragOut is { } outgoing) { _model.Pocket.DragOut = null; SendOut(outgoing, Frame); }
+            if (_dryOut is { } dry) { _dryOut = null; SendOut(new PocketItem { Path = dry, Name = Path.GetFileName(dry), Kind = PocketItem.KindOf(dry) }, Frame, dry: true); }
+        }
 
+        // one tick: the model, the drawing, the stage. True when the island is done (a shot was saved, the demo ended).
+        bool Frame()
+        {
             double now = clock.Elapsed.TotalSeconds;
             if (now - last > 0.04 && last > 0) Hitch(now - last);
             long h0 = Stopwatch.GetTimestamp();
@@ -160,8 +191,22 @@ static class Program
 
             GetCursorPos(out var p);
             _cursor = new Vector2((p.X - _winX) / _scale, (p.Y - _winY) / _scale);
-            bool inside = !_model.Hidden && HitTest(_cursor);
-            SetClickThrough(!inside);
+            if (_fakeCursor is { } fake && now >= fake.At) _cursor = fake.P;
+            bool inside = !_model.Hidden && HitTest(_cursor, _model.Catching ? 12 : 0);   // (holding a file over him: the edge is forgiving, so a bounce never drops it)
+            // a button pressed outside the island and still held: something is being dragged (a file, a window)
+            bool held = GetAsyncKeyState(1) < 0 || now >= _fakeHeld;
+            if (!held) _dragging = false; else if (!_heldBefore && !inside) { _dragging = true; _dragFrom = _cursor; }
+            _heldBefore = held;
+            _model.ButtonHeld = held;
+            _model.DragOver = _dragging || _model.Catching;
+            // Something is being carried up to the island: the space around it takes it too, so a file is caught as
+            // soon as it comes near (the folded line is 5 px high: nobody can aim a file at that). Only for a drag
+            // that started somewhere else: a click or a window grabbed right here is left alone.
+            bool zone = held && !_model.Hidden && (_dragging || _model.Catching) && InCatchZone(_cursor)
+                        && !InCatchZone(_dragFrom) && Vector2.Distance(_cursor, _dragFrom) > 24;
+            if (zone && _model.Catching) inside = true;   // (while the card opens under the file, it stays "over" him)
+            if (zone != _inZone) { _inZone = zone; Log($"catch zone {(zone ? "on" : "off")} cursor={_cursor.X:0},{_cursor.Y:0} catching={_model.Catching}"); }
+            SetClickThrough(!(inside || zone));
 
             long pt0 = Stopwatch.GetTimestamp();
             _hCheck = pt0 - h0;
@@ -170,8 +215,8 @@ static class Program
             long pt1 = Stopwatch.GetTimestamp();
             renderer.Render(_model); // redraws (and presents) only what changed, if anything
             _stillTicks = renderer.Presented ? 0 : _stillTicks + 1;
-            if (Shot.Plan is { } shot && now >= shot.At) { Shot.Save(gpu, shot.File); SetReserved(false); _model.Team.Dispose(); _tray?.Dispose(); return; }
-            if (Shot.Film != null && Shot.FilmFrame(gpu, now)) { SetReserved(false); _model.Team.Dispose(); _tray?.Dispose(); return; }
+            if (Shot.Plan is { } shot && now >= shot.At) { Shot.Save(gpu, shot.File); SetReserved(false); _model.Team.Dispose(); _tray?.Dispose(); return true; }
+            if (Shot.Film != null && Shot.FilmFrame(gpu, now)) { SetReserved(false); _model.Team.Dispose(); _tray?.Dispose(); return true; }
             // the hover target is only known after drawing, so a mouse that stops on a button gets its cursor here
             if (inside && CursorId() is var want && want != _shownCursor) { _shownCursor = want; SetCursor(LoadCursorW(0, want)); }
             else if (!inside) _shownCursor = 0;
@@ -185,12 +230,25 @@ static class Program
                     StartStage(mi.rcMonitor, g => new Celebration(g, pc.Agent.Name), () => _model.CelebrationLanded(pc.Agent, pc.Title, pc.Text));
                 else _model.AgentAlert(pc.Agent, pc.Title, pc.Text);
             }
+            // A session finished: he himself goes out to your pointer and says so (nothing opens in the island).
+            if (_welcome == null && _model.PendingFlight is { } pf)
+            {
+                _model.PendingFlight = null;
+                if (!_model.Hidden)
+                {
+                    string who = pf.Agent?.Name ?? (pf.Title.EndsWith(" is done") ? pf.Title[..^8] : pf.Title);
+                    StartStage(mi.rcMonitor, g => new DoneFlight(g, _model.Film, who, pf.Agent?.Color), () => _model.DoneLanded(pf.Agent, pf.Title, pf.Text));
+                }
+                else if (pf.Agent != null) _model.AgentAlert(pf.Agent, pf.Title, pf.Text);
+            }
             long st0 = Stopwatch.GetTimestamp();
             _hUpdate = pt1 - pt0; _hRender = st0 - pt1;
             if (_welcome != null)
             {
                 var (w, _, _, landed) = _welcome.Value;
-                w.Frame(dt, new Vector2((p.X - mi.rcMonitor.Left) / _scale, (p.Y - mi.rcMonitor.Top) / _scale));
+                var sp = new Vector2((p.X - mi.rcMonitor.Left) / _scale, (p.Y - mi.rcMonitor.Top) / _scale);
+                if (_fakeCursor is { } fk && now >= fk.At) sp = new Vector2((_winX - mi.rcMonitor.Left) / _scale + fk.P.X, (_winY - mi.rcMonitor.Top) / _scale + fk.P.Y);   // (dev: ISLAND_CURSOR is the stage's pointer too)
+                w.Frame(dt, sp);
                 // ISLAND_STAGESHOT="0.9,1.6,2.7:C:\out\intro": saves the stage's own frame at those moments (to check a scene without filming the screen)
                 if (_stageShots is { } ss && _stageShot < ss.Times.Length && w.Clock >= ss.Times[_stageShot])
                     Shot.Save(_welcome.Value.gpu, $"{ss.Prefix}{_stageShot++}.png");
@@ -198,7 +256,53 @@ static class Program
             }
             _hStage = Stopwatch.GetTimestamp() - st0;
             _hWait = _hMsg = 0;
+            if (_stagesLeft >= 0 && _welcome == null && !_replayWelcome && _model.PendingCelebration == null && StageCheck(now)) return true;
+            return false;
         }
+    }
+
+    // ---- dragging a file out of the Pocket. Windows runs the drag in its own loop and only returns when the file
+    // is dropped or the drag is cancelled. That loop runs nothing of ours (no timers, no messages: measured) and
+    // only moves on when a mouse or key message arrives; each time it does, it calls the drag's callbacks, and the
+    // island ticks from those. So that it keeps ticking while the cursor rests, a mouse-move carrying the buttons'
+    // real state is put in the island's own queue every 8 ms: it tells the loop nothing the mouse isn't saying.
+    static bool _inDragFrame;
+
+    /// <summary>Dev (ISLAND_DEMO=dragout:path): the drag-out with nothing allowed to be dropped and no button held.</summary>
+    static string? _dryOut;
+
+    static void SendOut(PocketItem item, Func<bool> frame, bool dry = false)
+    {
+        _model.PressUp();
+        int ticks = 0, inside = 1;
+        // (which button drags: the left one, or the right one when the buttons are swapped)
+        bool swapped = GetSystemMetrics(23 /* SM_SWAPBUTTON */) != 0;
+        new Thread(() =>
+        {
+            for (int n = 0; Volatile.Read(ref inside) == 1; n++)
+            {
+                // (the dev test: the button is said to be held for a second, then let go; Esc if that did not end it)
+                if (dry && n >= 250) { PostMessageW(_hwnd, WM_KEYDOWN, 0x1B, 0); break; }
+                nint keys = dry ? (n < 100 ? 1 : 0) : (GetAsyncKeyState(swapped ? 2 : 1) < 0 ? 1 : 0) | (GetAsyncKeyState(swapped ? 1 : 2) < 0 ? 2 : 0);
+                GetCursorPos(out var at); ScreenToClient(_hwnd, ref at);
+                PostMessageW(_hwnd, 0x0200 /* WM_MOUSEMOVE */, keys, (nint)(((at.Y & 0xFFFF) << 16) | (at.X & 0xFFFF)));
+                Thread.Sleep(dry ? 10 : 8);
+            }
+        }) { IsBackground = true, Name = "drag-out" }.Start();
+        long lastTick = 0;
+        bool dropped = DragDrop.Send(_hwnd, item.Path, dry, () =>
+        {
+            // one frame per display refresh at most
+            long t = Stopwatch.GetTimestamp();
+            if (_inDragFrame || (t - lastTick) * 1000.0 / Stopwatch.Frequency < 6.5) return;
+            lastTick = t; _inDragFrame = true; ticks++;
+            try { if (frame()) PostQuitMessage(0); } finally { _inDragFrame = false; }
+        });
+        Volatile.Write(ref inside, 0);
+        // (what is left of the heartbeat must not reach the island as a mouse move of its own)
+        while (PeekMessageW(out _, _hwnd, 0x0200, 0x0200, PM_REMOVE)) { }
+        Diag.Log($"dragged out {item.Kind}: dropped={dropped} ticks={ticks}");
+        if (dropped) _model.Bloub.React(Mascot.BloubState.Wink, _model.Clock, 1.2, Mascot.BloubExpressionId.Heureux);
     }
 
     // ---- where a hitch went: the wait and the messages since the last tick, and that tick's own work
@@ -217,6 +321,16 @@ static class Program
     }
 
     static (StageScene scene, Gpu gpu, nint hwnd, Action landed)? _welcome;
+    static bool _dragging, _heldBefore;
+    static Vector2 _dragFrom;
+    static bool _inZone;
+    // ISLAND_HELD=1.5 : from that second on the left button counts as held (to check the catch zone without the mouse)
+    static readonly double _fakeHeld = double.TryParse(Environment.GetEnvironmentVariable("ISLAND_HELD"), System.Globalization.CultureInfo.InvariantCulture, out double fh) ? fh : double.MaxValue;
+
+    /// <summary>Where a dragged file is caught: the top middle of the screen, around the island (DIPs).</summary>
+    public const float CatchHalfW = 170, CatchH = 96;
+    static bool InCatchZone(Vector2 p) => p.Y >= -2 && p.Y <= CatchH && MathF.Abs(p.X - IslandModel.CX) <= CatchHalfW;
+    static GpuDevice? _stageDevice;
     static int _stillTicks;
     static nint _shownCursor;
 
@@ -243,7 +357,7 @@ static class Program
         if (now - _perfAt < 3) return;
         double s = now - _perfAt;
         int g0 = GC.CollectionCount(0), g2 = GC.CollectionCount(2); var gp = GC.GetTotalPauseDuration();
-        Log($"perf ticks={_pFrames / s:0}/s drawn={_pDrawn / s:0}/s busy={_pBusy / s:0.0}ms/s late={_pLate} worst={_pWorst:0.0}ms slow={_pSlow} " +
+        Log($"perf clock={(_model.Clock - _pClock) / s:0.00}x ticks={_pFrames / s:0}/s drawn={_pDrawn / s:0}/s busy={_pBusy / s:0.0}ms/s late={_pLate} worst={_pWorst:0.0}ms slow={_pSlow} " +
             $"gc={g0 - _pGc0}/{g2 - _pGc2} pause={(gp - _pPause).TotalMilliseconds:0.0}ms alloc={(GC.GetTotalAllocatedBytes(false) - _pAlloc) / s / 1024:0}KB/s " +
             $"update={_pUpd / _pFrames:0.000}ms render={(_pRen - _pPres) / _pFrames:0.000}ms present={_pPres / _pFrames:0.000}ms " +
             $"(probe={FrameRenderer.ProbeMs / _pFrames:0.000} draw={FrameRenderer.DrawMs / _pFrames:0.000} flush={FrameRenderer.FlushMs / _pFrames:0.000}) " +
@@ -255,9 +369,11 @@ static class Program
         }
         Prof.Report(Log, _pFrames);
         FrameRenderer.ProbeMs = FrameRenderer.DrawMs = FrameRenderer.FlushMs = 0; FrameRenderer.Regions = 0;
+        _pClock = _model.Clock;
         _perfAt = now; _pUpd = _pRen = _pPres = _pBusy = 0; _pFrames = _pDrawn = _pLate = 0;
         _pWorst = 0; _pSlow = 0; (_pGc0, _pGc2, _pPause, _pAlloc) = (g0, g2, gp, GC.GetTotalAllocatedBytes(false));
     }
+    static double _pClock;   // (the island's clock at the last report: it must run at 1.00x of real time)
     static double _pWorst; static int _pSlow, _pGc0, _pGc2; static TimeSpan _pPause; static long _pAlloc;
     static string? _demo = Environment.GetEnvironmentVariable("ISLAND_DEMO");
     static (string Id, double At)? _demoToggle;
@@ -294,6 +410,12 @@ static class Program
                         case "new": _model.OpenTeam(); _model.Team.SetView(TeamView.New); _model.Team.Task.Set(arg); _model.FocusField(_model.Team.Task); break;
                         case "rest": _model.FocusField(null); _model.SetMode(Mode.Dormant); break;
                         case "act": _model.Act(arg); break;
+                        case "pose": if (_model.Mode != Mode.Agents) _model.OpenTeam(); _model.Team.DemoPose(_model, arg); break;   // (showcase: a pretend agent on stage, in one of its states)
+                        case "catch": _model.DragEntered(_demoHeld = DemoPayload("drop", arg)); break;
+                        case "droplink": _model.DragEntered(_demoHeld = DemoPayload("droplink", arg)); break;
+                        case "leave": _model.DragLeft(); break;
+                        case "land": if (_demoHeld is { } held) _model.DropLanded(held, new Vector2(IslandModel.CX + 150, _model.Top + 150)); break;
+                        case "ask": _model.Team.NewAgentWith(_model, arg.Split('|').ToList()); break;
                     }
                 }));
             }
@@ -333,6 +455,47 @@ static class Program
             _demoPlan.Add((_model.Clock + 1.0, () => _model.Act("limits")));
         }
         else if (p[0] == "intro") _replayWelcome = true;
+        // the film states without the mouse: ISLAND_DEMO=greet (he has just landed and says hello), ISLAND_DEMO="file:Holiday.mp4"
+        else if (p[0] == "greet") _model.WelcomeLanded();
+        else if (p[0] == "done") _model.Team.DoneDemo(_model);
+        else if (p[0] == "banner")
+        {
+            // the banner a session's news shows in the island (banner = done, banner:needs = needs you), without the flight
+            bool needs = p.Length > 1 && p[1] == "needs";
+            _demoPlan.Add((_model.Clock + 1.2, () =>
+            {
+                var a = _model.Team.Live.FirstOrDefault(x => needs == (x.Status == AgentStatus.NeedsYou)) ?? _model.Team.Live.FirstOrDefault();
+                if (a != null) _model.AgentAlert(a, needs ? $"{a.Name} needs you" : $"{a.Name} is done", needs ? a.Activity : "Stopped both local servers because your PC was running low on memory");
+            }));
+        }
+        else if (p[0] == "finish") _model.Team.FinishDemo(_model);
+        else if (p[0] == "file") _model.FileDropped(p.Length > 1 ? string.Join(":", p[1..]) : "Holiday film.mp4");
+        // giving him a file without the mouse: "catch:<path>" holds it over him, "drop:<path>|<path>" lets it go a second later,
+        // "droplink:<url>", "droptext:<words>", "pocket" opens the Pocket tab, "ask:<path>" the New agent form with it attached
+        else if (p[0] is "catch" or "drop" or "droplink" or "droptext")
+        {
+            var what = DemoPayload(p[0], string.Join(":", p[1..]));
+            _model.DragEntered(what);
+            if (p[0] != "catch") _demoPlan.Add((_model.Clock + 1.1, () => _model.DropLanded(what, new Vector2(IslandModel.CX + 150, _model.Top + 170))));
+        }
+        else if (p[0] == "pocket") { _model.SetMode(Mode.Full); _model.Act("tab:pocket"); }
+        // the same through Windows' own drag-and-drop interface (no mouse): "oledrop:<path>" enters and drops, "oleleave:<path>" enters and leaves
+        else if (p[0] is "oledrop" or "oleleave")
+        {
+            string path = string.Join(":", p[1..]);
+            DragDrop.Test(path, 0);
+            _demoPlan.Add((_model.Clock + 1.1, () => DragDrop.Test(path, p[0] == "oledrop" ? 2 : 1)));
+        }
+        else if (p[0] == "dragout") { string path = string.Join(":", p[1..]); _demoPlan.Add((_model.Clock + 1.0, () => _dryOut = path)); }
+        else if (p[0] == "ask") _model.Team.NewAgentWith(_model, string.Join(":", p[1..]).Split('|').ToList());
+        else if (p[0] == "stages")
+        {
+            // leak check: ISLAND_DEMO="stages:12" plays 12 celebrations back to back ("stages:4:intro": the intro),
+            // writes the process's threads and memory after each to %TEMP%\island-stages.log, then quits.
+            // A stage that leaves its graphics device behind adds about ten driver threads each time.
+            _stagesLeft = p.Length > 1 && int.TryParse(p[1], out int count) ? count : 8;
+            _stagesIntro = p.Length > 2 && p[2] == "intro";
+        }
         else if (p[0] == "idle") { } // nothing: the island as it rests (no intro), for measuring
         else if (p[0] == "new")
         {
@@ -341,6 +504,46 @@ static class Program
             if (p.Length > 1) { _model.Team.Task.Set(string.Join(":", p[1..])); _model.FocusField(_model.Team.Task); }
         }
         else _model.OpenTeam();
+    }
+
+    // Dev: ISLAND_CURSOR="x,y" or "x,y@seconds" puts the cursor at that point of the island's window (DIPs), to look at hover states without the mouse.
+    static readonly (Vector2 P, double At)? _fakeCursor = ParseCursor(Environment.GetEnvironmentVariable("ISLAND_CURSOR"));
+    static (Vector2, double)? ParseCursor(string? v)
+    {
+        if (v == null) return null;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        string[] at = v.Split('@'), xy = at[0].Split(',');
+        return xy.Length == 2 && float.TryParse(xy[0], inv, out float x) && float.TryParse(xy[1], inv, out float y)
+            ? (new Vector2(x, y), at.Length > 1 && double.TryParse(at[1], inv, out double t) ? t : 0) : null;
+    }
+
+    static DropPayload? _demoHeld;
+    static DropPayload DemoPayload(string kind, string arg) => kind switch
+    {
+        "droplink" => new DropPayload([], arg, null),
+        "droptext" => new DropPayload([], null, arg),
+        _ => new DropPayload(arg.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries), null, null),
+    };
+
+    static int _stagesLeft = -1, _stagesPlayed;
+    static bool _stagesIntro;
+    static double _stageRestUntil;
+
+    /// <summary>ISLAND_DEMO=stages: between two stages, notes what the process holds and starts the next. True when all are played.</summary>
+    static bool StageCheck(double now)
+    {
+        if (_stageRestUntil == 0) { _stageRestUntil = now + 0.6; return false; } // the driver's threads take a moment to leave
+        if (now < _stageRestUntil) return false;
+        _stageRestUntil = 0;
+        // what is only waiting for the garbage collector is not a leak: collect first, then count
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+        using var me = Process.GetCurrentProcess();
+        File.AppendAllText(Path.Combine(Path.GetTempPath(), "island-stages.log"),
+            $"{DateTime.Now:HH:mm:ss} stages={_stagesPlayed} threads={me.Threads.Count} handles={me.HandleCount} private={me.PrivateMemorySize64 >> 20}MB{Environment.NewLine}");
+        if (_stagesLeft == 0) { SetReserved(false); _model.Team.Dispose(); _tray?.Dispose(); return true; }
+        _stagesLeft--; _stagesPlayed++;
+        if (_stagesIntro) _replayWelcome = true; else _model.Team.CelebrateDemo(_model);
+        return false;
     }
 
     static void DemoTab(string id)
@@ -369,7 +572,7 @@ static class Program
             keybd_event(0x12, 0, 0, 0); keybd_event(0x12, 0, 2, 0); // lets a background process take the foreground
             SetForegroundWindow(_hwnd);
         }
-        if (!want && _wantFocus && fg == _hwnd && _prevForeground != 0 && IsWindow(_prevForeground))
+        if (!want && _wantFocus && fg == _hwnd && _prevForeground != 0 && IsWindow(_prevForeground) && !FolderPick.Open)   // (not while the folder window is coming up: it takes the keyboard)
             SetForegroundWindow(_prevForeground); // hand the keyboard back to where you were
         _wantFocus = want;
     }
@@ -440,7 +643,10 @@ static class Program
         var hwnd = CreateOverlay("Island Stage");
         int w = mon.Right - mon.Left, h = mon.Bottom - mon.Top;
         SetWindowPos(hwnd, HWND_TOPMOST, mon.Left, mon.Top, w, h, SWP_NOACTIVATE);
-        var gpu = new Gpu(hwnd, w, h, _scale);
+        // every stage draws on the same device, made at the first one and kept (a driver reset replaces it)
+        if (_stageDevice is { Lost: true }) { _stageDevice.Dispose(); _stageDevice = null; }
+        _stageDevice ??= new GpuDevice();
+        var gpu = new Gpu(_stageDevice, hwnd, w, h, _scale);
         var scene = make(gpu);
         // The island's Bloub anchor, converted to the stage window's DIPs.
         scene.Target = () => (new Vector2((_winX - mon.Left) / _scale + _model.Face.X.Value, (_winY - mon.Top) / _scale + _model.Face.Y.Value),
@@ -498,7 +704,7 @@ static class Program
                r.Left < cx + reach && r.Right > cx - reach;
     }
 
-    static bool HitTest(Vector2 p)
+    static bool HitTest(Vector2 p, float grow = 0)
     {
         var (w, h, r) = _model.Live;
         float dx = MathF.Abs(p.X - IslandModel.CX);
@@ -513,7 +719,7 @@ static class Program
         var q = new Vector2(MathF.Abs(p.X - IslandModel.CX), MathF.Abs(p.Y - (_model.Top + h / 2)))
                 - new Vector2(w / 2 - r, h / 2 - r);
         float d = Vector2.Max(q, Vector2.Zero).Length() + MathF.Min(MathF.Max(q.X, q.Y), 0) - r;
-        if (d <= 1.5f) return true;
+        if (d <= 1.5f + grow) return true;
         if (_model.Bubble.Value > 0.5f)
         {
             var (c, br) = FrameRenderer.BubbleGeometry(_model);
@@ -579,8 +785,9 @@ static class Program
                     Tray.StartsWithWindows ? "I'll be here every time you log in" : "Open me from the Start menu when you want me");
                 break;
             case Tray.Command.Quit: PostQuitMessage(0); break;
-            case Tray.Command.Preview: _model.Team.CelebrateDemo(_model); break;
+            case Tray.Command.Preview: _model.Team.DoneDemo(_model); break;
             case Tray.Command.Intro: _replayWelcome = true; break;
+            case Tray.Command.File: _model.FileDropped("Holiday film.mp4"); break;
         }
     }
 
@@ -616,6 +823,12 @@ static class Program
             case WM_APP_SHOW when hwnd == _hwnd:
                 OnTray(Tray.Command.Open);
                 return 0;
+            case WM_APP_DONE when hwnd == _hwnd:
+                _model.Team.DoneDemo(_model);
+                return 0;
+            case WM_APP_FILE when hwnd == _hwnd:
+                OnTray(Tray.Command.File);
+                return 0;
             case WM_CHAR when hwnd == _hwnd:
                 OnChar((char)wParam);
                 return 0;
@@ -627,7 +840,8 @@ static class Program
                 break;
             case WM_MOUSEWHEEL when hwnd == _hwnd:
                 float wheel = (short)((wParam >> 16) & 0xFFFF) / 120f * 40;
-                if (_model.Mode != Mode.Full || _model.Tabs.Editing || !_model.Tabs.Wheel(wheel)) _model.Team.Wheel(wheel);
+                if (_model.Mode == Mode.Full && !_model.Tabs.Editing && _model.Tabs.Selected == "pocket") _model.Pocket.Wheel(wheel);
+                else if (_model.Mode != Mode.Full || _model.Tabs.Editing || !_model.Tabs.Wheel(wheel)) _model.Team.Wheel(wheel);
                 return 0;
             case WM_DESTROY:
                 if (hwnd == _hwnd) PostQuitMessage(0);
@@ -653,7 +867,9 @@ static class Program
             case 100: PostQuitMessage(0); break;
             case 103: _replayWelcome = true; break;
             case 104: _model.SetMode(Mode.Agents); break;
-            case 105: _model.Team.CelebrateDemo(_model); break;
+            case 105: _model.Team.DoneDemo(_model); break;             // (Ctrl+Alt+D: what a finished session now plays)
+            case 106: _model.FileDropped("Holiday film.mp4"); break; // preview the file animation
+            case 107: _model.Team.DoneDemo(_model); break;             // "done", shown in the island itself: the film's Finished
             case 101:
                 SetReserved(!_model.ReserveMode);
                 _model.ShowInfo(_model.ReserveMode ? "Reserved bar" : "Floating",

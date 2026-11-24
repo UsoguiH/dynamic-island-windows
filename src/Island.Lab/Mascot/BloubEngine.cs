@@ -309,6 +309,9 @@ public sealed class BloubEngine
     /// continuous by construction. And ONLY in that case: freezing on every change would stop the
     /// outgoing state's own animation dead for the whole fade.
     /// </summary>
+    /// <summary>Blinks now (0.2 s: shut at the half-way point). A moment in the past starts it part-way through, e.g. already shut and opening.</summary>
+    public void Blink(double at) => _blinkAt = at;
+
     public void SetState(BloubState id, double now)
     {
         _sampled = null;

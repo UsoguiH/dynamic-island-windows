@@ -29,6 +29,9 @@ internal static unsafe partial class Native
     public const uint WM_ACTIVATE = 0x0006;
     public const uint WM_HOTKEY = 0x0312;
     public const uint WM_DPICHANGED = 0x02E0;
+    public const uint WM_TIMER = 0x0113;
+    public const uint WM_APP_DONE = 0x8004; // WM_APP + 4: "show done in the island" (sent by IslandLab --done-demo)
+    public const uint WM_APP_FILE = 0x8003; // WM_APP + 3 (+ 2 is the tray icon): "play the file animation" (sent by `IslandLab --file-demo`)
     public const int MA_NOACTIVATE = 3;
     public const uint PM_REMOVE = 0x1;
     public const uint MOD_ALT = 0x1, MOD_CONTROL = 0x2, MOD_NOREPEAT = 0x4000;
@@ -84,6 +87,8 @@ internal static unsafe partial class Native
     [DllImport("user32")] public static extern void PostQuitMessage(int code);
     [DllImport("user32")] public static extern bool ShowWindow(nint hwnd, int cmd);
     [DllImport("user32")] public static extern bool GetCursorPos(out POINT p);
+    [DllImport("user32")] public static extern bool ScreenToClient(nint hwnd, ref POINT p);
+    [DllImport("user32")] public static extern int GetSystemMetrics(int index);
     [DllImport("user32")] public static extern nint GetWindowLongPtrW(nint hwnd, int index);
     [DllImport("user32")] public static extern nint SetWindowLongPtrW(nint hwnd, int index, nint value);
     [DllImport("user32")] public static extern bool SetLayeredWindowAttributes(nint hwnd, uint key, byte alpha, uint flags);
@@ -96,6 +101,9 @@ internal static unsafe partial class Native
     [DllImport("user32")] public static extern bool PostMessageW(nint hwnd, uint msg, nint wParam, nint lParam);
     [DllImport("user32")] public static extern bool IsWindow(nint hwnd);
     [DllImport("user32")] public static extern short GetKeyState(int vk);
+    [DllImport("user32")] public static extern short GetAsyncKeyState(int vk);
+    [DllImport("user32")] public static extern nuint SetTimer(nint hwnd, nint id, uint ms, nint proc);
+    [DllImport("user32")] public static extern bool KillTimer(nint hwnd, nint id);
     [DllImport("user32")] public static extern void keybd_event(byte vk, byte scan, uint flags, nint extra);
     [DllImport("user32")] public static extern bool GetWindowRect(nint hwnd, out RECT r);
     [DllImport("user32")] public static extern nint MonitorFromWindow(nint hwnd, uint flags);

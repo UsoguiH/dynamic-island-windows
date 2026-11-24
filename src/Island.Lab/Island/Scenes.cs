@@ -73,8 +73,13 @@ public static partial class Scenes
         switch (m.Alert)
         {
             case AlertKind.Welcome:
-                c.Text("Hi, I'm Bloub — your Island", x0 + 80, y0 + 17, 15, White, FontWeight.SemiBold);
-                c.Text("Hover me for your dashboard · hover the team for your Claude sessions", x0 + 80, y0 + 41, 12.5f, Secondary, maxWidth: w - 100);
+                WelcomeWords(c, m, x0, y0);
+                break;
+            case AlertKind.Drop:
+                DropCatch(c, m, x0, y0, w, h);
+                break;
+            case AlertKind.File:
+                DropRow(c, m, x0, y0, w, h);
                 break;
             case AlertKind.Info:
                 c.Text(m.InfoTitle, x0 + 80, y0 + 17, 15, White, FontWeight.SemiBold);
@@ -82,15 +87,20 @@ public static partial class Scenes
                 break;
             case AlertKind.Agent when m.AlertAgent is { } ag:
             {
-                c.Text(m.InfoTitle, x0 + 80, y0 + 17, 15, White, FontWeight.SemiBold, 0, w - 200);
-                c.Text(m.InfoText, x0 + 80, y0 + 41, 12.5f, Secondary, maxWidth: w - 200);
-                // the agent's colour + its status, on the right
-                var sc = Rgba(ag.StatusColor);
-                float pw = c.Measure(ag.StatusText, 12.5f, FontWeight.SemiBold) + 34;
-                c.Round(x0 + w - pw - 18, y0 + h / 2 - 15, pw, 30, 15, WithA(sc, 0.2f));
-                float pulse = ag.Status == AgentStatus.NeedsYou ? 0.6f + 0.4f * MathF.Sin(m.Clock * 6) : 1;
-                c.Circle(x0 + w - pw - 2, y0 + h / 2, 5, WithA(Rgba(ag.Color), pulse));
-                c.Text(ag.StatusText, x0 + w - 30, y0 + h / 2 - 9, 12.5f, sc, FontWeight.SemiBold, 1);
+                // Hick's law: one choice, and it is obvious. No status chip that looks like a button and is not one
+                // ("idle" said again what "is done" already says): what happened, in a line, and the one thing to do
+                // about it, in the session's own colour so you know which one it is. (The whole banner does it too.)
+                bool needs = ag.Status == AgentStatus.NeedsYou;
+                string act = needs ? "Answer" : "Open";
+                float bw = c.Measure(act, 13, FontWeight.SemiBold) + 36, bh = 32;
+                float bx = x0 + w - bw - 18, by = y0 + h / 2 - bh / 2, tw = bx - (x0 + 80) - 14;
+                c.Text(m.InfoTitle, x0 + 80, y0 + 17, 15, White, FontWeight.SemiBold, 0, tw);
+                c.Text(m.InfoText, x0 + 80, y0 + 41, 12.5f, Secondary, maxWidth: tw);
+                var col = Rgba(ag.Color);
+                float pulse = needs ? 0.82f + 0.18f * (float)Math.Sin(m.Clock * 6) : 1;
+                c.Round(bx, by, bw, bh, bh / 2, WithA(col, pulse));
+                bool light = 0.2126f * col.R + 0.7152f * col.G + 0.0722f * col.B > 0.62f;   // (dark words on a light colour)
+                c.Text(act, bx + bw / 2, by + 7, 13, light ? new Vortice.Mathematics.Color4(0.05f, 0.05f, 0.07f, 1) : White, FontWeight.SemiBold, 0.5f);
                 break;
             }
             case AlertKind.Allowed:
@@ -111,6 +121,68 @@ public static partial class Scenes
                 c.Text("Allow", x0 + w - 52, y0 + 30, 13.5f, White, FontWeight.SemiBold, 0.5f);
                 break;
         }
+    }
+
+    // ---- the welcome's words: the title arrives word by word while he settles, then the two things you can do
+    // pop in as chips (hover him: the dashboard; hover the team: your Claude sessions)
+
+    static readonly (string Text, FontWeight Weight, float Alpha)[] WelcomeTitle =
+    [
+        ("Hi,", FontWeight.SemiBold, 1f), ("I'm", FontWeight.SemiBold, 1f), ("Bloub", FontWeight.Bold, 1f),
+        ("—", FontWeight.Regular, 0.4f), ("your", FontWeight.Regular, 0.62f), ("Island", FontWeight.Regular, 0.62f),
+    ];
+
+    static void WelcomeWords(Canvas c, IslandModel m, float x0, float y0)
+    {
+        float t = m.ModeTime;
+        const float Size = 16.5f;
+        float x = x0 + 80, space = c.Measure("a b", Size) - c.Measure("ab", Size);
+        for (int i = 0; i < WelcomeTitle.Length; i++)
+        {
+            var (text, weight, alpha) = WelcomeTitle[i];
+            float u = Math.Clamp((t - 0.14f - i * 0.065f) / 0.4f, 0, 1), e = 1 - MathF.Pow(1 - u, 3);
+            if (e > 0.004f) c.Text(text, x, y0 + 11 + (1 - e) * 9, Size, WhiteA(alpha * e), weight);
+            x += c.Measure(text, Size, weight) + space;
+        }
+        float cx = x0 + 80;
+        cx += WelcomeChip(c, m, cx, y0 + 43, t - 0.56f, team: false, "Hover me", "dashboard") + 8;
+        WelcomeChip(c, m, cx, y0 + 43, t - 0.7f, team: true, "Hover the team", "Claude sessions");
+    }
+
+    /// <summary>One hint: a small Bloub, or the team's three dots (they wave now and then), what to do, and what it opens. Returns its width.</summary>
+    static float WelcomeChip(Canvas c, IslandModel m, float x, float y, float t, bool team, string lead, string rest)
+    {
+        const float H = 25, Size = 12f;
+        float lw = c.Measure(lead, Size, FontWeight.SemiBold), rw = c.Measure(rest, Size), iw = team ? 24 : 12;
+        float w = 9 + iw + 7 + lw + 6 + rw + 12;
+        float u = Math.Clamp(t / 0.45f, 0, 1);
+        if (u <= 0) return w;
+        // it pops: grows a little past its size and settles
+        float back = 1 + 2.70158f * MathF.Pow(u - 1, 3) + 1.70158f * MathF.Pow(u - 1, 2), a = MathF.Min(1, u * 2.4f);
+        var was = c.Transform;
+        c.Transform = Matrix3x2.CreateScale(0.8f + 0.2f * back, new Vector2(x + w / 2, y + H / 2)) * was;
+        c.Round(x, y, w, H, H / 2, WhiteA(0.1f * a));
+        float ix = x + 9, cy = y + H / 2;
+        if (!team)
+        {
+            c.Circle(ix + 6, cy, 6, Rgba(0xF2F2F7, a));
+            c.Round(ix + 3.4f, cy - 1.9f, 1.7f, 3.8f, 0.85f, new Vortice.Mathematics.Color4(0, 0, 0, a));
+            c.Round(ix + 6.9f, cy - 1.9f, 1.7f, 3.8f, 0.85f, new Vortice.Mathematics.Color4(0, 0, 0, a));
+        }
+        else
+        {
+            uint[] colours = [Blue, Orange, Green];
+            for (int i = 0; i < 3; i++)
+            {
+                float v = (float)((m.Clock / 2.4f - i * 0.06f) % 1), lift = v < 0.2f ? MathF.Sin(v / 0.2f * MathF.PI) * 2.6f : 0;
+                c.Circle(ix + 4.5f + i * 7.5f, cy - lift, 4.5f, Rgba(colours[i], a));
+            }
+        }
+        float tx = ix + iw + 7;
+        c.Text(lead, tx, y + 3.5f, Size, WhiteA(0.94f * a), FontWeight.SemiBold);
+        c.Text(rest, tx + lw + 6, y + 3.5f, Size, WhiteA(0.5f * a));
+        c.Transform = was;
+        return w;
     }
 
     static void Controls(Canvas c, IslandModel m, float cx, float cy, float scale)
@@ -211,6 +283,7 @@ public static partial class Scenes
             case "timer": TimerPanel(c, m, px, py, pw, ph); break;
             case "notes": NotesPanel(c, m, px, py, pw, ph); break;
             case "downloads": DownloadsPanel(c, m, px, py, pw, ph); break;
+            case "pocket": PocketPanel(c, m, px, py, pw, ph); break;
             case "clocks": ClocksPanel(c, m, px, py, pw, ph); break;
             case "network": NetworkPanel(c, m, px, py, pw, ph); break;
             case "battery": BatteryPanel(c, m, px, py, pw, ph); break;
@@ -222,12 +295,12 @@ public static partial class Scenes
         CheckToast(c, m, x0 + w / 2, y0 + h - 58);
 
         // Toast
-        float age = m.Clock - m.ToastTime;
+        float age = (float)(m.Clock - m.ToastTime);
         if (age < 1.8f)
         {
             float a = Math.Clamp(MathF.Min(age / 0.15f, (1.8f - age) / 0.3f), 0, 1);
             float tw2 = c.Measure(m.Toast, 13, FontWeight.SemiBold) + 32;
-            float ty = y0 + h - 52 + (1 - a) * 8;
+            float ty = y0 + h - (m.Tabs.Selected == "pocket" ? 41 : 52) + (1 - a) * 8;   // (in the Pocket it sits under the buttons, not on them)
             c.Round(x0 + w / 2 - tw2 / 2, ty, tw2, 32, 16, Canvas.WithA(Rgba(0x2C2C2E), a));
             c.Text(m.Toast, x0 + w / 2, ty + 7, 13, WhiteA(a), FontWeight.SemiBold, 0.5f);
         }
@@ -250,7 +323,7 @@ public static partial class Scenes
     static void CheckToast(Canvas c, IslandModel m, float cx, float top)
     {
         if (m.CheckAt < -50) return;
-        float t = m.Clock - m.CheckAt, go = m.CheckGoAt < 0 ? -1 : m.Clock - m.CheckGoAt;
+        float t = (float)(m.Clock - m.CheckAt), go = m.CheckGoAt < 0 ? -1 : (float)(m.Clock - m.CheckGoAt);
         float exit = go < 0 ? 0 : Math.Clamp((go - PhantomIcon.CheckSeconds - 1.5f) / 0.24f, 0, 1);
         if (exit >= 1) return;
         const float H = 44, Icon = 20, Gap = 10, Pad = 14, Fs = 14;
@@ -282,7 +355,7 @@ public static partial class Scenes
         // Claude Code: your real sessions (click → the team)
         var team = m.Team.Live.Take(3).ToList();
         var lim = m.Limits;
-        string meta = lim.Known ? $"5h {lim.FiveHour * 100:0}% · week {lim.Week * 100:0}%"
+        string meta = lim.Known ? string.Join(" · ", new[] { ("5h", lim.FiveHour), ("week", lim.Week), ("Fable", lim.Fable) }.Where(l => l.Item2 != null).Select(l => $"{l.Item1} {l.Item2 * 100:0}%"))
                     : m.Team.Count == 0 ? "no sessions" : m.Team.Count == 1 ? "1 session" : $"{m.Team.Count} sessions";
         Card(c, m, x, y, cw, ch, "Claude Code", meta, "agent");
         if (team.Count == 0)
@@ -294,7 +367,7 @@ public static partial class Scenes
         {
             var ag = team[i];
             float ry = y + 44 + i * 30;
-            float pulse = ag.Status == AgentStatus.Working ? 0.55f + 0.45f * MathF.Sin(m.Clock * 5 + i) : 1f;
+            float pulse = ag.Status == AgentStatus.Working ? 0.55f + 0.45f * (float)Math.Sin(m.Clock * 5 + i) : 1f;
             c.Circle(x + 22, ry + 8, 4.5f, Canvas.WithA(Rgba(ag.Color), pulse));
             c.Text(ag.Name, x + 34, ry, 13, White, FontWeight.SemiBold, 0, cw * 0.45f);
             float nameW = MathF.Min(c.Measure(ag.Name, 13, FontWeight.SemiBold), cw * 0.45f);
@@ -354,10 +427,10 @@ public static partial class Scenes
 
     static (string k, float v, string label, uint col)[] Stats(IslandModel m) =>
     [
-        ("CPU", 0.23f + 0.04f * MathF.Sin(m.Clock * 1.3f), "23%", Blue),
-        ("GPU", 0.41f + 0.05f * MathF.Sin(m.Clock * 0.9f), "41% · 62°", Green),
+        ("CPU", 0.23f + 0.04f * (float)Math.Sin(m.Clock * 1.3f), "23%", Blue),
+        ("GPU", 0.41f + 0.05f * (float)Math.Sin(m.Clock * 0.9f), "41% · 62°", Green),
         ("RAM", 0.58f, "18.6 GB", Orange),
-        ("VRAM", 0.47f + 0.02f * MathF.Sin(m.Clock * 0.5f), "3.8 / 8 GB", 0x5E5CE6),
+        ("VRAM", 0.47f + 0.02f * (float)Math.Sin(m.Clock * 0.5f), "3.8 / 8 GB", 0x5E5CE6),
         ("Disk", 0.71f, "C: 142 GB free", 0x64D2FF),
     ];
 
@@ -378,7 +451,7 @@ public static partial class Scenes
             bool needs = ag.Status == AgentStatus.NeedsYou;
             bool hov = m.Hit($"ag:k{ag.Key}", x, ry, w - 110, bh);
             c.Round(x, ry, w, bh, MathF.Min(18, bh / 2), WhiteA(needs ? 0.11f : hov ? 0.09f : 0.06f));
-            float pulse = ag.Status == AgentStatus.Working ? 0.55f + 0.45f * MathF.Sin(m.Clock * 5 + i) : 1f;
+            float pulse = ag.Status == AgentStatus.Working ? 0.55f + 0.45f * (float)Math.Sin(m.Clock * 5 + i) : 1f;
             c.Circle(x + 22, ry + bh / 2, 6, Canvas.WithA(Rgba(ag.Color), pulse));
             c.Text(ag.Name, x + 38, ry + bh / 2 - 18, 14, White, FontWeight.SemiBold, 0, 220);
             c.Text(ag.Activity, x + 38, ry + bh / 2 + 2, 12, needs ? Rgba(Orange) : Secondary, maxWidth: w - 330);
@@ -397,35 +470,33 @@ public static partial class Scenes
 
     static uint LimitColor(float used) => used >= 0.9f ? Red : used >= 0.75f ? Orange : Blue;
 
-    /// <summary>One limit: a ring with the % used, its name and when it resets.</summary>
-    static void LimitRing(Canvas c, float x, float y, float w, string name, float? used, DateTime? resets, bool weekly, float grow)
+    /// <summary>One limit, as a column: a ring with the % used, its name under it, and when it resets (or a warning).</summary>
+    static void LimitDial(Canvas c, float x, float y, float w, string name, float? used, DateTime? resets, bool weekly, float grow, bool checking)
     {
-        float r = 30, cx = x + r + 4, cy = y + r + 6;
+        float r = 26, cx = x + w / 2, cy = y + r + 2;
         if (used is { } u)
         {
-            c.Ring(cx, cy, r, 7, u * grow, WhiteA(0.1f), Rgba(LimitColor(u)));
-            c.Text($"{u * 100:0}%", cx, cy - 10, 15, White, FontWeight.SemiBold, 0.5f);
+            c.Ring(cx, cy, r, 6.5f, u * grow, WhiteA(0.1f), Rgba(LimitColor(u)));
+            c.Text($"{u * 100:0}%", cx, cy - 9.5f, 14, White, FontWeight.SemiBold, 0.5f);
         }
         else
         {
-            c.Ring(cx, cy, r, 7, 0, WhiteA(0.1f), WhiteA(0.3f));
-            c.Text("—", cx, cy - 10, 15, Tertiary, FontWeight.SemiBold, 0.5f);
+            c.Ring(cx, cy, r, 6.5f, 0, WhiteA(0.1f), WhiteA(0.3f));
+            c.Text("—", cx, cy - 9.5f, 14, Tertiary, FontWeight.SemiBold, 0.5f);
         }
-        float tx = x + r * 2 + 18, tw = w - r * 2 - 18;
-        c.Text(name, tx, y + 8, 13.5f, White, FontWeight.SemiBold, 0, tw);
-        if (resets is { } t)
+        float ty = cy + r + 9;
+        c.Text(name, cx, ty, 13, White, FontWeight.SemiBold, 0.5f, w - 4);
+        if (used is { } u2 && u2 >= 0.75f)
+            c.Text(u2 >= 0.9f ? "Almost out" : "Getting close", cx, ty + 18, 11, Rgba(LimitColor(u2)), FontWeight.SemiBold, 0.5f, w - 4);
+        else if (resets is { } t)
         {
             var left = t - DateTime.Now;
-            string when = weekly && left.TotalHours >= 24 ? t.ToString("ddd HH:mm") : t.ToString("HH:mm");
-            string inS = left.TotalHours >= 24 ? $"in {(int)left.TotalDays}d {left.Hours}h" : left.TotalHours >= 1 ? $"in {(int)left.TotalHours}h {left.Minutes:00}m" : $"in {Math.Max(0, left.Minutes)}m";
-            c.Icon('', tx + 5, y + 36, 10, Secondary); // ↻ resets
-            c.Text(when, tx + 14, y + 28, 11.5f, Secondary, FontWeight.SemiBold, 0, tw - 14);
-            c.Text(inS, tx, y + 44, 11.5f, Tertiary, FontWeight.Regular, 0, tw);
+            string when = weekly && left.TotalHours >= 24 ? $"{t:ddd HH:mm}" : $"{t:HH:mm}";
+            string inS = left.TotalHours >= 24 ? $"{(int)left.TotalDays}d {left.Hours}h" : left.TotalHours >= 1 ? $"{(int)left.TotalHours}h {left.Minutes:00}m" : $"{Math.Max(0, left.Minutes)}m";
+            c.Text($"{when} · {inS}", cx, ty + 18, 11, Tertiary, FontWeight.SemiBold, 0.5f, w - 2);
         }
-        else c.Text(used == null ? "checking…" : "", tx, y + 28, 11.5f, Tertiary);
-        if (used is { } u2)
-            c.Text(u2 >= 0.9f ? "Almost out" : u2 >= 0.75f ? "Getting close" : $"{(1 - u2) * 100:0}% left", x + 4, y + r * 2 + 22, 11.5f,
-                u2 >= 0.75f ? Rgba(LimitColor(u2)) : Tertiary, FontWeight.SemiBold);
+        // (Claude does not always report every window: a check that came back without this one is over, not still running)
+        else c.Text(used != null ? "" : checking ? "checking…" : "not reported", cx, ty + 18, 11, Tertiary, FontWeight.Regular, 0.5f, w - 4);
     }
 
     static string Tok(long n) => n >= 1_000_000 ? $"{n / 1e6:0.0}M" : n >= 1000 ? $"{n / 1e3:0}k" : n.ToString();
@@ -443,12 +514,15 @@ public static partial class Scenes
         }
         float pad = 16, h1 = 150, aw = 336, bw = w - aw - pad;
 
-        // ---- your real plan limits (5-hour + weekly), as /usage shows them
+        // ---- your real plan limits (5-hour, weekly and Fable), as /usage shows them
         var lim = m.Limits;
         string upd = lim.Probing && !lim.Known ? "checking…" : lim.Known ? Ago(lim.UpdatedAt) : lim.Error ?? "checking…";
         Card(c, m, x, y, aw, h1, "Plan limits", upd, "limits");
-        LimitRing(c, x + 16, y + 44, aw / 2 - 16, "5-hour", lim.FiveHour, lim.FiveResets, false, grow);
-        LimitRing(c, x + aw / 2 + 4, y + 44, aw / 2 - 16, "Weekly", lim.Week, lim.WeekResets, true, grow);
+        bool checking = lim.Probing || (!lim.Known && lim.Error == null);
+        float lw = (aw - 16) / 3;
+        LimitDial(c, x + 8, y + 42, lw, "5-hour", lim.FiveHour, lim.FiveResets, false, grow, checking);
+        LimitDial(c, x + 8 + lw, y + 42, lw, "Weekly", lim.Week, lim.WeekResets, true, grow, checking);
+        LimitDial(c, x + 8 + 2 * lw, y + 42, lw, "Fable", lim.Fable, lim.FableResets, true, grow, checking);
 
         // ---- today
         float bx = x + aw + pad;

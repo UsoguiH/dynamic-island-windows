@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Island app icon "Rise Glance": white Bloub rising into black space, glancing up to the right.
+       Source for src/Island.Lab/Assets/bloub.ico. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#101016"/><stop offset="1" stop-color="#000000"/></linearGradient>
+    <radialGradient id="body" cx="40%" cy="22%" r="85%"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#f1f2f5"/><stop offset="1" stop-color="#c3c7d0"/></radialGradient>
+    <clipPath id="tile"><rect x="16" y="16" width="224" height="224" rx="58"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect x="16" y="16" width="224" height="224" fill="url(#sky)"/>
+    <g fill="#fff">
+      <circle cx="44" cy="40" r="2.2" opacity=".8"/><circle cx="74" cy="70" r="1.4" opacity=".45"/>
+      <circle cx="102" cy="30" r="1.7" opacity=".6"/><circle cx="150" cy="46" r="1.2" opacity=".4"/>
+      <circle cx="176" cy="26" r="2.4" opacity=".85"/><circle cx="206" cy="58" r="1.7" opacity=".6"/>
+      <circle cx="222" cy="98" r="1.4" opacity=".4"/><circle cx="36" cy="104" r="1.5" opacity=".45"/>
+      <circle cx="128" cy="84" r="1" opacity=".3"/><circle cx="190" cy="100" r="1" opacity=".3"/>
+    </g>
+    <circle cx="128" cy="236" r="108" fill="url(#body)"/>
+    <ellipse cx="89.1" cy="171.2" rx="28.1" ry="14" transform="rotate(-28 89.1 171.2)" fill="#fff" opacity=".6"/>
+    <g transform="rotate(14 140 172)" fill="#0b0b10">
+      <rect x="99.5" y="140" width="27" height="64" rx="13.5"/>
+      <rect x="156.2" y="143.2" width="21.6" height="57.6" rx="10.8"/>
+    </g>
+  </g>
+</svg>

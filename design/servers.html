@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Servers Tab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..600,0..1,-25..200&display=block" rel="stylesheet">
+<style>
+:root {
+  --spring: linear(0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%, 1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%, 0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1);
+  --soft: linear(0, 0.06 3%, 0.23 7.4%, 0.55 14.6%, 0.81 22.4%, 0.94 29.6%, 1.01 37.4%, 1.03 44.6%, 1.02 55%, 1);
+  --page: #e9e6f2;
+  --ink: #1d1b22;
+  --sub: #4a4655;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --page: #15131b; --ink: #f1eff6; --sub: #a9a4b6; }
+}
+:root[data-theme="dark"] { --page: #15131b; --ink: #f1eff6; --sub: #a9a4b6; }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  min-height: 100vh; font-family: Inter, system-ui, sans-serif; color: var(--ink); overflow-x: hidden;
+  background:
+    radial-gradient(60% 50% at 12% 18%, #9fb0ff 0%, transparent 60%),
+    radial-gradient(50% 45% at 88% 14%, #ffa9cf 0%, transparent 60%),
+    radial-gradient(55% 50% at 72% 88%, #ffd29b 0%, transparent 62%),
+    radial-gradient(50% 50% at 18% 90%, #95e8da 0%, transparent 60%),
+    var(--page);
+}
+.page { max-width: 1100px; margin: 0 auto; padding: 22px 16px 60px; display: flex; flex-direction: column; align-items: center; }
+.picker { display: flex; gap: 6px; padding: 6px; border-radius: 999px; background: rgba(20, 18, 26, .9); box-shadow: 0 10px 30px rgba(40, 20, 80, .25); flex-wrap: wrap; justify-content: center; }
+.picker button { all: unset; cursor: pointer; padding: 9px 16px; border-radius: 999px; color: rgba(255,255,255,.62); font: 600 13px Inter; display: flex; gap: 8px; align-items: center; transition: background .25s, color .25s; }
+.picker button:hover { color: #fff; }
+.picker button.on { background: #fff; color: #111; }
+.picker kbd { font: 600 10px Inter; opacity: .5; border: 1px solid currentColor; border-radius: 5px; padding: 1px 5px; }
+.blurb { margin: 14px 0 22px; text-align: center; max-width: 740px; }
+.blurb h2 { margin: 0 0 6px; font: 700 22px Inter; letter-spacing: -.02em; }
+.blurb p { margin: 0; font: 400 14px/1.5 Inter; color: var(--sub); }
+.stage { width: 100%; display: flex; justify-content: center; }
+.tools { margin-top: 18px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.tools button { all: unset; cursor: pointer; padding: 8px 14px; border-radius: 999px; background: rgba(20, 18, 26, .86); color: #fff; font: 600 12.5px Inter; display: flex; gap: 6px; align-items: center; }
+.tools button:hover { background: #000; }
+.tools .ms { font-size: 17px; }
+
+/* ---------- the island ---------- */
+.scale { width: 724px; max-width: 100%; }
+.island {
+  position: relative; width: 724px; height: 404px; border-radius: 46px; background: #000; color: #fff;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.04), 0 24px 70px rgba(70, 40, 160, .35), 0 6px 18px rgba(0,0,0,.25);
+  overflow: hidden; transform-origin: top left;
+}
+@media (max-width: 760px) { .scale { height: calc((100vw - 32px) / 724 * 404); } .island { transform: scale(calc((100vw - 32px) / 724px)); } }
+.top { position: absolute; left: 26px; right: 22px; top: 18px; height: 40px; display: flex; align-items: center; gap: 10px; }
+.top .tabs { display: flex; gap: 4px; margin-left: 24px; flex: 1; }
+.top .tab { padding: 7px 12px; border-radius: 999px; font: 600 13px Inter; color: rgba(255,255,255,.55); }
+.top .tab.on { background: rgba(255,255,255,.14); color: #fff; }
+.top .avs { display: flex; padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,.08); }
+.top .avs svg { margin-left: -5px; }
+.top .edit { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.08); }
+.top .edit .ms { font-size: 18px; }
+.panel { position: absolute; left: 20px; right: 20px; top: 70px; bottom: 20px; }
+
+.ms { font-family: 'Material Symbols Rounded'; font-weight: normal; font-style: normal; font-size: 20px; line-height: 1; display: inline-block; white-space: nowrap; -webkit-font-smoothing: antialiased; font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24; user-select: none; }
+.num { font-variant-numeric: tabular-nums; }
+.sub { color: rgba(255,255,255,.45); }
+.live { width: 7px; height: 7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 0 var(--c); animation: pulse 2.4s ease-in-out infinite; flex: none; }
+@keyframes pulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 color-mix(in srgb, var(--c) 55%, transparent); } 60% { opacity: .55; box-shadow: 0 0 0 5px transparent; } }
+
+.toast { position: absolute; left: 50%; bottom: 14px; transform: translate(-50%, 30px); opacity: 0; padding: 8px 14px; border-radius: 999px; background: #1c1c22; font: 600 12px Inter; transition: transform .45s var(--spring), opacity .25s; pointer-events: none; white-space: nowrap; }
+.toast.on { transform: translate(-50%, 0); opacity: 1; }
+
+/* round icon buttons (Open / Stop) */
+.ib { all: unset; cursor: pointer; height: 30px; min-width: 30px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: rgba(255,255,255,.1); color: #fff; font: 600 12px Inter; transition: background .2s, transform .35s var(--spring), padding .35s var(--spring), color .2s; }
+.ib .ms { font-size: 17px; }
+.ib:hover { background: rgba(255,255,255,.2); }
+.ib:active { transform: scale(.9); }
+.ib.open:hover { background: #0A84FF; }
+.ib.stop:hover { background: rgba(255,69,58,.28); color: #ff8a80; }
+.ib.sure { background: #FF453A; color: #fff; padding: 0 12px 0 9px; }
+.ib .lbl { display: none; }
+.ib.sure .lbl { display: inline; }
+
+/* entering / leaving */
+.enter { animation: enter .6s var(--spring) both; }
+@keyframes enter { from { opacity: 0; transform: translateY(10px) scale(.92); } }
+.leave { animation: leave .38s cubic-bezier(.4, 0, .9, .5) both; pointer-events: none; }
+@keyframes leave { to { opacity: 0; transform: scale(.88); filter: blur(2px); } }
+
+/* ============ A · by session ============ */
+.A { display: flex; flex-direction: column; gap: 8px; height: 100%; overflow: hidden; }
+.A .hd { display: flex; align-items: baseline; justify-content: space-between; padding: 0 6px 2px; font: 600 13px Inter; color: rgba(255,255,255,.62); }
+.A .hd small { font: 500 11.5px Inter; color: rgba(255,255,255,.38); }
+.A .grp { display: flex; gap: 12px; align-items: stretch; padding: 10px 10px 10px 12px; border-radius: 22px; background: rgba(255,255,255,.055); }
+.A .who { width: 128px; flex: none; display: flex; align-items: center; gap: 9px; }
+.A .who b { font: 600 13px Inter; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.A .who span { font: 500 11px Inter; color: rgba(255,255,255,.42); }
+.A .ports { flex: 1; display: flex; gap: 8px; min-width: 0; }
+.A .port { position: relative; flex: 1; max-width: 250px; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border-radius: 16px; background: rgba(255,255,255,.06); cursor: pointer; transition: background .25s, transform .45s var(--spring); }
+.A .port:hover { background: rgba(255,255,255,.11); }
+.A .port .g { flex: 1; min-width: 0; }
+.A .port .p { font: 650 16px Inter; letter-spacing: -.01em; }
+.A .port .p i { font-style: normal; color: rgba(255,255,255,.35); font-weight: 500; }
+.A .port .k { font: 500 11.5px Inter; color: rgba(255,255,255,.45); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.A .port .acts { display: flex; gap: 4px; opacity: 0; transform: translateX(6px); transition: opacity .2s, transform .4s var(--spring); }
+.A .port:hover .acts, .A .port .acts:has(.sure) { opacity: 1; transform: none; }
+.A .bg { display: flex; align-items: center; gap: 8px; padding: 2px 8px 0; font: 500 12px Inter; color: rgba(255,255,255,.45); flex-wrap: wrap; }
+.A .bg .ms { font-size: 16px; color: rgba(255,255,255,.35); }
+.A .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 6px 5px 10px; border-radius: 999px; background: rgba(255,255,255,.05); color: rgba(255,255,255,.7); }
+.A .chip .ib { height: 22px; min-width: 22px; background: transparent; }
+.A .chip .ib .ms { font-size: 14px; color: inherit; }
+
+/* ============ B · port tiles ============ */
+.B { height: 100%; display: flex; flex-direction: column; gap: 10px; }
+.B .hd { display: flex; align-items: center; justify-content: space-between; padding: 0 6px; font: 600 13px Inter; color: rgba(255,255,255,.62); }
+.B .hd .stack { display: flex; align-items: center; gap: 8px; font: 500 11.5px Inter; color: rgba(255,255,255,.4); }
+.B .grid { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; gap: 10px; min-height: 0; }
+.B .tile { position: relative; border-radius: 22px; padding: 14px 14px 12px 16px; background: rgba(255,255,255,.06); display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; cursor: pointer; transition: background .25s, transform .5s var(--spring); }
+.B .tile::before { content: ''; position: absolute; inset: 0; background: radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--c) 22%, transparent), transparent 60%); opacity: .9; pointer-events: none; }
+.B .tile:hover { background: rgba(255,255,255,.1); transform: translateY(-2px); }
+.B .tile.svc { background: rgba(255,255,255,.035); }
+.B .tile.svc::before { opacity: .35; }
+.B .tile .row1 { display: flex; align-items: center; gap: 8px; position: relative; }
+.B .tile .gl { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 24%, transparent); color: var(--c); }
+.B .tile .gl .ms { font-size: 17px; }
+.B .tile .kind { font: 600 12.5px Inter; color: rgba(255,255,255,.75); flex: 1; }
+.B .tile .p { position: relative; font: 650 30px/1 Inter; letter-spacing: -.03em; margin-top: 6px; }
+.B .tile .p i { font-style: normal; color: rgba(255,255,255,.3); font-weight: 500; }
+.B .tile .foot { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 6px; font: 500 11.5px Inter; color: rgba(255,255,255,.45); min-height: 30px; }
+.B .tile .tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px 3px 3px; border-radius: 999px; background: color-mix(in srgb, var(--s) 20%, transparent); color: color-mix(in srgb, var(--s) 55%, #fff); font: 600 11px Inter; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.B .tile .acts { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 4px; opacity: 0; transform: translateY(6px); transition: opacity .2s, transform .45s var(--spring); }
+.B .tile:hover .acts, .B .tile .acts:has(.sure) { opacity: 1; transform: none; }
+.B .tile:hover .foot .up, .B .tile:has(.sure) .foot .up { opacity: 0; }
+.B .tile .foot .up { transition: opacity .2s; }
+.B .tile .live { position: absolute; right: 16px; top: 18px; }
+
+/* ============ C · quiet list ============ */
+.C { height: 100%; display: flex; flex-direction: column; }
+.C .hd { display: flex; align-items: center; gap: 10px; padding: 0 8px 8px; }
+.C .hd .big { font: 650 22px Inter; letter-spacing: -.02em; }
+.C .hd .sub { font: 500 12px Inter; }
+.C .hd .flex { flex: 1; }
+.C .seg { display: flex; padding: 3px; border-radius: 999px; background: rgba(255,255,255,.07); }
+.C .seg button { all: unset; cursor: pointer; padding: 5px 11px; border-radius: 999px; font: 600 11.5px Inter; color: rgba(255,255,255,.55); transition: background .25s, color .25s; }
+.C .seg button.on { background: rgba(255,255,255,.16); color: #fff; }
+.C .list { flex: 1; border-radius: 22px; background: rgba(255,255,255,.045); padding: 6px; overflow: hidden; display: flex; flex-direction: column; }
+.C .r { position: relative; display: grid; grid-template-columns: 34px 92px 1fr auto 84px; align-items: center; gap: 12px; padding: 5px 10px 5px 8px; border-radius: 16px; cursor: pointer; transition: background .2s; min-height: 42px; }
+.C .r:hover { background: rgba(255,255,255,.07); }
+.C .r + .r::before { content: ''; position: absolute; left: 54px; right: 12px; top: 0; height: 1px; background: rgba(255,255,255,.06); }
+.C .r:hover::before, .C .r:hover + .r::before { opacity: 0; }
+.C .gl { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 22%, transparent); color: var(--c); position: relative; }
+.C .gl .ms { font-size: 18px; }
+.C .gl .live { position: absolute; right: -2px; top: -2px; border: 2px solid #0e0e10; width: 10px; height: 10px; }
+.C .p { font: 650 15px Inter; letter-spacing: -.01em; }
+.C .p i { font-style: normal; color: rgba(255,255,255,.32); font-weight: 500; }
+.C .k { font: 500 12.5px Inter; color: rgba(255,255,255,.72); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.C .k small { color: rgba(255,255,255,.38); font-size: 11.5px; margin-left: 6px; }
+.C .tag { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px Inter; color: color-mix(in srgb, var(--s) 50%, #fff); white-space: nowrap; }
+.C .tag.none { color: rgba(255,255,255,.3); font-weight: 500; }
+.C .acts { display: flex; gap: 4px; justify-content: flex-end; opacity: 0; transition: opacity .2s; }
+.C .r:hover .acts, .C .acts:has(.sure) { opacity: 1; }
+.C .r .up { position: absolute; right: 18px; font: 500 11.5px Inter; color: rgba(255,255,255,.35); transition: opacity .2s; pointer-events: none; }
+.C .r:hover .up, .C .r:has(.sure) .up { opacity: 0; }
+
+.empty { height: 100%; display: grid; place-items: center; text-align: center; color: rgba(255,255,255,.5); font: 500 13px Inter; }
+.empty b { display: block; color: #fff; font: 600 15px Inter; margin: 10px 0 4px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <radialGradient id="bloubShade" cx="38%" cy="30%" r="75%"><stop offset="0" stop-color="#fff"/><stop offset=".7" stop-color="#e7e7ee"/><stop offset="1" stop-color="#b9b9c4"/></radialGradient>
+  </defs>
+</svg>
+
+<div class="page">
+  <nav class="picker" id="picker"></nav>
+  <div class="blurb"><h2 id="dTitle"></h2><p id="dText"></p></div>
+  <div class="stage"><div class="scale"><div class="island" id="island">
+    <div class="top">
+      <span id="face"></span>
+      <div class="tabs"><span class="tab">Overview</span><span class="tab">Agents</span><span class="tab">Usage</span><span class="tab">System</span><span class="tab on">Servers</span></div>
+      <div class="avs" id="avs"></div>
+      <div class="edit"><span class="ms">edit</span></div>
+    </div>
+    <div class="panel" id="panel"></div>
+    <div class="toast" id="toast"></div>
+  </div></div></div>
+  <div class="tools">
+    <button id="spawn"><span class="ms">add</span>A session starts a server</button>
+    <button id="reset"><span class="ms">refresh</span>Reset</button>
+  </div>
+</div>
+
+<script>
+if (location.search.includes('still')) document.head.insertAdjacentHTML('beforeend', '<style>*,*::before,*::after{transition:none!important;animation:none!important}</style>');
+
+/* the island's agent palette (AgentTeam.Palette) */
+const SESSIONS = {
+  aurora: { name: 'aurora-web', c: '#2D8CFF', s: 'working' },
+  orbit:  { name: 'orbit-landing', c: '#F0479B', s: 'idle' },
+  pixel:  { name: 'pixel-api', c: '#E5374C', s: 'working' },
+  notes:  { name: 'notes-cli', c: '#7A3BF0', s: 'needs you' },
+};
+const KINDS = {
+  Vite:       { c: '#A47BFF', g: 'bolt' },
+  Storybook:  { c: '#FF4785', g: 'auto_stories' },
+  Astro:      { c: '#FF7A3D', g: 'rocket_launch' },
+  uvicorn:    { c: '#2FBF98', g: 'api' },
+  PostgreSQL: { c: '#5B9BFF', g: 'database' },
+  Redis:      { c: '#FF5A4E', g: 'database' },
+  'Next.js':  { c: '#E8E8EE', g: 'change_history' },
+};
+const START = () => [
+  { port: 5173, kind: 'Vite', proc: 'node', up: '42m', s: 'aurora', web: true },
+  { port: 6006, kind: 'Storybook', proc: 'node', up: '18m', s: 'aurora', web: true },
+  { port: 4321, kind: 'Astro', proc: 'node', up: '7m', s: 'orbit', web: true },
+  { port: 8000, kind: 'uvicorn', proc: 'python', up: '2h', s: 'pixel', web: true },
+  { port: 5432, kind: 'PostgreSQL', proc: 'postgres', up: '1d', s: null, web: false },
+  { port: 6379, kind: 'Redis', proc: 'redis-server', up: '1d', s: null, web: false },
+];
+let servers = START();
+let confirmPort = 0, confirmTimer = 0, fresh = 0, filter = 'all';
+
+const DESIGNS = [
+  { id: 'A', name: 'By session', title: 'A · Grouped by session',
+    text: 'Each Claude session gets a row with its own Bloub, and the servers it started sit beside it as tiles. Databases and other background services fold into one quiet line at the bottom. Open and Stop appear only on hover.' },
+  { id: 'B', name: 'Port tiles', title: 'B · Port tiles',
+    text: 'Every server is a tile with a big port number, its framework glyph and a soft glow in the framework colour. The session tag (a tiny Bloub and its name) sits in the corner. Click a tile to open it; Stop slides in on hover.' },
+  { id: 'C', name: 'Quiet list', title: 'C · Quiet list',
+    text: 'A calm, dense list: framework glyph with a live dot, port, what it is, and which session started it. No buttons until you hover a row. A count up top, with a filter for “Claude’s” vs everything.' },
+];
+let design = 'A';
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const ms = (n, st = '') => `<span class="ms" style="${st}">${n}</span>`;
+function bloub(size, color, look = 0) {
+  const body = color || 'url(#bloubShade)';
+  const shade = color ? `<circle cx="20" cy="20" r="19" fill="url(#bloubShade)" opacity=".22"/>` : '';
+  const dx = look * 1.6;
+  return `<svg class="bloub" data-eyes width="${size}" height="${size}" viewBox="0 0 40 40" style="flex:none"><circle cx="20" cy="20" r="19" fill="${body}"/>${shade}
+    <g class="eyes" style="transform:translate(${dx}px,0);transition:transform .5s var(--soft)"><rect x="13.2" y="12.5" width="4.6" height="10.5" rx="2.3" fill="#0b0b10" transform="rotate(8 15.5 17.75)"/><rect x="22.2" y="12" width="4.6" height="10.5" rx="2.3" fill="#0b0b10" transform="rotate(8 24.5 17.25)"/></g></svg>`;
+}
+function toast(t) {
+  const el = $('#toast'); el.textContent = t; el.classList.add('on');
+  clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 1700);
+}
+const port = s => `<i>:</i>${s.port}`;
+function acts(s) {
+  const sure = confirmPort === s.port;
+  return `${s.web ? `<button class="ib open" data-open="${s.port}" title="Open">${ms('arrow_outward')}</button>` : ''}
+    <button class="ib stop${sure ? ' sure' : ''}" data-stop="${s.port}" title="Stop">${ms('stop')}<span class="lbl">Stop?</span></button>`;
+}
+const isNew = s => s.port === fresh ? ' enter' : '';
+
+/* ---------- A ---------- */
+function renderA() {
+  const own = servers.filter(s => s.s), svc = servers.filter(s => !s.s);
+  const groups = [...new Set(own.map(s => s.s))];
+  if (!servers.length) return empty();
+  return `<div class="A">
+    <div class="hd"><span>Running on this PC</span><small>${servers.length} listening · ${own.length} started by Claude</small></div>
+    ${groups.map(g => { const se = SESSIONS[g]; return `<div class="grp${own.find(s => s.s === g && s.port === fresh) && own.filter(s => s.s === g).length === 1 ? ' enter' : ''}">
+      <div class="who">${bloub(30, se.c)}<div style="min-width:0"><b>${se.name}</b><span>${se.s}</span></div></div>
+      <div class="ports">${own.filter(s => s.s === g).map(s => { const k = KINDS[s.kind];
+        return `<div class="port${isNew(s)}" data-row="${s.port}" ${s.web ? `data-open="${s.port}"` : ''}>
+          <span class="live" style="--c:${k.c}"></span>
+          <div class="g"><div class="p num">${port(s)}</div><div class="k">${s.kind} · up ${s.up}</div></div>
+          <div class="acts">${acts(s)}</div></div>`; }).join('')}</div></div>`; }).join('')}
+    ${svc.length ? `<div class="bg">${ms('dns')}<span>Background</span>${svc.map(s => `<span class="chip${isNew(s)}" data-row="${s.port}"><span class="live" style="--c:${KINDS[s.kind].c};animation:none;width:6px;height:6px"></span>${s.kind} <span class="num" style="color:rgba(255,255,255,.4)">:${s.port}</span><button class="ib stop${confirmPort === s.port ? ' sure' : ''}" data-stop="${s.port}" title="Stop">${ms('close')}<span class="lbl">Stop?</span></button></span>`).join('')}</div>` : ''}
+  </div>`;
+}
+
+/* ---------- B ---------- */
+function renderB() {
+  if (!servers.length) return empty();
+  const own = servers.filter(s => s.s);
+  const who = [...new Set(own.map(s => s.s))];
+  const list = [...servers.filter(s => s.s), ...servers.filter(s => !s.s)].slice(0, 6);
+  return `<div class="B">
+    <div class="hd"><span>Running on this PC</span><span class="stack">${who.map(g => bloub(18, SESSIONS[g].c)).join('')}<span>${own.length} from Claude · ${servers.length - own.length} services</span></span></div>
+    <div class="grid">${list.map(s => { const k = KINDS[s.kind], se = s.s && SESSIONS[s.s];
+      return `<div class="tile${s.s ? '' : ' svc'}${isNew(s)}" style="--c:${k.c}" data-row="${s.port}" ${s.web ? `data-open="${s.port}"` : ''}>
+        <span class="live" style="--c:${k.c}"></span>
+        <div class="row1"><span class="gl">${ms(k.g)}</span><span class="kind">${s.kind}</span></div>
+        <div class="p num">${port(s)}</div>
+        <div class="foot">${se ? `<span class="tag" style="--s:${se.c}">${bloub(16, se.c)}${se.name}</span>` : `<span>${s.proc}</span>`}<span class="up">up ${s.up}</span></div>
+        <div class="acts">${acts(s)}</div></div>`; }).join('')}</div>
+  </div>`;
+}
+
+/* ---------- C ---------- */
+function renderC() {
+  const shown = filter === 'claude' ? servers.filter(s => s.s) : servers;
+  const own = servers.filter(s => s.s).length;
+  return `<div class="C">
+    <div class="hd"><span class="big num">${servers.length}</span><span class="sub">listening · ${own} started by Claude</span><span class="flex"></span>
+      <div class="seg"><button data-filter="all" class="${filter === 'all' ? 'on' : ''}">All</button><button data-filter="claude" class="${filter === 'claude' ? 'on' : ''}">From Claude</button></div></div>
+    <div class="list">${shown.length ? shown.map(s => { const k = KINDS[s.kind], se = s.s && SESSIONS[s.s];
+      return `<div class="r${isNew(s)}" data-row="${s.port}" ${s.web ? `data-open="${s.port}"` : ''}>
+        <span class="gl" style="--c:${k.c}">${ms(k.g)}<span class="live" style="--c:${k.c}"></span></span>
+        <span class="p num">${port(s)}</span>
+        <span class="k">${s.kind}<small>${s.proc}</small></span>
+        ${se ? `<span class="tag" style="--s:${se.c}">${bloub(18, se.c)}${se.name}</span>` : `<span class="tag none">service</span>`}
+        <div class="acts">${acts(s)}</div><span class="up">up ${s.up}</span></div>`; }).join('') : `<div class="empty"><div>Nothing from Claude right now</div></div>`}</div>
+  </div>`;
+}
+
+function empty() {
+  return `<div class="empty"><div>${bloub(46)}<b>No dev servers running</b>Start one (npm run dev, uvicorn, dotnet run…) and it shows up here</div></div>`;
+}
+
+/* ---------- wiring ---------- */
+function render() {
+  $('#panel').innerHTML = { A: renderA, B: renderB, C: renderC }[design]();
+  fresh = 0;
+}
+function pick(id) {
+  design = id; confirmPort = 0;
+  const d = DESIGNS.find(d => d.id === id);
+  $('#dTitle').textContent = d.title; $('#dText').textContent = d.text;
+  document.querySelectorAll('#picker button').forEach(b => b.classList.toggle('on', b.dataset.id === id));
+  try { localStorage.setItem('servers-design', id); } catch {}
+  render();
+}
+$('#picker').innerHTML = DESIGNS.map((d, i) => `<button data-id="${d.id}">${d.name}<kbd>${i + 1}</kbd></button>`).join('');
+$('#picker').addEventListener('click', e => { const b = e.target.closest('button'); if (b) pick(b.dataset.id); });
+addEventListener('keydown', e => { const d = DESIGNS[+e.key - 1]; if (d) pick(d.id); });
+$('#face').innerHTML = bloub(40);
+$('#avs').innerHTML = Object.values(SESSIONS).map(s => bloub(22, s.c)).join('');
+
+$('#panel').addEventListener('click', e => {
+  const f = e.target.closest('[data-filter]');
+  if (f) { filter = f.dataset.filter; render(); return; }
+  const st = e.target.closest('[data-stop]');
+  if (st) {
+    const p = +st.dataset.stop;
+    if (confirmPort !== p) { confirmPort = p; clearTimeout(confirmTimer); confirmTimer = setTimeout(() => { confirmPort = 0; render(); }, 3000); render(); return; }
+    confirmPort = 0;
+    const s = servers.find(s => s.port === p);
+    const el = document.querySelector(`[data-row="${p}"]`);
+    const grp = design === 'A' && s.s && servers.filter(x => x.s === s.s).length === 1 ? el.closest('.grp') : el;
+    (grp || el).classList.add('leave');
+    setTimeout(() => { servers = servers.filter(s => s.port !== p); render(); toast(`Stopped ${s.kind} on :${p}`); }, 360);
+    return;
+  }
+  const o = e.target.closest('[data-open]');
+  if (o) toast(`Opening localhost:${o.dataset.open}`);
+});
+
+/* the face Bloub glances at the server you hover */
+$('#panel').addEventListener('mousemove', e => {
+  const r = $('#island').getBoundingClientRect();
+  const look = Math.max(-1, Math.min(1, (e.clientX - r.left - 362) / 300));
+  document.querySelectorAll('.top .eyes, .A .who .eyes').forEach(g => g.style.transform = `translate(${look * 1.6}px, ${0.6}px)`);
+});
+$('#panel').addEventListener('mouseleave', () => document.querySelectorAll('.eyes').forEach(g => g.style.transform = ''));
+
+const EXTRA = [
+  { port: 4322, kind: 'Astro', proc: 'node', up: 'now', s: 'orbit', web: true },
+  { port: 3000, kind: 'Next.js', proc: 'node', up: 'now', s: 'notes', web: true },
+  { port: 8001, kind: 'uvicorn', proc: 'python', up: 'now', s: 'pixel', web: true },
+];
+$('#spawn').onclick = () => {
+  const n = EXTRA.find(x => !servers.some(s => s.port === x.port));
+  if (!n) { toast('That’s plenty of servers'); return; }
+  servers.push({ ...n }); servers.sort((a, b) => (a.s ? 0 : 1) - (b.s ? 0 : 1)); fresh = n.port; render();
+  toast(`${SESSIONS[n.s].name} started ${n.kind} on :${n.port}`);
+};
+$('#reset').onclick = () => { servers = START(); confirmPort = 0; render(); };
+
+let saved = new URLSearchParams(location.search).get('d') || 'A'; try { saved = new URLSearchParams(location.search).get('d') || localStorage.getItem('servers-design') || 'A'; } catch {}
+pick(DESIGNS.some(d => d.id === saved) ? saved : 'A');
+</script>
+</body>
+</html>

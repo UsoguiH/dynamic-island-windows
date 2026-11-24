@@ -33,6 +33,8 @@
 
   <ItemGroup>
     <Content Include="Assets\bloub.ico" CopyToOutputDirectory="PreserveNewest" />
+    <!-- the reference film's states (Greeting, file, Finished), traced frame by frame: see Island/OrbFilm.cs -->
+    <EmbeddedResource Include="Assets\orbfilm.json" LogicalName="orbfilm.json" />
   </ItemGroup>
 
   <ItemGroup>

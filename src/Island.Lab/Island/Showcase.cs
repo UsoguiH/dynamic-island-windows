@@ -162,6 +162,7 @@ public static class Showcase
         var now = DateTime.Now;
         l.FiveHour = 0.47f; l.FiveResets = now.Date.AddHours(now.Hour).AddHours(3).AddMinutes(10);
         l.Week = 0.63f; l.WeekResets = now.Date.AddDays(((int)DayOfWeek.Friday - (int)now.DayOfWeek + 7) % 7).AddHours(18);
+        l.Fable = 0.28f; l.FableResets = l.WeekResets;
         l.UpdatedAt = now;
         l.Error = null;
     }

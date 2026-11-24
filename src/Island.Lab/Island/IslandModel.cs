@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using Island.Lab.Motion;
 using Island.Lab.Platform;
 using Island.Lab.Render;
@@ -6,7 +6,7 @@ using Island.Lab.Render;
 namespace Island.Lab.Island;
 
 public enum Mode { Dormant, Media, Focus, Split, Alert, Expanded, Full, Command, Gallery, Agents }
-public enum AlertKind { Welcome, ClaudePermission, Allowed, Info, Agent }
+public enum AlertKind { Welcome, ClaudePermission, Allowed, Info, Agent, Drop, File }
 
 public sealed record Song(string Title, string Artist, uint C0, uint C1, float Length);
 
@@ -85,7 +85,8 @@ public sealed class IslandModel
     public bool Peeking { get; private set; }
     /// <summary>Peek pill: Bloub and the whole team look out of the folded line.</summary>
     public const float PeekW = 132;
-    float _peekCooldown, _peekUntil = -1, _nextRandomPeek = 40;
+    float _peekCooldown;
+    double _peekUntil = -1, _nextRandomPeek = 40;
     readonly Random _rng = new();
 
     // ---- Interaction: scenes register clickable regions while drawing; clicks/hover use them.
@@ -125,14 +126,14 @@ public sealed class IslandModel
     public bool FocusPaused;
     public bool PermissionResolved;
     public string Toast = "";
-    public float ToastTime = -10;
+    public double ToastTime = -10;
 
     public void ShowToast(string text) { Toast = text; ToastTime = Clock; }
 
     // A toast that waits, then confirms (the Phantom beat, see Render/PhantomIcon): the wait line with three
     // waving dots, then the words cut to the result as the green check lands.
     public string CheckWait = "", CheckDone = "";
-    public float CheckAt = -100, CheckGoAt = -1;   // when it appeared; when the hand-over started (< 0: still waiting)
+    public double CheckAt = -100, CheckGoAt = -1;   // when it appeared; when the hand-over started (< 0: still waiting)
     Func<(string Text, bool Ok)?>? _checkPoll;
 
     /// <summary>Shows the waiting toast; <paramref name="poll"/> is asked every frame and answers once the work is over.</summary>
@@ -159,22 +160,23 @@ public sealed class IslandModel
     public readonly AgentTeam Team = new();
     /// <summary>Your Claude Code usage (tokens, limit window, activity) from local transcripts.</summary>
     public readonly ClaudeUsage Usage = new();
-    /// <summary>Your real 5-hour and weekly plan limits.</summary>
+    /// <summary>Your real 5-hour, weekly and Fable plan limits.</summary>
     public readonly ClaudeLimits Limits = new();
-    int _fiveWarned, _weekWarned;
+    int _fiveWarned, _weekWarned, _fableWarned;
 
     /// <summary>Banner when a limit passes 80% / 95% (once per level until it resets).</summary>
     void WatchLimits()
     {
-        Limits.Refresh(TimeSpan.FromMinutes(Mode == Mode.Full ? 2 : 10));
+        Limits.Refresh(TimeSpan.FromMinutes(Mode == Mode.Full ? 2 : 10), Mode == Mode.Full ? TimeSpan.FromMinutes(15) : TimeSpan.FromHours(2));
         Friend.Update(this);
         StepCheck();
         if (Mode == Mode.Dormant && !Hidden && !Welcoming && Updater.TakeNotice() is { } version)
             ShowInfo($"Island {version} is ready", "It installs by itself the next time the island closes");
         static int Level(float? u) => u >= 0.95f ? 2 : u >= 0.8f ? 1 : 0;
-        int f = Level(Limits.FiveHour), w = Level(Limits.Week);
+        int f = Level(Limits.FiveHour), w = Level(Limits.Week), fb = Level(Limits.Fable);
         if (f < _fiveWarned) _fiveWarned = f;
         if (w < _weekWarned) _weekWarned = w;
+        if (fb < _fableWarned) _fableWarned = fb;
         if (Mode is not (Mode.Dormant or Mode.Media or Mode.Focus or Mode.Split) || Welcoming) return;
         if (f > _fiveWarned)
         {
@@ -185,6 +187,11 @@ public sealed class IslandModel
         {
             _weekWarned = w;
             ShowInfo($"Weekly limit {Limits.Week * 100:0}% used", Limits.WeekResets is { } t ? $"Resets {t:ddd HH:mm}" : "Pace yourself");
+        }
+        else if (fb > _fableWarned)
+        {
+            _fableWarned = fb;
+            ShowInfo($"Fable limit {Limits.Fable * 100:0}% used", Limits.FableResets is { } t ? $"Resets {t:ddd HH:mm}" : "Pace yourself");
         }
     }
     /// <summary>Text box receiving the keyboard (the island takes focus while you type).</summary>
@@ -209,7 +216,14 @@ public sealed class IslandModel
     public bool Playing = true;
     public float TrackPos = 102;
 
-    public float Clock, ModeTime;
+    /// <summary>
+    /// Seconds since the island started. A double: a float that only grows loses its small steps (at 36 hours it can no
+    /// longer add one 144 Hz tick at all, and everything timed by it froze or stuttered: the island "lagged" after a day
+    /// or two of running). Take differences from it first, then narrow to float.
+    /// </summary>
+    public double Clock;
+    public float ModeTime;
+    double _modeClock;   // (ModeTime, counted exactly: the pill can stay in one mode for days)
     public float TimeScale = 1;
     public bool Hidden;
     public bool Hovered { get; private set; }
@@ -218,7 +232,8 @@ public sealed class IslandModel
     public const string CommandText = "open vs code";
 
     (float W, float H, float R) _teamSize;
-    float _hoverTime, _outTime, _alertTime, _happyUntil = -1;
+    float _hoverTime, _outTime, _alertTime;
+    double _happyUntil = -1;
     bool _enteredThisMode;
 
 
@@ -229,11 +244,14 @@ public sealed class IslandModel
 
     public (float W, float H, float R) Geometry(Mode m) => m switch
     {
-        Mode.Dormant => (232, 36, 18),
+        Mode.Dormant => (232 + (Pocket.Count > 0 ? Scenes.PocketBadgeW : 0), 36, 18),   // (a little wider when he holds something: the count sits beside him)
         Mode.Agents => Team.Size,
         Mode.Media => (296, 36, 18),
         Mode.Focus => (252, 36, 18),
         Mode.Split => (256, 36, 18),
+        // (catching a file and showing what he caught are the same size, so he stays put while he swallows it)
+        Mode.Alert when Alert == AlertKind.Drop => (460, 238, 54),
+        Mode.Alert when Alert == AlertKind.File => (460, 308, 54),   // (it grows downwards for the buttons)
         Mode.Alert => (Alert is AlertKind.Welcome or AlertKind.Info or AlertKind.Agent ? 530 : 420, 80, 32),
         Mode.Expanded => (448, 196, 42),
         Mode.Full => (724, 404, 46),
@@ -261,6 +279,33 @@ public sealed class IslandModel
         if (!quiet || Welcoming) return;
         InfoTitle = title; InfoText = text; AlertAgent = a;
         ShowAlert(AlertKind.Agent);
+    }
+
+    /// <summary>
+    /// A session has finished: he himself goes out to your pointer and tells you (<see cref="DoneFlight"/>); nothing opens
+    /// in the island. The host takes him out (he leaves as himself and plays Finished at the pointer), and when he is back
+    /// the island shows what finished, as it always did.
+    /// </summary>
+    public void ShowDone(Agent? a, string title, string text)
+    {
+        if (Welcoming || PendingFlight != null) return;
+        if (Hidden) { Hidden = false; Visibility.To(1); }
+        PendingFlight = (a, title, text);
+    }
+
+    /// <summary>He is ready to go out to your pointer: the host starts the stage.</summary>
+    public (Agent? Agent, string Title, string Text)? PendingFlight;
+
+    /// <summary>He is back from your pointer: the island catches him with a squish, its own Bloub takes over in a blink, and it shows what finished.</summary>
+    public void DoneLanded(Agent? a, string title, string text)
+    {
+        Welcoming = false;
+        Film.Out = false;
+        Film.Stop();
+        Face.Opacity.Snap(1);
+        Press.Snap(0.86f); Press.To(1, SpringSpec.Bounce);
+        Bloub.Squish.Snap(0.72f); Bloub.Squish.To(1, SpringSpec.Bounce);
+        if (a != null) AgentAlert(a, title, text);
     }
 
     /// <summary>Opens the team widget, optionally focused on one session.</summary>
@@ -302,14 +347,16 @@ public sealed class IslandModel
     void DeliverDone()
     {
         _doneQueue.RemoveAll(q => q.Agent.Gone || (DateTime.Now - q.At).TotalMinutes > 10);
-        if (_doneQueue.Count == 0 || PendingCelebration != null || Welcoming || Hidden) return;
+        if (_doneQueue.Count == 0 || PendingCelebration != null || PendingFlight != null || Welcoming || Hidden) return;
         bool quiet = Mode is Mode.Dormant or Mode.Media or Mode.Focus or Mode.Split && !Hovered && _outTime > 0.6f;
         if (!quiet || (DateTime.Now - _lastCelebration).TotalSeconds < 5) return;
         var (a, title, text, _) = _doneQueue[0];
         _doneQueue.RemoveAt(0);
         _lastCelebration = DateTime.Now;
-        PendingCelebration = (a, title, text);
-        Diag.Log($"celebrating {a.Name}");
+        // he goes out to your pointer with the film's Finished look and says it in a bubble. (The older celebration, the
+        // white Bloub with the tick badge, is still here: PendingCelebration, the demo word "celebrate".)
+        ShowDone(a, title, text);
+        Diag.Log($"done: he goes out to the pointer for {a.Name}");
     }
 
     /// <summary>Bloub is back from celebrating: the island catches him and shows what finished.</summary>
@@ -324,6 +371,145 @@ public sealed class IslandModel
 
     public readonly Friend Friend = new();
 
+    /// <summary>The states from the reference film, played in the island: the Greeting when he arrives, the file when one is dropped on him.</summary>
+    public readonly OrbFilm Film = new();
+    (OrbFilm.Clip Clip, double At)? _filmDue;
+    bool _filmBlinked;
+    /// <summary>A film state is about to start (the island is opening for it).</summary>
+    public bool FilmPending => _filmDue != null;
+    /// <summary>A mouse button went down outside the island and is still held: something is being dragged over it (hovering then opens nothing).</summary>
+    public bool DragOver;
+    /// <summary>The left mouse button is down (wherever it went down).</summary>
+    public bool ButtonHeld;
+
+    // ---- giving Bloub a file (see Platform/DragDrop, Pocket, Scenes.Drop)
+
+    /// <summary>Everything he holds for you.</summary>
+    public readonly Pocket Pocket = new();
+    /// <summary>What hangs over the island right now (he shows its name while his slot is open).</summary>
+    public List<PocketItem> Hovering = new();
+    /// <summary>What was just dropped: the row with its name and the things to do with it.</summary>
+    public List<PocketItem> Dropped = new();
+    /// <summary>The word that confirms what you just did with it ("Path copied"), and when.</summary>
+    public (string Text, double At)? RowNote;
+    /// <summary>When the row's words appeared (its buttons pop in after it).</summary>
+    public double DroppedShownAt = -100;
+    /// <summary>Something is being dragged over the island and it said yes to it.</summary>
+    public bool Catching { get; private set; }
+    double _rowCloseAt = -1;
+    bool _mustLeave;
+    (DropPayload What, double At)? _previewDrop;
+
+    /// <summary>Something dragged just came over the island. False: he doesn't take it (nothing happens).</summary>
+    public bool DragEntered(DropPayload p)
+    {
+        if (Welcoming || Hidden) return false;
+        // an agent's console or the New agent form is open: the file is for that agent
+        if (Mode == Mode.Agents && Team.View != TeamView.Grid && p.Files.Length > 0) { Team.DropHover = true; Catching = true; return true; }
+        var items = Pocket.Take(p, keep: false);
+        if (items.Count == 0) return false;
+        Hovering = items;
+        Catching = true;
+        if (Mode != Mode.Alert || Alert != AlertKind.Drop) ShowAlert(AlertKind.Drop);
+        _beforeAlert = Base;   // (afterwards he goes back to resting, not to whatever was open)
+        if (!Film.Waiting) { _filmDue = (OrbFilm.Clip.Slot, Clock + 0.1f); _filmBlinked = false; }
+        return true;
+    }
+
+    /// <summary>It was taken away again: the slot closes.</summary>
+    public void DragLeft()
+    {
+        Catching = false; Team.DropHover = false;
+        if (Mode != Mode.Alert || Alert != AlertKind.Drop) return;
+        _filmDue = null;
+        Film.CloseSlot();
+        SetMode(Base);
+    }
+
+    /// <summary>It was let go over the island, at <paramref name="at"/> (null: nowhere in particular, as in a preview).</summary>
+    public void DropLanded(DropPayload p, Vector2? at)
+    {
+        Catching = false;
+        if (Team.DropHover) { Team.DropHover = false; Team.Attach(this, p.Files); return; }
+        var items = Pocket.Take(p);
+        if (items.Count == 0) { DragLeft(); return; }
+        if (Hidden) { Hidden = false; Visibility.To(1); }
+        Dropped = items; RowNote = null; _rowCloseAt = -1; DroppedShownAt = -100;
+        if (p.Text is { } text && !Showcase.On) { Tabs.Notes.Insert(0, new NoteItem(text, DateTime.Now)); Tabs.Save(); }
+        if (items.Any(i => !i.Demo && i.Kind != PocketKind.Text)) Tabs.PinPocket();
+        ShowAlert(AlertKind.File);
+        _beforeAlert = Base;
+        _filmDue = null;
+        // the sheet flies in from where you let go (in his radii, from his centre)
+        float r = 11f * Face.Size.Value * Bloub.Squish.Value;
+        Film.Drop(at is { } c && r > 1 ? (c - new Vector2(Face.X, Face.Y + BloubLift)) / r : null);
+        Diag.Log($"dropped {items.Count} item(s): {string.Join(", ", items.Select(i => i.Kind))}");
+    }
+
+    /// <summary>One of the row's buttons.</summary>
+    void RowAct(string action)
+    {
+        if (action == "more")
+        {
+            // the whole board for this file, in the Pocket
+            Tabs.Select(this, "pocket");
+            if (Dropped.FirstOrDefault(i => !i.Demo && i.Kind != PocketKind.Text) is { } d) Pocket.Selected = d.Key;
+            SetMode(Mode.Full);
+            return;
+        }
+        if (action == "forget")
+        {
+            Pocket.Forget(Dropped);
+            RowNote = ("Forgotten", Clock); _rowCloseAt = Clock + 1.0f;
+            return;
+        }
+        if (Pocket.Run(this, Dropped, action) is { } note) { RowNote = (note, Clock); _rowCloseAt = Clock + 1.25f; }
+    }
+
+    /// <summary>The preview (tray, Ctrl+Alt+F, <c>--file-demo</c>): as if <paramref name="path"/> were held over him for a second, then let go.</summary>
+    public void FileDropped(string path)
+    {
+        if (Welcoming) return;
+        if (Hidden) { Hidden = false; Visibility.To(1); }
+        var p = new DropPayload([path], null, null);
+        if (DragEntered(p)) _previewDrop = (p, Clock + 1.0f);
+    }
+
+    void StepDrop()
+    {
+        if (_previewDrop is { } pd && Clock >= pd.At) { _previewDrop = null; DropLanded(pd.What, null); }
+        if (Mode != Mode.Alert) return;
+        // (a drag that ended without telling us, e.g. the window it came from closed)
+        if (Alert == AlertKind.Drop && !Catching && _previewDrop == null && ModeTime > 0.3f) { Film.CloseSlot(); SetMode(Base); }
+        if (Alert == AlertKind.File)
+        {
+            if (DroppedShownAt < 0 && (!Film.Active || Film.Now != OrbFilm.Clip.File || Film.TextIn > 0.05f)) DroppedShownAt = Clock;
+            if (_rowCloseAt > 0 && Clock >= _rowCloseAt) { _rowCloseAt = -1; SetMode(Base); _mustLeave = Mode == Mode.Dormant; }
+        }
+    }
+
+    /// <summary>Starts a film state once the island has opened for it, and stops it when the island moves on to something else.</summary>
+    void StepFilm(float dt)
+    {
+        bool greet = Mode == Mode.Alert && Alert == AlertKind.Welcome, file = Mode == Mode.Alert && Alert == AlertKind.File;
+        bool slot = Mode == Mode.Alert && Alert == AlertKind.Drop;
+        if (_filmDue is { } due)
+        {
+            // the hand-over hides in a blink: the island's Bloub shuts his eyes, the film's Bloub opens his
+            if (!(due.Clip switch { OrbFilm.Clip.Greet => greet, OrbFilm.Clip.Slot => slot, _ => file })) _filmDue = null;
+            else if (!_filmBlinked && Clock >= due.At - 0.1f) { _filmBlinked = true; Bloub.Engine.Blink(Clock); }
+            else if (Clock >= due.At && !Film.Active) { _filmDue = null; Film.Play(due.Clip); }
+        }
+        // the hello is over: the welcome closes (the island's own Bloub is never shown in it; he takes over as it folds away)
+        if (greet && !Hovered && Film.GreetedFor > 0) { SetMode(_beforeAlert == Mode.Alert ? Base : _beforeAlert); greet = false; }   // (no pause on his last pose)
+        // (while he is out at your pointer the film goes on, whatever the island shows, until he lands)
+        if (!Film.Out && (Film.Now == OrbFilm.Clip.Greet && !greet || Film.Now is OrbFilm.Clip.File or OrbFilm.Clip.Done && !file)) Film.Stop();
+        if (Film.Now == OrbFilm.Clip.Slot && !slot) Film.CloseSlot();
+        bool playing = Film.Active;
+        Film.Step(dt);
+        if (playing && !Film.Active) Bloub.Engine.Blink(Clock - 0.1);   // (…and back: the island's Bloub appears with his eyes shut, opening)
+    }
+
     /// <summary>The welcome's Bloub just flew into the island: catch him with a squish and say hi.</summary>
     public void WelcomeLanded()
     {
@@ -332,6 +518,8 @@ public sealed class IslandModel
         Press.Snap(0.84f); Press.To(1, SpringSpec.Bounce);
         Bloub.Squish.Snap(0.72f); Bloub.Squish.To(1, SpringSpec.Bounce);
         ShowAlert(AlertKind.Welcome);
+        _filmDue = null;
+        Film.Play(OrbFilm.Clip.Greet, hold: 0.7f);   // he lands in the hello's first pose, settles in his seat, and then it begins: nothing to cut between
     }
 
     bool WillRetract(Mode m) => !Welcoming && RetractMode && WindowAtTop && !Hovered &&
@@ -358,8 +546,10 @@ public sealed class IslandModel
         var old = Mode;
         Mode = m;
         if (old == Mode.Full && m != Mode.Full) { Maker.Reset(this); Tabs.Editing = false; Tabs.EditT.To(0); Tabs.Release(); }
-        ModeTime = 0;
+        ModeTime = 0; _modeClock = 0;
         _enteredThisMode = false;
+        // back to the pill after he took a file: the count beside him pops up
+        if (old == Mode.Alert && Alert == AlertKind.File && m == Mode.Dormant && Pocket.Count > 0) { Pocket.BadgePop.Snap(0.3f); Pocket.BadgePop.To(1); }
         // Going straight to the retracted line (e.g. leaving Full over Chrome) is ONE continuous motion.
         Retracted = WillRetract(m);
         Peeking = false;
@@ -395,6 +585,7 @@ public sealed class IslandModel
             Mode.Media or Mode.Split or Mode.Expanded => (Song.C1, 0.42f),
             Mode.Focus => (0x30D158u, 0.30f),
             Mode.Alert when Alert == AlertKind.ClaudePermission => (0xFF9F0Au, 0.50f),
+            Mode.Alert when Alert == AlertKind.Drop => (0x4FA8E8u, 0.5f),
             Mode.Alert => (0x0A84FFu, 0.32f),
             Mode.Command => (0x0A84FFu, 0.28f),
             Mode.Full => (0x5E5CE6u, 0.22f),
@@ -429,17 +620,21 @@ public sealed class IslandModel
     void UpdateCore(float dt, Vector2 cursor, bool inside)
     {
         Clock += dt;
-        ModeTime += dt;
+        _modeClock += dt; ModeTime = (float)_modeClock;
         Cursor = cursor;
 
         // Hover intent
         Hovered = inside && !Hidden;
         // (the team can open under a cursor that isn't on its final shape — e.g. clicking Bloub on the wide
         //  dashboard — so it only counts as "entered" once the cursor is on it after the morph)
-        if (Hovered) { _hoverTime += dt; _outTime = 0; if (Mode != Mode.Agents || ModeTime > 0.4f) _enteredThisMode = true; IdleTime = 0; }
+        if (Hovered) { if (!DragOver) _hoverTime += dt; _outTime = 0; if (Mode != Mode.Agents || ModeTime > 0.4f) _enteredThisMode = true; IdleTime = 0; }
         else { _outTime += dt; _hoverTime = 0; IdleTime += dt; }
+        // the file card just closed under the cursor: that is not a hover, the dashboard waits until you come back
+        if (_mustLeave) { if (!Hovered || Mode != Mode.Dormant) _mustLeave = false; else _hoverTime = 0; }
         // While you're typing into the island it stays open, wherever the cursor wanders.
         if (Focused != null && Mode is Mode.Agents or Mode.Full) _outTime = 0;
+        // …while Windows' folder window is up for the New agent form, and while Bloub sends the new agent off
+        if (Mode == Mode.Agents && Team.KeepsOpen) _outTime = 0;
         // …and while Bloub builds a tab you described (Cancel or Esc leave)
         if (Mode == Mode.Full && Maker.KeepsOpen) _outTime = 0;
         if (Mode is not (Mode.Agents or Mode.Full)) Focused = null;
@@ -451,7 +646,7 @@ public sealed class IslandModel
         else if (Mode == Mode.Dormant && _hoverTime > HoverIntent + (Retracted || Peeking ? 0.1f : 0f))
         {
             // (from the folded line it is always the dashboard — the team is one click away there)
-            if (!Retracted && !Peeking && cursor.X >= Team.PillTeamLeft) OpenTeam(); else SetMode(Mode.Full);
+            if (!Retracted && !Peeking && cursor.X >= Team.PillTeamLeft) OpenTeam(); else { if (OnPocketBadge(cursor)) Tabs.Select(this, "pocket"); SetMode(Mode.Full); }
         }
         else if (Mode == Mode.Focus && _hoverTime > HoverIntent) SetMode(Mode.Full);
         else if (Mode == Mode.Alert && Alert is AlertKind.Welcome or AlertKind.Info && _hoverTime > HoverIntent) SetMode(Mode.Full);
@@ -463,19 +658,21 @@ public sealed class IslandModel
             if (!Hovered) _alertTime += dt;
             float ttl = Alert switch
             {
-                AlertKind.Welcome => 6f, AlertKind.Info => 3.2f, AlertKind.Allowed => 1.6f,
+                AlertKind.Welcome => 6f, AlertKind.Info => 3.2f, AlertKind.Allowed => 1.6f, AlertKind.File => 6.5f, AlertKind.Drop => 600f,
                 AlertKind.Agent => AlertAgent?.Status == AgentStatus.NeedsYou ? 8f : 4.5f,
                 _ => 9f,
             };
-            if (_alertTime > ttl) SetMode(_beforeAlert == Mode.Alert ? Base : _beforeAlert);
+            if (_alertTime > ttl) { bool card = Alert == AlertKind.File; SetMode(_beforeAlert == Mode.Alert ? Base : _beforeAlert); _mustLeave = card && Mode == Mode.Dormant; }
         }
 
         if (Mode == Mode.Command && !Retracted) H.To(Geometry(Mode.Command).H);
+        if (Mode == Mode.Dormant && !Retracted && !Peeking && Geometry(Mode.Dormant).W is var pillW && W.Target != pillW) W.To(pillW, SpringSpec.Bounce);
         // The team widget resizes between its views (grid / agent console / new-agent form).
         if (Mode == Mode.Agents && !Retracted)
         {
             var size = Team.Size;
-            if (size != _teamSize && ModeTime > 0.05f) { W.To(size.W, SpringSpec.Island); H.To(size.H, SpringSpec.Island, 0.03f); R.To(size.R, SpringSpec.Island); }
+            // (a view chosen in the same instant the widget opened, e.g. "New agent" straight from a file, still gets its own size)
+            if (size != _teamSize && (ModeTime > 0.05f || W.Target != size.W || H.Target != size.H)) { W.To(size.W, SpringSpec.Island); H.To(size.H, SpringSpec.Island, 0.03f); R.To(size.R, SpringSpec.Island); }
             _teamSize = size;
         }
 
@@ -532,8 +729,11 @@ public sealed class IslandModel
         var (ax, ay, s) = Peeking ? (left + 18, Top + h / 2, 0.82f) : Mode switch
         {
             Mode.Dormant => (left + 21, Top + h / 2, 1f + 0.08f * HoverGrow.Value),
-            Mode.Agents => (left + 26, Top + 24, 0.95f),
+            // in the New agent form he sits beside the question, large: he is the one asking
+            Mode.Agents => Team.FormFace is { } seat ? (left + seat.X, Top + seat.Y, seat.Size) : (left + 26, Top + 24, 0.95f),
             Mode.Media or Mode.Focus or Mode.Split => (left + 22, Top + h / 2, 0.95f),
+            // holding a file over him, and just after: he is big, in the middle of the card
+            Mode.Alert when Alert is AlertKind.Drop or AlertKind.File => (CX, Top + Scenes.DropFaceY, Scenes.DropFaceR / 11f),
             Mode.Alert => (left + 42, Top + h / 2, 1.5f),
             Mode.Expanded => (left + w - 40, Top + 38, 1.3f),
             // customizing: Bloub flies down into the library's orb
@@ -559,7 +759,7 @@ public sealed class IslandModel
         for (int i = 0; i < Bars.Length; i++)
         {
             float target = Playing
-                ? 0.25f + 0.75f * MathF.Abs(MathF.Sin(Clock * (5.1f + i * 1.7f) + i * 1.3f) * MathF.Sin(Clock * (2.3f + i * 0.6f)))
+                ? 0.25f + 0.75f * MathF.Abs((float)Math.Sin(Clock * (5.1f + i * 1.7f) + i * 1.3f) * (float)Math.Sin(Clock * (2.3f + i * 0.6f)))
                 : 0.12f;
             Bars[i] += (target - Bars[i]) * MathF.Min(1, dt * 18);
         }
@@ -571,6 +771,9 @@ public sealed class IslandModel
         foreach (var sp in _springs ??= [W, H, R, Bubble, Press, HoverGrow, GlowR, GlowG, GlowB, GlowA, Visibility, TopY, Retract, TabFade, TabPillX, TabPillW]) sp.Step(dt);
         // The team colours the glow: orange when an agent needs you, the focused agent's status colour in the widget.
         if (Mode == Mode.Dormant && !Retracted) SetGlow(Team.AnyNeeds ? 0xFF9F0Au : 0xFFFFFFu, Team.AnyNeeds ? 0.3f : 0f);
+        // waiting for a file the light under the island breathes; once he has it, it turns green
+        else if (Mode == Mode.Alert && Alert == AlertKind.Drop) SetGlow(0x4FA8E8u, 0.46f + 0.14f * (float)Math.Sin(Clock * 3.4f));
+        else if (Mode == Mode.Alert && Alert == AlertKind.File && DroppedShownAt > 0) SetGlow(RowNote != null || Dropped.Count > 0 ? 0x30D158u : 0x0A84FFu, 0.3f);
         else if (Mode == Mode.Agents)
             SetGlow(Team.View == TeamView.Focus && Team.Selected != null ? Team.Selected.StatusColor : 0x5E5CE6u, Team.View == TeamView.Focus ? 0.34f : 0.2f);
         Face.Step(dt);
@@ -584,6 +787,9 @@ public sealed class IslandModel
         WatchLimits();
         DeliverDone();
         Bloub.Update(Clock, this, new Vector2(Face.X, Face.Y));
+        Pocket.Update(this, dt);
+        StepDrop();
+        StepFilm(dt);
         Prof.Stop("upd bloub+limits", p);
         foreach (var l in Layers) l.Step(dt);
         Layers.RemoveAll(l => l.Dead);
@@ -591,15 +797,19 @@ public sealed class IslandModel
 
     Spring[]? _springs;
 
+    /// <summary>The cursor is on the count beside Bloub in the pill.</summary>
+    bool OnPocketBadge(Vector2 p) => Pocket.Count > 0 && !Retracted && !Peeking && p.X - (CX - Live.W / 2) is > 33 and < 72;
+
     public void PressDown()
     {
+        if (HoverHit is { } ph && (ph.StartsWith("pk:row:") || ph.StartsWith("pk:pre:")) && int.TryParse(ph[7..], out int pressKey)) Pocket.Press(this, pressKey);
         if (Mode == Mode.Full && Tabs.Editing && HoverHit is { } h && h.StartsWith("tab:"))
             Tabs.PressTab(h[4..], Cursor.X - (CX - Geometry(Mode.Full).W / 2));
         if (HoverHit == "bloub") Bloub.PressDown();
         else if (Geometry(Mode).H < 90) Press.To(0.96f, SpringSpec.Press);
     }
 
-    public void PressUp() { Press.To(1, SpringSpec.Bounce); Bloub.PressUp(); Tabs.Release(); }
+    public void PressUp() { Press.To(1, SpringSpec.Bounce); Bloub.PressUp(); Tabs.Release(); Pocket.Release(); }
 
     /// <summary>Click at a point in DIPs (already known to be on the island).</summary>
     public void Click(Vector2 p)
@@ -615,7 +825,7 @@ public sealed class IslandModel
                 // Clicking the idle island (or the retracted line) opens the island.
                 Face.SetExpression(Expression.Happy);
                 _happyUntil = Clock + 0.6f;
-                if (p.X >= Team.PillTeamLeft) OpenTeam(); else SetMode(Mode.Full);
+                if (p.X >= Team.PillTeamLeft) OpenTeam(); else { if (OnPocketBadge(p)) Tabs.Select(this, "pocket"); SetMode(Mode.Full); }
                 break;
             case Mode.Media or Mode.Split:
                 SetMode(Mode.Expanded);
@@ -643,6 +853,8 @@ public sealed class IslandModel
             case Mode.Alert when Alert == AlertKind.Agent:
                 OpenTeam(AlertAgent);
                 break;
+            case Mode.Alert when Alert == AlertKind.Drop:
+                break;   // (he is waiting for the file)
             case Mode.Alert:
                 SetMode(_beforeAlert == Mode.Alert ? Base : _beforeAlert);
                 break;
@@ -661,6 +873,7 @@ public sealed class IslandModel
         if (parts[0] == "mk") { Maker.Act(this, parts); return; }
         if (Mode == Mode.Full && parts[0] != "tf") FocusField(null);
         if (Team.Act(this, parts)) return;
+        if (ActPocket(parts)) return;
         if (ActTabs(parts)) return;
         // a row or poster of a tab you described: its "link", in the browser
         if (parts is ["cx", var tabId, var row] && CustomTabs.Get(tabId) is { } ct && int.TryParse(row, out int ri)
@@ -703,7 +916,7 @@ public sealed class IslandModel
                 Bloub.React(Mascot.BloubState.Alert, Clock, 1.8, Mascot.BloubExpressionId.Triste);
                 break;
             case "limits":
-                Limits.Refresh(TimeSpan.FromSeconds(30));
+                Limits.Refresh(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
                 ShowCheck("Checking your limits...", () => Limits.Probing ? null : Limits.Error is { } err ? (err, false) : ("Limits updated", true));
                 break;
             case "agent":
@@ -733,6 +946,46 @@ public sealed class IslandModel
                 break;
             case "expand": SetMode(Mode.Full); break;
         }
+    }
+
+    /// <summary>Clicks on what he holds: the row after a drop ("dz:…"), the Pocket tab ("pk:…").</summary>
+    bool ActPocket(string[] p)
+    {
+        switch (p[0])
+        {
+            case "dz" when p.Length > 1:
+                RowAct(p[1] == "a" && p.Length > 2 ? p[2] : p[1]);
+                return true;
+            case "pk" when p.Length > 1:
+            {
+                if (p[1] == "clear") { Pocket.Clear(); ShowToast("Pocket emptied"); Bloub.React(Mascot.BloubState.Idle, Clock, 0.95, Mascot.BloubExpressionId.Bof); return true; }
+                if (p[1] == "do" && p.Length > 2)
+                {
+                    // the Claude button: pressed, it comes apart into the three things Claude can do
+                    if (p[2] == "claude") { Pocket.ToggleAsk(this); return true; }
+                    if (Pocket.Current is { } cur)
+                    {
+                        string? said = Pocket.Run(this, [cur], p[2]);
+                        Pocket.AskOpen = false;
+                        if (said != null) { ShowToast(said); Bloub.React(Mascot.BloubState.Wink, Clock, 1.2, Mascot.BloubExpressionId.Heureux); }
+                    }
+                    return true;
+                }
+                if (p.Length < 3 || !int.TryParse(p[2], out int key) || Pocket.Items.FirstOrDefault(i => i.Key == key) is not { } it) return true;
+                switch (p[1])
+                {
+                    case "x": Pocket.Forget([it]); break;
+                    case "row" or "pre" when it.Missing: ShowToast("That one was moved or deleted"); break;
+                    // a click on the row opens it (a folder in Explorer, a link in the browser)
+                    case "row" or "pre": if (Pocket.Run(this, [it], "open") is { } opened) { ShowToast(opened == "Opening" ? "Opening " + it.Name : opened); if (opened == "Opening") Bloub.React(Mascot.BloubState.Comet, Clock, 1.6); } break;
+                    case "a" when p.Length > 3:
+                        if (Pocket.Run(this, [it], p[3]) is { } note) { ShowToast(note); Bloub.React(Mascot.BloubState.Wink, Clock, 1.2, Mascot.BloubExpressionId.Heureux); }
+                        break;
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>Clicks that belong to the dashboard's tabs and their panels.</summary>

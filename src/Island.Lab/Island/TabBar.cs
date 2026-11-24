@@ -59,6 +59,7 @@ public sealed class TabBar
         new("timer",     "Timer",     '', 0xFF9F0A, "Stopwatch, countdown"),
         new("notes",     "Notes",     '', 0xFFD60A, "Quick notes, kept"),
         new("clipboard", "Clipboard", '', 0xBF5AF2, "Recent copies"),
+        new("pocket",    "Pocket",    '\uE7B8', 0x4FA8E8, "What you gave Bloub to hold"),
         new("downloads", "Downloads", '', 0x0A84FF, "Latest downloads"),
         new("clocks",    "Clocks",    '', 0x64D2FF, "World time"),
         new("network",   "Network",   '', 0x30D158, "Live up/down speed"),
@@ -284,6 +285,21 @@ public sealed class TabBar
         Save();
     }
 
+    /// <summary>The first time he holds something, the Pocket tab joins your bar (once: unpin it and it stays away).</summary>
+    public void PinPocket()
+    {
+        if (_pocketPinned) return;
+        _pocketPinned = true;
+        if (!Enabled.Contains("pocket") && Enabled.Count < MaxTabs)
+        {
+            Enabled.Add("pocket");
+            var s = this["pocket"];
+            s.Placed = false; s.A.Snap(1); s.On.Snap(1); s.Fill.Snap(1);
+        }
+        Save();
+    }
+    bool _pocketPinned;
+
     public void ApplyPreset(IslandModel m, int i)
     {
         var want = Presets[i].Tabs;
@@ -502,7 +518,7 @@ public sealed class TabBar
         StatusT.Step(dt); LibHop.Step(dt); MoonSpin.Step(dt);
         if (_shrugHop1 > 0 && m.Clock >= _shrugHop1) { _shrugHop1 = -1; LibHop.Velocity = -95; m.Bloub.Squish.Snap(1.05f); m.Bloub.Squish.To(1, SpringSpec.Bounce); }
         if (_shrugHop2 > 0 && m.Clock >= _shrugHop2) { _shrugHop2 = -1; LibHop.Velocity = -60; }
-        MoonAngle += dt * 0.7f * MoonSpin.Value;
+        MoonAngle = (MoonAngle + dt * 0.7f * MoonSpin.Value) % MathF.Tau;   // (wrapped: an angle that only grows gets too coarse for a float to turn any further after two days, and the moons stopped)
 
         if (m.Clock - _powerAt >= (Selected == "battery" ? 2 : 15)) { _powerAt = m.Clock; SamplePower(m); }
         if (m.Mode == Mode.Full && Selected == "servers" && !Editing && m.Clock - _serversAt > 2.5) { _serversAt = m.Clock; RefreshServers(m); }
@@ -987,6 +1003,7 @@ public sealed class TabBar
                 if (list.Count > 0) { Enabled.Clear(); Enabled.AddRange(list!); }
             }
             Discovered = o["discovered"]?.GetValue<bool>() ?? false;
+            _pocketPinned = o["pocketPinned"]?.GetValue<bool>() ?? false;
             if (o["tasks"] is JsonArray ta)
                 foreach (var t in ta.OfType<JsonObject>())
                     if (t["text"]?.GetValue<string>() is { } s) Tasks.Add(new TaskItem(s, t["done"]?.GetValue<bool>() ?? false));
@@ -1008,6 +1025,7 @@ public sealed class TabBar
             {
                 ["tabs"] = new JsonArray(Enabled.Select(e => (JsonNode)JsonValue.Create(e)!).ToArray()),
                 ["discovered"] = Discovered,
+                ["pocketPinned"] = _pocketPinned,
                 ["tasks"] = new JsonArray(Tasks.Select(t => (JsonNode)new JsonObject { ["text"] = t.Text, ["done"] = t.Done }).ToArray()),
                 ["notes"] = new JsonArray(Notes.Select(n => (JsonNode)new JsonObject { ["text"] = n.Text, ["at"] = n.At.ToString("o") }).ToArray()),
             };

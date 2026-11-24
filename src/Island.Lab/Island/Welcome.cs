@@ -55,6 +55,7 @@ public sealed class Welcome : StageScene
     double _flyAt;
 
     readonly GaussianBlur _soft;
+    readonly ID2D1Image _softOut;
     readonly ID2D1LinearGradientBrush _sky;
     readonly ID2D1SolidColorBrush _fill;
     readonly ID2D1StrokeStyle _roundCap;
@@ -75,6 +76,7 @@ public sealed class Welcome : StageScene
         float rb = MathF.Max(0.94f * _ss, 0.58f * cw);
 
         _soft = new GaussianBlur(Ctx) { BorderMode = BorderMode.Soft, Optimization = GaussianBlurOptimization.Speed };
+        _softOut = _soft.Output;
         using (var stops = Ctx.CreateGradientStopCollection(
                    [new GradientStop(0, Canvas.Rgba(0x08070C)), new GradientStop(0.45f, Canvas.Rgba(0x121216)), new GradientStop(1, Canvas.Rgba(0x262626))]))
             _sky = Ctx.CreateLinearGradientBrush(new LinearGradientBrushProperties(new Vector2(0, 0), new Vector2(0, ch)), stops);
@@ -249,7 +251,7 @@ public sealed class Welcome : StageScene
                     _soft.SetInput(0, list, true);
                     _soft.StandardDeviation = blur * Gpu.Scale;
                     ctx.Transform = Matrix3x2.Identity; // (the list already holds the card's offset)
-                    ctx.DrawImage(_soft.Output);
+                    ctx.DrawImage(_softOut);
                     ctx.Transform = _base;
                 }
                 else Orb(o, R, body);
@@ -382,7 +384,7 @@ public sealed class Welcome : StageScene
 
     public override void Dispose()
     {
-        _soft.Dispose(); _sky.Dispose(); _fill.Dispose(); _roundCap.Dispose();
+        _softOut.Dispose(); _soft.Dispose(); _sky.Dispose(); _fill.Dispose(); _roundCap.Dispose();
         base.Dispose();
     }
 }

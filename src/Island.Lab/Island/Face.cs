@@ -23,7 +23,8 @@ public sealed class Face
     public readonly Spring Opacity = new(1, SpringSpec.Content, 0.001f);
     public readonly Spring Hop = new(0, SpringSpec.Bounce, 0.01f);
 
-    float _blinkAt = 2f, _blink = 1f, _clock, _wanderAt;
+    float _blink = 1f;
+    double _blinkAt = 2, _clock, _wanderAt;   // (doubles: a float clock stops counting single ticks after a day and a half, and he stopped blinking)
     bool _doubleBlink;
     readonly Random _rng = new();
 
@@ -58,7 +59,7 @@ public sealed class Face
         foreach (var s in new[] { X, Y, Size, GazeX, GazeY, Wide, Happy, Sleepy, Opacity, Hop }) s.Step(dt);
 
         // Blink: a fast close (~70 ms) and a slower open (~130 ms); sometimes a double blink.
-        float since = _clock - _blinkAt;
+        float since = (float)(_clock - _blinkAt);
         if (since >= 0)
         {
             if (since < 0.07f) _blink = 1 - since / 0.07f;

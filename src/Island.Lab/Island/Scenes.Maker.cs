@@ -606,7 +606,7 @@ public static partial class Scenes
                 RollLine(c, k, k.Ph, k.PhOld, tx, cy - 23 * 0.7f, 26, 0.52f, 0.24f, (cc, s, x, y, a) =>
                     cc.Text(s, x, y, 23, WithA(PhGrey, a * open), FontWeight.SemiBold));
                 k.Pan.Snap(0);
-                if (m.Focused == k.Field && ((k.Clock - k.Field.ChangedAt) % 1.06f) < 0.53f) c.Round(tx - 1, cy - 23 * 0.6f, 2, 23 * 1.2f, 1, Ink);
+                if (m.Focused == k.Field && ((m.Clock - k.Field.ChangedAt) % 1.06) < 0.53f) c.Round(tx - 1, cy - 23 * 0.6f, 2, 23 * 1.2f, 1, Ink);
                 c.PopClip();
             }
             else
@@ -638,7 +638,7 @@ public static partial class Scenes
                     at = t.At + t.Word.Length;
                 }
                 // the caret
-                if (m.Focused == k.Field && (k.Typing || ((k.Clock - k.Field.ChangedAt) % 1.06f) < 0.53f))
+                if (m.Focused == k.Field && (k.Typing || ((m.Clock - k.Field.ChangedAt) % 1.06) < 0.53f))
                     c.Round(tx - off + caretX, cy - fs * 0.6f, 2, fs * 1.2f, 1, Ink);
                 c.PopClip();
                 // more words past either edge: they fade into the line

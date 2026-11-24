@@ -24,6 +24,7 @@ public abstract class StageScene : IDisposable
     protected readonly BloubEngine E = new(100, BloubState.Idle, BloubShapeId.Cercle, BloubExpressionId.Neutre);
     protected readonly BloubCursorTracker Tracker = new();
     readonly DirectionalBlur _motion;
+    readonly ID2D1Image _motionOut; // asked for once: every read of an effect's Output is a new reference that must be released
     readonly ID2D1RadialGradientBrush _shadow;
     protected readonly float W, H;
 
@@ -46,6 +47,7 @@ public abstract class StageScene : IDisposable
         W = gpu.Width / gpu.Scale;
         H = gpu.Height / gpu.Scale;
         _motion = new DirectionalBlur(Ctx) { BorderMode = BorderMode.Soft, Optimization = DirectionalBlurOptimization.Balanced };
+        _motionOut = _motion.Output;
         using var stops = Ctx.CreateGradientStopCollection([new GradientStop(0, new Color4(0, 0, 0, 0.42f)), new GradientStop(1, new Color4(0, 0, 0, 0))]);
         _shadow = Ctx.CreateRadialGradientBrush(new RadialGradientBrushProperties(Vector2.Zero, Vector2.Zero, 1, 1), stops);
     }
@@ -112,7 +114,7 @@ public abstract class StageScene : IDisposable
             _motion.SetInput(0, list, true);
             _motion.StandardDeviation = blur * Gpu.Scale;
             _motion.Angle = -MathF.Atan2(vel.Y, vel.X) * 180 / MathF.PI;
-            Ctx.DrawImage(_motion.Output);
+            Ctx.DrawImage(_motionOut);
         }
         else
         {
@@ -284,6 +286,6 @@ public abstract class StageScene : IDisposable
 
     public virtual void Dispose()
     {
-        Body.Dispose(); _motion.Dispose(); _shadow.Dispose(); C.Dispose();
+        Body.Dispose(); _motionOut.Dispose(); _motion.Dispose(); _shadow.Dispose(); C.Dispose();
     }
 }

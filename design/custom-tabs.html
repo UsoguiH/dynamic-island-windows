@@ -1,0 +1,814 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Describe a Tab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..600,0..1,-25..200&display=block" rel="stylesheet">
+<style>
+:root {
+  --smooth: linear(0.000, 0.021, 0.076, 0.151, 0.238, 0.329, 0.419, 0.506, 0.586, 0.659, 0.724, 0.780, 0.828, 0.868, 0.902, 0.929, 0.951, 0.968, 0.982, 0.992, 0.999, 1.004, 1.008, 1.010, 1.011, 1.011, 1.011, 1.010, 1.009, 1.008, 1.007, 1.006, 1.005, 1.005, 1.004, 1.003, 1.002, 1.002, 1.001, 1.001, 1);
+  --page: #eeebf5; --ink: #1d1b22; --sub: #57526a; --card: rgba(255,255,255,.72); --line: rgba(30,20,60,.1); --code: #15131b;
+  --blue: #0A84FF; --green: #30D158; --orange: #FF9F0A; --red: #FF453A;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --page: #121017; --ink: #f1eff6; --sub: #a9a4b6; --card: rgba(255,255,255,.05); --line: rgba(255,255,255,.08); --code: #0b0a0f; } }
+:root[data-theme="dark"] { --page: #121017; --ink: #f1eff6; --sub: #a9a4b6; --card: rgba(255,255,255,.05); --line: rgba(255,255,255,.08); --code: #0b0a0f; }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: Inter, system-ui, sans-serif; color: var(--ink); overflow-x: hidden;
+  background: radial-gradient(60% 40% at 12% 8%, #9fb0ff66 0%, transparent 60%), radial-gradient(50% 35% at 88% 6%, #ffa9cf66 0%, transparent 60%), radial-gradient(55% 40% at 70% 60%, #ffd29b33 0%, transparent 62%), var(--page); }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 40px 16px 90px; }
+.ms { font-family: 'Material Symbols Rounded'; font-weight: normal; font-style: normal; font-size: 20px; line-height: 1; display: inline-block; white-space: nowrap; -webkit-font-smoothing: antialiased; font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24; user-select: none; vertical-align: middle; }
+h1 { font: 800 clamp(30px, 5vw, 46px)/1.05 Inter; letter-spacing: -.035em; margin: 0 0 14px; text-align: center; }
+.lede { font: 400 17px/1.55 Inter; color: var(--sub); max-width: 680px; margin: 0 auto 30px; text-align: center; }
+.lede b { color: var(--ink); }
+h2 { font: 750 26px/1.15 Inter; letter-spacing: -.025em; margin: 76px 0 8px; }
+h2 + p.sub { margin: 0 0 22px; color: var(--sub); font: 400 15px/1.55 Inter; max-width: 720px; }
+.kicker { font: 700 11.5px Inter; letter-spacing: .09em; text-transform: uppercase; color: var(--blue); margin-top: 76px; }
+.kicker + h2 { margin-top: 6px; }
+
+/* ---------- the island demo ---------- */
+:root { --g1: #4285F4; --g2: #9B72CB; --g3: #D96570; }
+@property --ang { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.stage { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.scale { width: 724px; max-width: 100%; }
+.island { position: relative; width: 724px; height: 404px; border-radius: 46px; background: #000; color: #fff; overflow: hidden; transform-origin: top left;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.04), 0 30px 80px rgba(70, 40, 160, .35), 0 6px 18px rgba(0,0,0,.25); }
+@media (max-width: 760px) { .scale { height: calc((100vw - 32px) / 724 * 404); } .island { transform: scale(calc((100vw - 32px) / 724px)); } }
+.top { position: absolute; left: 26px; right: 22px; top: 18px; height: 40px; display: flex; align-items: center; gap: 10px; z-index: 3; }
+#face { transform-origin: 50% 90%; display: block; }
+.tabs { display: flex; gap: 4px; margin-left: 20px; flex: 1; align-items: center; position: relative; }
+.tab { height: 32px; padding: 0 12px; border-radius: 999px; font: 600 13px Inter; color: rgba(255,255,255,.55); display: flex; gap: 6px; align-items: center; white-space: nowrap; cursor: pointer; transition: color .25s, background .35s; }
+.tab:hover { color: #fff; }
+.tab .ms { font-size: 16px; }
+.tab.on { background: rgba(255,255,255,.14); color: #fff; }
+.tab.plus { width: 32px; padding: 0; justify-content: center; background: rgba(255,255,255,.08); color: #fff; }
+.tab.plus:hover { background: rgba(255,255,255,.16); }
+.tab.plus .ms { font-size: 19px; transition: transform .7s var(--smooth); }
+.tab.plus.open { background: rgba(255,255,255,.18); }
+.tab.plus.open .ms { transform: rotate(135deg); }
+.avs { display: flex; padding: 4px 8px 4px 12px; border-radius: 999px; background: rgba(255,255,255,.08); }
+.avs svg { margin-left: -5px; }
+.edit { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.08); }
+.edit .ms { font-size: 18px; }
+.panel { position: absolute; left: 20px; right: 20px; top: 70px; bottom: 20px; }
+.view { position: absolute; inset: 0; }
+input { all: unset; font: 600 14.5px Inter; color: #fff; caret-color: var(--g1); min-width: 0; }
+input::placeholder { color: rgba(255,255,255,.38); font-weight: 500; }
+.gem { display: block; flex: none; }
+
+/* dashboard, before */
+.dashv { display: grid; grid-template-columns: 1.15fr 1fr; grid-template-rows: auto 1fr; gap: 12px; height: 100%; }
+.card { background: rgba(255,255,255,.055); border-radius: 22px; padding: 14px 16px; }
+.card h4 { margin: 0 0 10px; font: 600 13px Inter; color: rgba(255,255,255,.92); display: flex; justify-content: space-between; }
+.card h4 small { font: 500 11px Inter; color: rgba(255,255,255,.42); }
+.arow { display: flex; align-items: center; gap: 10px; font: 600 12.5px Inter; margin-bottom: 8px; }
+.arow small { display: block; font: 500 11px Inter; color: rgba(255,255,255,.42); margin-top: 1px; }
+.trow { display: flex; align-items: center; gap: 10px; font: 600 12.5px Inter; margin-bottom: 9px; }
+.trow i { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.4); flex: none; }
+.trow.done i { background: var(--green); box-shadow: none; }
+.trow.done { color: rgba(255,255,255,.4); text-decoration: line-through; font-weight: 500; }
+.describe { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 0 8px 0 16px; height: 52px; border-radius: 26px; cursor: pointer; position: relative; isolation: isolate; background: #111113; color: rgba(255,255,255,.62); font: 500 13px Inter; transition: color .3s; }
+.describe::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; background: conic-gradient(from var(--ang), var(--g1), var(--g2), var(--g3), var(--g2), var(--g1)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: .45; animation: turn 5s linear infinite; transition: opacity .3s; }
+.describe:hover { color: #fff; }
+.describe:hover::before { opacity: .95; }
+.describe b { color: #fff; font-weight: 650; }
+.describe .go { margin-left: auto; height: 36px; padding: 0 14px; border-radius: 18px; background: rgba(255,255,255,.1); color: #fff; font: 600 12.5px Inter; display: flex; align-items: center; gap: 6px; }
+@keyframes turn { to { --ang: 360deg; } }
+
+/* the creator: one view that morphs from "describe" to "building" to "ready" */
+.cr { position: absolute; inset: 0; }
+.cr .intro { position: absolute; left: 2px; right: 0; top: 0; height: 64px; display: flex; align-items: center; gap: 14px; transition: opacity .35s ease, transform .8s var(--smooth), filter .35s; }
+.cr .intro h3 { margin: 0; font: 680 18px Inter; letter-spacing: -.02em; }
+.cr .intro p { margin: 3px 0 0; font: 500 12.5px Inter; color: rgba(255,255,255,.45); }
+.orb { position: relative; width: 64px; height: 64px; display: grid; place-items: center; flex: none; }
+.orb .halo { position: absolute; inset: 4px; border-radius: 50%; background: radial-gradient(circle, rgba(155,114,203,.45), transparent 68%); filter: blur(8px); }
+.orb .moons { position: absolute; inset: -4px; animation: spin 8s linear infinite; }
+.orb .moon { position: absolute; border-radius: 50%; }
+.orb .moon.a { width: 8px; height: 8px; left: 0; top: 30px; background: #cfd6ff; box-shadow: 0 0 8px rgba(160,180,255,.7); }
+.orb .moon.b { width: 6px; height: 6px; right: 6px; top: 6px; background: #ffc2dc; box-shadow: 0 0 8px rgba(255,170,210,.7); }
+.orb .bl { position: relative; transform-origin: 50% 90%; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.composer { position: absolute; left: 0; right: 0; top: 78px; height: 52px; border-radius: 26px; background: #111113; display: flex; align-items: center; gap: 11px; padding: 0 7px 0 15px; isolation: isolate;
+  transition: top .85s var(--smooth), height .85s var(--smooth), background .5s, padding .85s var(--smooth); }
+.composer::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; background: conic-gradient(from var(--ang), var(--g1), var(--g2), var(--g3), var(--g2), var(--g1)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: turn 4s linear infinite; opacity: .75; transition: opacity .5s; }
+.composer .glow { position: absolute; inset: 8px 40px; border-radius: inherit; background: linear-gradient(90deg, var(--g1), var(--g2), var(--g3)); filter: blur(20px); opacity: .22; z-index: -1; transition: opacity .5s; }
+.composer input { flex: 1; }
+.composer .gem { transition: transform .8s var(--smooth); }
+.composer .create { all: unset; cursor: pointer; height: 38px; padding: 0 15px 0 12px; border-radius: 19px; display: flex; gap: 7px; align-items: center; font: 650 12.5px Inter; color: rgba(255,255,255,.45); background: rgba(255,255,255,.08);
+  transition: background .3s, color .3s, transform .35s var(--smooth), opacity .35s; }
+.composer .create .ms { font-size: 17px; }
+.composer.ready .create { color: #fff; background: linear-gradient(100deg, var(--g1), var(--g2) 60%, var(--g3)); }
+.composer .create:active { transform: scale(.94); }
+.ideas { position: absolute; left: 0; right: 0; top: 144px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; transition: opacity .35s ease, transform .7s var(--smooth), filter .35s; }
+.idea { all: unset; cursor: pointer; height: 56px; padding: 0 14px 0 10px; border-radius: 18px; background: rgba(255,255,255,.055); display: flex; align-items: center; gap: 12px; transition: background .25s, transform .45s var(--smooth); }
+.idea:hover { background: rgba(255,255,255,.1); transform: translateY(-1px); }
+.idea:active { transform: scale(.98); }
+.idea .ic { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; flex: none; }
+.idea .ic .ms { font-size: 19px; }
+.idea b { display: block; font: 600 13px Inter; }
+.idea small { display: block; font: 500 11px Inter; color: rgba(255,255,255,.42); margin-top: 2px; }
+
+/* building: the box glides up into "your request", ideas sink away, the status and the preview come in */
+.cr.building .intro { opacity: 0; transform: translateY(-10px); filter: blur(3px); pointer-events: none; }
+.cr.building .composer { top: 0; height: 42px; background: rgba(255,255,255,.06); padding: 0 6px 0 13px; }
+.cr.building .composer::before, .cr.building .composer .glow { opacity: 0; }
+.cr.building .composer .create { opacity: 0; transform: scale(.8); pointer-events: none; }
+.cr.building .composer input { font-weight: 600; color: rgba(255,255,255,.9); }
+.cr.building .composer .gem { transform: scale(.85); }
+.cr.building .ideas { opacity: 0; transform: translateY(16px); filter: blur(3px); pointer-events: none; }
+.cr .again { all: unset; cursor: pointer; height: 30px; padding: 0 11px; border-radius: 15px; font: 600 11.5px Inter; color: rgba(255,255,255,.6); display: none; align-items: center; gap: 5px; }
+.cr .again .ms { font-size: 15px; }
+.cr .again:hover { background: rgba(255,255,255,.1); color: #fff; }
+.cr.ready .again { display: flex; }
+
+.status { position: absolute; left: 4px; right: 0; top: 52px; height: 24px; display: flex; align-items: center; gap: 9px; opacity: 0; transform: translateY(8px); transition: opacity .4s ease .25s, transform .7s var(--smooth) .25s; }
+.cr.building .status { opacity: 1; transform: none; }
+.status .spin { width: 18px; height: 18px; position: relative; flex: none; }
+.status .spin .gem { position: absolute; inset: 0; animation: gemspin 2.6s cubic-bezier(.45,.05,.55,.95) infinite; }
+@keyframes gemspin { 0% { transform: rotate(0) scale(.85); } 50% { transform: rotate(180deg) scale(1.08); } 100% { transform: rotate(360deg) scale(.85); } }
+.status .spin .ok { position: absolute; inset: 0; border-radius: 50%; background: var(--green); display: grid; place-items: center; transform: scale(0); transition: transform .6s var(--smooth); }
+.status .spin .ok .ms { font-size: 13px; color: #fff; font-variation-settings: 'FILL' 1, 'wght' 700; }
+.cr.ready .status .spin .gem { animation: none; opacity: 0; transform: scale(.3) rotate(90deg); transition: opacity .3s, transform .5s var(--smooth); }
+.cr.ready .status .spin .ok { transform: scale(1); }
+.status .txt { position: relative; height: 18px; flex: 1; overflow: hidden; }
+.status .txt span { position: absolute; left: 0; top: 0; font: 600 13px/18px Inter; white-space: nowrap; }
+.shine { background: linear-gradient(90deg, rgba(255,255,255,.42) 0%, rgba(255,255,255,.42) 38%, #fff 50%, rgba(255,255,255,.42) 62%, rgba(255,255,255,.42) 100%); background-size: 260% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shine 2.2s linear infinite; }
+@keyframes shine { from { background-position: 100% 0; } to { background-position: 0% 0; } }
+.status .dots { display: flex; gap: 5px; margin-right: 4px; }
+.status .dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.14); transition: background .4s, transform .5s var(--smooth); }
+.status .dots i.on { background: linear-gradient(135deg, var(--g1), var(--g2)); transform: scale(1.15); }
+.status .dots i.done { background: rgba(255,255,255,.55); transform: none; }
+.cr.ready .status .dots i { background: var(--green); }
+
+.pv { position: absolute; left: 0; right: 0; top: 86px; bottom: 0; border-radius: 22px; background: rgba(255,255,255,.045); overflow: hidden; opacity: 0; transform: translateY(14px) scale(.985);
+  transition: opacity .45s ease .3s, transform .8s var(--smooth) .3s, bottom .7s var(--smooth); display: flex; flex-direction: column; }
+.cr.building .pv { opacity: 1; transform: none; }
+.cr.ready .pv { bottom: 50px; }
+.pv::after { content: ''; position: absolute; inset: -40% -10%; background: radial-gradient(40% 50% at 30% 50%, rgba(66,133,244,.10), transparent 70%), radial-gradient(40% 50% at 70% 50%, rgba(217,101,112,.08), transparent 70%); animation: breathe 3s ease-in-out infinite; pointer-events: none; transition: opacity .8s; }
+.cr.ready .pv::after { opacity: 0; }
+@keyframes breathe { 50% { transform: translateX(6%); opacity: .6; } }
+.pv-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px 8px; position: relative; z-index: 1; flex: none; }
+.pv-head .ic { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; flex: none; position: relative; }
+.pv-head .ic .ms { font-size: 18px; }
+.pv-head .tt { min-width: 0; flex: 1; position: relative; height: 32px; }
+.pv-head .tt > * { position: absolute; left: 0; }
+.pv-head b { font: 650 14px Inter; top: 0; white-space: nowrap; }
+.pv-head small { font: 500 11px Inter; color: rgba(255,255,255,.42); top: 18px; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
+.pv-head small .ms { font-size: 13px; color: var(--green); }
+.pv-body { position: relative; flex: 1; min-height: 0; z-index: 1; }
+.layer { position: absolute; inset: 0; padding: 0 10px 10px; display: flex; flex-direction: column; gap: 6px; }
+
+/* the Gemini-style loader: gradient lines flowing in a wave */
+.gl { display: block; flex: none; height: 11px; border-radius: 6px; opacity: .9;
+  background: linear-gradient(90deg, rgba(66,133,244,.16) 0px, rgba(66,133,244,.7) 110px, rgba(155,114,203,.8) 200px, rgba(217,101,112,.7) 290px, rgba(66,133,244,.16) 400px);
+  background-size: 400px 100%; animation: flow 1.9s linear infinite; animation-delay: calc(var(--i, 0) * -.16s); }
+@keyframes flow { from { background-position: 0 0; } to { background-position: -400px 0; } }
+.gl.lab { width: 92px; height: 8px; margin: 6px 4px 0; opacity: .55; }
+.srow { height: 38px; border-radius: 13px; background: rgba(255,255,255,.035); display: flex; align-items: center; gap: 12px; padding: 0 12px 0 10px; flex: none; }
+.textsk { display: flex; flex-direction: column; gap: 10px; padding: 8px 6px; }
+.sk-cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.sk-cards div { height: 96px; border-radius: 14px; background: rgba(255,255,255,.035); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+.sweep { position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(100deg, transparent 30%, rgba(66,133,244,.18) 42%, rgba(155,114,203,.28) 50%, rgba(217,101,112,.18) 58%, transparent 70%); background-size: 250% 100%; animation: sweep 1s var(--smooth) forwards; }
+@keyframes sweep { from { background-position: 120% 0; } to { background-position: -40% 0; } }
+
+.actions { position: absolute; left: 0; right: 0; bottom: 0; height: 40px; display: flex; align-items: center; gap: 6px; opacity: 0; transform: translateY(10px); pointer-events: none; transition: opacity .4s ease, transform .7s var(--smooth); }
+.cr.ready .actions { opacity: 1; transform: none; pointer-events: auto; transition-delay: .25s; }
+.actions .src { flex: 1; min-width: 0; font: 500 11.5px Inter; color: rgba(255,255,255,.45); display: flex; gap: 6px; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 4px; }
+.actions .src .ms { font-size: 15px; color: var(--green); }
+.btn { all: unset; cursor: pointer; height: 36px; padding: 0 14px; border-radius: 18px; display: inline-flex; align-items: center; gap: 6px; font: 600 12.5px Inter; background: rgba(255,255,255,.08); color: rgba(255,255,255,.85); transition: background .2s, color .2s, transform .35s var(--smooth), opacity .3s; white-space: nowrap; }
+.btn .ms { font-size: 16px; }
+.btn:hover { background: rgba(255,255,255,.15); color: #fff; }
+.btn:active { transform: scale(.95); }
+.btn.blue { background: var(--blue); color: #fff; }
+.btn.blue:hover { background: #2b93ff; }
+.btn.ref .gemmini { width: 13px; height: 13px; }
+
+/* the widgets */
+.match { display: grid; grid-template-columns: 54px 1fr 64px 1fr; align-items: center; gap: 8px; height: 38px; padding: 0 12px 0 10px; border-radius: 13px; background: rgba(255,255,255,.055); font: 600 13px Inter; position: relative; overflow: hidden; flex: none; }
+.match .st { font: 650 10.5px Inter; text-align: center; padding: 3px 0; border-radius: 7px; color: rgba(255,255,255,.55); background: rgba(255,255,255,.07); }
+.match .st.live { color: #fff; background: rgba(48,209,88,.22); }
+.match .st.live::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--green); margin-right: 4px; vertical-align: 1px; animation: blink 1.4s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .3; } }
+.match .h { text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.match .a { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.match .sc { text-align: center; font: 700 16px Inter; font-variant-numeric: tabular-nums; display: flex; justify-content: center; gap: 6px; }
+.match .sc .d { display: inline-block; position: relative; min-width: 10px; height: 20px; overflow: hidden; }
+.match .sc .d span { display: block; }
+.match .sc .sep { color: rgba(255,255,255,.35); }
+.match.goal::after { content: ''; position: absolute; inset: 0; background: radial-gradient(60% 120% at 50% 50%, rgba(48,209,88,.35), transparent 70%); animation: goalflash 1.6s ease-out forwards; pointer-events: none; }
+@keyframes goalflash { from { opacity: 1; } to { opacity: 0; } }
+.league { font: 650 10.5px Inter; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.38); padding: 4px 4px 0; flex: none; }
+.bignum { padding: 2px 6px 0; flex: none; }
+.bignum .v { font: 750 38px/1 Inter; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.bignum .ch { font: 600 12.5px Inter; color: var(--green); margin-top: 6px; }
+.spark { width: 100%; height: 86px; display: block; flex: none; }
+.wx { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; flex: none; }
+.wx div { background: rgba(255,255,255,.055); border-radius: 14px; padding: 10px 6px; text-align: center; font: 600 12px Inter; }
+.wx .ms { font-size: 24px; display: block; margin: 6px 0; }
+.wx b { font: 700 15px Inter; display: block; }
+.wx small { color: rgba(255,255,255,.42); font: 500 11px Inter; }
+.pr { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 13px; background: rgba(255,255,255,.055); font: 600 12.5px Inter; flex: none; }
+.pr .ms { font-size: 18px; }
+.pr span.t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pr small { color: rgba(255,255,255,.42); font: 500 11px Inter; }
+.full { height: 100%; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+.full .pv-head { padding: 0 4px 6px; }
+.full .layer { position: static; padding: 0; }
+
+/* closed island with a live activity */
+.mini { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 4px; }
+.mini .cap { font: 600 12px Inter; color: var(--sub); }
+.pill { height: 40px; min-width: 260px; padding: 0 14px 0 8px; border-radius: 20px; background: #000; color: #fff; display: flex; align-items: center; gap: 10px; box-shadow: 0 10px 30px rgba(40,20,80,.25); font: 600 13px Inter; transition: min-width .6s var(--smooth), box-shadow .4s; overflow: hidden; }
+.pill .sc { font-variant-numeric: tabular-nums; }
+.pill .min { color: var(--green); font: 650 11.5px Inter; }
+.pill.goal { min-width: 330px; box-shadow: 0 0 0 2px rgba(48,209,88,.7), 0 10px 30px rgba(48,209,88,.35); }
+.pill .gl2 { color: var(--green); font: 800 12px Inter; letter-spacing: .06em; max-width: 0; overflow: hidden; transition: max-width .6s var(--smooth); white-space: nowrap; }
+.pill.goal .gl2 { max-width: 60px; }
+
+.toast { position: absolute; left: 50%; bottom: 14px; transform: translate(-50%, 30px); opacity: 0; padding: 8px 14px; border-radius: 999px; background: #1c1c22; font: 600 12px Inter; transition: transform .45s var(--smooth), opacity .25s; pointer-events: none; white-space: nowrap; z-index: 9; }
+.toast.on { transform: translate(-50%, 0); opacity: 1; }
+.demo-tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.demo-tools button { all: unset; cursor: pointer; padding: 8px 14px; border-radius: 999px; background: rgba(20, 18, 26, .86); color: #fff; font: 600 12.5px Inter; display: flex; gap: 6px; align-items: center; }
+.demo-tools button:hover { background: #000; }
+.demo-tools .ms { font-size: 17px; }
+
+/* ---------- explanation sections ---------- */
+.flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; position: relative; }
+@media (max-width: 820px) { .flow { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .flow { grid-template-columns: 1fr; } }
+.step { background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 18px 16px 16px; backdrop-filter: blur(6px); position: relative; }
+.step .n { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; color: #fff; font: 700 13px Inter; margin-bottom: 12px; }
+.step b { display: block; font: 700 15px Inter; margin-bottom: 6px; letter-spacing: -.01em; }
+.step p { margin: 0; font: 400 13.5px/1.5 Inter; color: var(--sub); }
+.step .who { margin-top: 12px; font: 600 11px Inter; color: var(--sub); display: flex; gap: 6px; align-items: center; }
+.step .who .ms { font-size: 15px; }
+.cols { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; align-items: start; }
+@media (max-width: 820px) { .cols { grid-template-columns: 1fr; } }
+pre { margin: 0; background: var(--code); color: #e9e6f5; border-radius: 20px; padding: 18px 18px; font: 500 12.2px/1.6 'JetBrains Mono', monospace; overflow-x: auto; }
+pre .k { color: #8fb8ff; } pre .s { color: #a8e6a1; } pre .n { color: #ffcf8f; } pre .c { color: #6f6a80; }
+.notes { display: flex; flex-direction: column; gap: 10px; }
+.note { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; }
+.note b { font: 700 13.5px Inter; display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+.note b .ms { font-size: 18px; color: var(--blue); }
+.note p { margin: 0; font: 400 13.5px/1.5 Inter; color: var(--sub); }
+.why { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+@media (max-width: 680px) { .why { grid-template-columns: 1fr; } }
+.kit { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (max-width: 820px) { .kit { grid-template-columns: repeat(2, 1fr); } }
+.w { background: #0b0b0e; color: #fff; border-radius: 18px; padding: 12px; min-height: 112px; display: flex; flex-direction: column; justify-content: space-between; }
+.w .name { font: 650 12px Inter; color: rgba(255,255,255,.85); }
+.w .name small { display: block; font: 500 10.5px Inter; color: rgba(255,255,255,.4); margin-top: 2px; }
+.srcs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 820px) { .srcs { grid-template-columns: 1fr; } }
+.src-card { background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 18px; }
+.src-card .ms { font-size: 26px; color: var(--blue); }
+.src-card b { display: block; font: 700 15px Inter; margin: 10px 0 6px; }
+.src-card p { margin: 0 0 10px; font: 400 13.5px/1.5 Inter; color: var(--sub); }
+.tag { display: inline-flex; gap: 5px; align-items: center; font: 650 11px Inter; padding: 4px 9px; border-radius: 999px; background: rgba(48,209,88,.14); color: #1f9d48; margin: 0 4px 4px 0; }
+.tag.warn { background: rgba(255,159,10,.15); color: #b56d00; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag { color: #5fe08a; } :root:not([data-theme="light"]) .tag.warn { color: #ffc062; } }
+.sheet { background: #0b0b0e; color: #fff; border-radius: 26px; padding: 18px; max-width: 420px; }
+.sheet .t { font: 700 15px Inter; margin-bottom: 4px; }
+.sheet .d { font: 500 12.5px/1.5 Inter; color: rgba(255,255,255,.55); margin-bottom: 12px; }
+.sheet .row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.06); font: 600 12.5px Inter; margin-bottom: 6px; }
+.sheet .row .ms { font-size: 18px; color: var(--green); }
+.sheet .row small { margin-left: auto; color: rgba(255,255,255,.42); font: 500 11px Inter; }
+.sheet .btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+.phases { display: flex; flex-direction: column; gap: 10px; }
+.phase { display: grid; grid-template-columns: 110px 1fr; gap: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 16px 18px; }
+@media (max-width: 600px) { .phase { grid-template-columns: 1fr; gap: 6px; } }
+.phase .ph { font: 750 13px Inter; color: var(--blue); }
+.phase .ph small { display: block; font: 500 11.5px Inter; color: var(--sub); margin-top: 4px; }
+.phase b { font: 700 15px Inter; display: block; margin-bottom: 4px; }
+.phase p { margin: 0; font: 400 13.5px/1.55 Inter; color: var(--sub); }
+.phase ul { margin: 6px 0 0; padding-left: 18px; font: 400 13.5px/1.6 Inter; color: var(--sub); }
+.q { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 16px 18px; margin-bottom: 10px; }
+.q b { font: 700 14.5px Inter; display: block; margin-bottom: 4px; }
+.q p { margin: 0; font: 400 13.5px/1.55 Inter; color: var(--sub); }
+.q .rec { margin-top: 8px; font: 600 12.5px Inter; color: var(--ink); display: flex; gap: 6px; align-items: baseline; }
+.q .rec .ms { font-size: 16px; color: var(--green); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <linearGradient id="gemGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4285F4"/><stop offset=".55" stop-color="#9B72CB"/><stop offset="1" stop-color="#D96570"/></linearGradient>
+  <radialGradient id="bloubShade" cx="38%" cy="30%" r="75%"><stop offset="0" stop-color="#fff"/><stop offset=".7" stop-color="#e7e7ee"/><stop offset="1" stop-color="#b9b9c4"/></radialGradient>
+</defs></svg>
+
+<div class="wrap">
+  <h1>Describe a tab, get a tab</h1>
+  <p class="lede">You tell the island what you want to see, like <b>“live scores of today’s matches”</b>. Claude finds a live source and designs the tab once, and the island keeps it up to date by itself. Try it below: click <b>New tab</b>, pick an idea or type your own, and watch it build.</p>
+
+  <div class="stage">
+    <div class="scale"><div class="island" id="island">
+      <div class="top">
+        <span id="face"></span>
+        <div class="tabs" id="tabs"></div>
+        <div class="avs" id="avs"></div>
+        <div class="edit"><span class="ms">edit</span></div>
+      </div>
+      <div class="panel" id="panel"></div>
+      <div class="toast" id="toast"></div>
+    </div></div>
+    <div class="mini" id="mini" style="display:none">
+      <div class="pill" id="pill"></div>
+      <div class="cap">…and when the island is closed, the tab can show a live activity</div>
+    </div>
+    <div class="demo-tools">
+      <button id="goal"><span class="ms">sports_soccer</span>Simulate a goal</button>
+      <button id="restart"><span class="ms">refresh</span>Start over</button>
+    </div>
+  </div>
+
+  <div class="kicker">How it works</div>
+  <h2>Claude builds it once. The island runs it.</h2>
+  <p class="sub">Making the tab is the only step that uses Claude. After that the island fetches the data and draws it itself, so a custom tab is as fast and light as a built-in one, and it costs nothing to keep open.</p>
+  <div class="flow">
+    <div class="step"><div class="n" style="background:#5E5CE6">1</div><b>You describe it</b><p>One sentence in the new “+” tab: “live scores of today’s matches”. Suggestions help you start.</p><div class="who"><span class="ms">person</span>You · 5 seconds</div></div>
+    <div class="step"><div class="n" style="background:#0A84FF">2</div><b>Claude designs it</b><p>A headless Claude run (the same runner the island’s agents use) finds a live data source on the web, picks widgets from the island’s kit and tests the result with real data.</p><div class="who"><span class="ms">smart_toy</span>Claude · once, ~20–40 s</div></div>
+    <div class="step"><div class="n" style="background:#30D158">3</div><b>You see it, then add it</b><p>A live preview with real data, the source it uses and how often it refreshes. “Change something” lets you refine it in words before adding.</p><div class="who"><span class="ms">visibility</span>You approve the source</div></div>
+    <div class="step"><div class="n" style="background:#FF9F0A">4</div><b>The island runs it</b><p>It refreshes the data on its own schedule, animates changes (scores roll, rows glide) and can raise a live activity, like a goal, in the closed island.</p><div class="who"><span class="ms">bolt</span>Island · no Claude, no cost</div></div>
+  </div>
+
+  <div class="kicker">The key idea</div>
+  <h2>Claude writes a recipe, not code</h2>
+  <p class="sub">The tab is a small JSON “recipe”: where the data comes from, how to read it, which of the island’s widgets show it, and what counts as news. The island already knows how to draw and animate every widget.</p>
+  <div class="cols">
+    <pre id="recipe"></pre>
+    <div class="notes">
+      <div class="note"><b><span class="ms">cloud_download</span>source</b><p>A web address the island reads every <i>N</i> seconds (or a Claude refresh, or a local command; see below).</p></div>
+      <div class="note"><b><span class="ms">filter_alt</span>items + fields</b><p>Which part of the reply is the list, and what each field means (“home”, “score”, “minute”). Claude works this out by reading a real reply.</p></div>
+      <div class="note"><b><span class="ms">dashboard</span>view</b><p>Widgets from the kit: list, score row, big number, chart, cards, table, ring, countdown. Nothing else can be drawn, so every custom tab looks like the island.</p></div>
+      <div class="note"><b><span class="ms">notifications_active</span>alerts</b><p>When to tell you, even with the island closed: “a score changed”, “price moved 5%”, “PR approved”.</p></div>
+    </div>
+  </div>
+
+  <div class="kicker">Why a recipe</div>
+  <h2>Four reasons it beats generating code</h2>
+  <p class="sub">Letting Claude write C# for each tab sounds more powerful, but it would make the app slower, riskier and harder to trust.</p>
+  <div class="why">
+    <div class="note"><b><span class="ms">palette</span>It looks and moves like the island</b><p>Same fonts, colours, springs and Bloub. A custom tab can’t look “off”, because it’s drawn by the same code as Servers or Tasks.</p></div>
+    <div class="note"><b><span class="ms">speed</span>It stays fast</b><p>The renderer only redraws what changed, and widgets were built for that. A generated tab keeps the 20× performance work intact.</p></div>
+    <div class="note"><b><span class="ms">shield</span>It’s safe</b><p>A recipe is data. It can’t run code, read your files or open other sites. The source it uses is shown to you before the tab is added.</p></div>
+    <div class="note"><b><span class="ms">ios_share</span>It’s easy to change and share</b><p>“Only the Premier League” edits the recipe. A recipe is one small file, so tabs can be exported, shared with friends, or picked from a gallery later.</p></div>
+  </div>
+
+  <div class="kicker">The widget kit</div>
+  <h2>What a recipe can use</h2>
+  <p class="sub">Eight widgets cover almost every “show me X” request. Claude chooses and combines them; the island draws them natively and animates every change.</p>
+  <div class="kit" id="kit"></div>
+
+  <div class="kicker">Where data comes from</div>
+  <h2>Three kinds of source</h2>
+  <p class="sub">Claude prefers the cheapest one that works.</p>
+  <div class="srcs">
+    <div class="src-card"><span class="ms">public</span><b>A web feed</b><p>Most things have one: scores, prices, weather, transit, GitHub. The island reads it directly every few seconds or minutes.</p><span class="tag">free to run</span><span class="tag">live</span></div>
+    <div class="src-card"><span class="ms">smart_toy</span><b>A Claude refresh</b><p>For sites without a feed (“today’s menu at my gym”): Claude reads the page and fills the recipe, every 30–60 minutes at most.</p><span class="tag warn">uses your Claude usage</span><span class="tag warn">slow</span></div>
+    <div class="src-card"><span class="ms">terminal</span><b>Your computer</b><p>A command or file you approve: “my Docker containers”, “tests in this repo”, “disk space”. Nothing leaves your PC.</p><span class="tag">private</span><span class="tag">free to run</span></div>
+  </div>
+
+  <div class="kicker">Trust</div>
+  <h2>You always see what a tab will read</h2>
+  <p class="sub">Before a tab is added, the island shows exactly what it will fetch and how often. A tab can only use what you allowed; changing its source asks again.</p>
+  <div class="sheet">
+    <div class="t">Add “Today’s matches”?</div>
+    <div class="d">This tab reads one web address. It can’t open other sites, run code or see your files.</div>
+    <div class="row"><span class="ms">public</span>site.api.espn.com<small>every 30 s while open · 5 min closed</small></div>
+    <div class="row"><span class="ms">notifications_active</span>Alerts when a score changes<small>you can turn this off</small></div>
+    <div class="btns"><span class="btn">Not now</span><span class="btn blue"><span class="ms">add</span>Add tab</span></div>
+  </div>
+
+  <div class="kicker">Build plan</div>
+  <h2>How I’d build it, step by step</h2>
+  <p class="sub">Each phase ships something usable on its own, so we can stop and judge before the next.</p>
+  <div class="phases">
+    <div class="phase"><div class="ph">Phase 1<small>the engine</small></div><div><b>Recipes and the widget kit</b><p>The recipe format, a reader for web feeds, and the eight widgets with their animations (rolling numbers, gliding rows). Four hand-written recipes prove it: football, crypto, weather, GitHub PRs.</p><ul><li>Custom tabs live in <code>%APPDATA%\Island\tabs\*.json</code></li><li>Showcase mode gets sample custom tabs with scripted data</li></ul></div></div>
+    <div class="phase"><div class="ph">Phase 2<small>the brain</small></div><div><b>Claude writes recipes</b><p>A headless Claude run with the recipe format and web search: it finds a source, reads a real reply, writes the recipe, and the island checks it (does it fetch? do the fields fill?) and sends it back to Claude to fix if not.</p></div></div>
+    <div class="phase"><div class="ph">Phase 3<small>the experience</small></div><div><b>The “+” tab, preview and refine</b><p>Everything in the demo above: the orb Bloub thinking with live steps, the shimmering preview filling with real data, “Change something”, and the tab flying into the bar.</p></div></div>
+    <div class="phase"><div class="ph">Phase 4<small>the magic</small></div><div><b>Live activities and sharing</b><p>Alerts from custom tabs in the closed island (the goal pill), Claude-refresh and local-command sources, export/import of recipes.</p></div></div>
+  </div>
+
+  <div class="kicker">Your call</div>
+  <h2>Three decisions before we start</h2>
+  <div class="q"><b>1 · Can custom tabs use the internet?</b><p>Right now the island is local-only by rule. Live scores need the web. I’d allow it only for custom tabs, only to the address you approved, and never send anything about you.</p><div class="rec"><span class="ms">check_circle</span>My pick: yes, per-tab and approved, as in the sheet above.</div></div>
+  <div class="q"><b>2 · Whose Claude makes the tab?</b><p>The island already runs Claude Code headlessly for its agents, so it can use your own Claude Code login. No API key, no new account.</p><div class="rec"><span class="ms">check_circle</span>My pick: your Claude Code, the same way the island’s agents work.</div></div>
+  <div class="q"><b>3 · Start with phase 1 or a full prototype?</b><p>Phase 1 alone gives you four great tabs and proves the engine. A rough end-to-end prototype first would show the whole flow working sooner, but rougher.</p><div class="rec"><span class="ms">check_circle</span>My pick: phase 1 first, with the football tab as the showpiece.</div></div>
+</div>
+
+<script>
+const SMOOTH = getComputedStyle(document.documentElement).getPropertyValue('--smooth').trim();
+const $ = (s, r = document) => r.querySelector(s);
+const ms = (n, st = '') => `<span class="ms" style="${st}">${n}</span>`;
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const sleep = t => new Promise(r => setTimeout(r, t));
+function bloub(size, color) {
+  const body = color || 'url(#bloubShade)';
+  const shade = color ? `<circle cx="20" cy="20" r="19" fill="url(#bloubShade)" opacity=".22"/>` : '';
+  return `<svg width="${size}" height="${size}" viewBox="0 0 40 40" style="overflow:visible;display:block"><circle cx="20" cy="20" r="19" fill="${body}"/>${shade}
+    <g class="eyes" style="transition:transform .5s var(--smooth)"><rect x="13.2" y="12.5" width="4.6" height="10.5" rx="2.3" fill="#0b0b10" transform="rotate(8 15.5 17.75)"/><rect x="22.2" y="12" width="4.6" height="10.5" rx="2.3" fill="#0b0b10" transform="rotate(8 24.5 17.25)"/></g></svg>`;
+}
+function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 1800); }
+
+/* ================================================================ the four example tabs */
+const MATCHES = () => [
+  { lg: 'Saudi Pro League', h: 'Al Hilal', a: 'Al Nassr', hs: 1, as: 1, st: 'live', min: 34 },
+  { lg: 'Premier League', h: 'Arsenal', a: 'Chelsea', hs: 2, as: 1, st: 'live', min: 67 },
+  { lg: 'Premier League', h: 'Liverpool', a: 'Man City', hs: 2, as: 2, st: 'ft' },
+  { lg: 'La Liga', h: 'Real Madrid', a: 'Barcelona', hs: 0, as: 0, st: 'soon', at: '22:00' },
+];
+let matches = MATCHES(), onlyLeague = null;
+const KINDS = {
+  football: {
+    name: 'Matches', title: 'Today’s matches', icon: 'sports_soccer', color: '#30D158', src: 'site.api.espn.com', every: '30 s',
+    steps: [['Reading what you asked', 'live scores · today'], ['Looking for a live source', 'found site.api.espn.com'], ['Designing the layout', 'score rows, grouped by league'], ['Testing with real data', '4 matches today']],
+    refine: [['Only the Premier League', 'Premier League'], ['Saudi league first', 'sa']],
+    render: () => {
+      const list = matches.filter(m => !onlyLeague || onlyLeague === 'sa' || m.lg === onlyLeague)
+        .sort((a, b) => onlyLeague === 'sa' ? (b.lg === 'Saudi Pro League') - (a.lg === 'Saudi Pro League') : 0);
+      let last = '';
+      return list.map((m, i) => {
+        const hd = m.lg !== last ? `<div class="league" data-k="lg${m.lg}">${m.lg}</div>` : ''; last = m.lg;
+        const st = m.st === 'live' ? `<span class="st live">${m.min}’</span>` : m.st === 'ft' ? `<span class="st">FT</span>` : `<span class="st">${m.at}</span>`;
+        const sc = m.st === 'soon' ? `<span class="sc"><span class="sep">vs</span></span>` : `<span class="sc"><span class="d" data-d="h${i}"><span>${m.hs}</span></span><span class="sep">–</span><span class="d"><span>${m.as}</span></span></span>`;
+        return hd + `<div class="match" data-k="${m.h}">${st}<span class="h">${m.h}</span>${sc}<span class="a">${m.a}</span></div>`;
+      }).join('');
+    },
+    recipe: `{
+  <span class="k">"name"</span>: <span class="s">"Today’s matches"</span>,  <span class="k">"icon"</span>: <span class="s">"soccer"</span>,
+  <span class="k">"source"</span>: {
+    <span class="k">"url"</span>: <span class="s">"https://site.api.espn.com/…/soccer/all/scoreboard"</span>,
+    <span class="k">"every"</span>: <span class="n">30</span>   <span class="c">// seconds, while the tab is open</span>
+  },
+  <span class="k">"items"</span>: <span class="s">"events"</span>,
+  <span class="k">"fields"</span>: {
+    <span class="k">"league"</span>: <span class="s">"season.league.name"</span>,
+    <span class="k">"home"</span>:   <span class="s">"competitors[0].team.name"</span>,
+    <span class="k">"away"</span>:   <span class="s">"competitors[1].team.name"</span>,
+    <span class="k">"score"</span>:  <span class="s">"competitors[*].score"</span>,
+    <span class="k">"minute"</span>: <span class="s">"status.clock"</span>
+  },
+  <span class="k">"view"</span>: { <span class="k">"widget"</span>: <span class="s">"scoreRows"</span>, <span class="k">"groupBy"</span>: <span class="s">"league"</span>, <span class="k">"liveFirst"</span>: <span class="n">true</span> },
+  <span class="k">"alerts"</span>: [ { <span class="k">"when"</span>: <span class="s">"score changes"</span>, <span class="k">"say"</span>: <span class="s">"GOAL {home} {score} {away}"</span> } ]
+}`,
+  },
+  crypto: {
+    name: 'Bitcoin', title: 'Bitcoin', icon: 'currency_bitcoin', color: '#FF9F0A', src: 'api.coingecko.com', every: '60 s',
+    steps: [['Reading what you asked', 'bitcoin price'], ['Looking for a live source', 'found api.coingecko.com'], ['Designing the layout', 'big number + 24 h chart'], ['Testing with real data', 'price and 288 points']],
+    refine: [['Show it in SAR', 'sar'], ['Add Ethereum', 'eth']],
+    render: () => `<div class="bignum"><div class="v">${cur === 'sar' ? 'SAR 253,410' : '$67,582'}</div><div class="ch">▲ 2.4% today</div></div>${sparkSVG()}`,
+    recipe: `{
+  <span class="k">"name"</span>: <span class="s">"Bitcoin"</span>,
+  <span class="k">"source"</span>: { <span class="k">"url"</span>: <span class="s">"https://api.coingecko.com/…/bitcoin/market_chart?days=1"</span>, <span class="k">"every"</span>: <span class="n">60</span> },
+  <span class="k">"fields"</span>: { <span class="k">"price"</span>: <span class="s">"prices[-1][1]"</span>, <span class="k">"history"</span>: <span class="s">"prices[*][1]"</span> },
+  <span class="k">"view"</span>: [ { <span class="k">"widget"</span>: <span class="s">"bigNumber"</span>, <span class="k">"value"</span>: <span class="s">"price"</span>, <span class="k">"format"</span>: <span class="s">"$0,0"</span> },
+            { <span class="k">"widget"</span>: <span class="s">"chart"</span>, <span class="k">"values"</span>: <span class="s">"history"</span> } ],
+  <span class="k">"alerts"</span>: [ { <span class="k">"when"</span>: <span class="s">"price moves 5%"</span> } ]
+}`,
+  },
+  weather: {
+    name: 'Weather', title: 'Riyadh · this week', icon: 'partly_cloudy_day', color: '#64D2FF', src: 'api.open-meteo.com', every: '15 min',
+    steps: [['Reading what you asked', 'weather · Riyadh'], ['Looking for a live source', 'found api.open-meteo.com'], ['Designing the layout', 'five day cards'], ['Testing with real data', '5 days']],
+    refine: [['In Fahrenheit', 'f'], ['Hourly for today', 'h']],
+    render: () => `<div class="wx">${[['Thu', 'sunny', 38], ['Fri', 'sunny', 39], ['Sat', 'partly_cloudy_day', 36], ['Sun', 'air', 34], ['Mon', 'sunny', 37]].map(([d, i, t]) => `<div><small>${d}</small>${ms(i, `color:${i === 'sunny' ? '#FFD60A' : '#cfd6ff'}`)}<b>${unit === 'f' ? Math.round(t * 9 / 5 + 32) + '°F' : t + '°'}</b></div>`).join('')}</div>`,
+    recipe: `{
+  <span class="k">"name"</span>: <span class="s">"Weather"</span>,
+  <span class="k">"source"</span>: { <span class="k">"url"</span>: <span class="s">"https://api.open-meteo.com/v1/forecast?latitude=24.7&amp;longitude=46.7&amp;daily=…"</span>, <span class="k">"every"</span>: <span class="n">900</span> },
+  <span class="k">"items"</span>: <span class="s">"daily"</span>,
+  <span class="k">"fields"</span>: { <span class="k">"day"</span>: <span class="s">"time"</span>, <span class="k">"high"</span>: <span class="s">"temperature_2m_max"</span>, <span class="k">"sky"</span>: <span class="s">"weathercode"</span> },
+  <span class="k">"view"</span>: { <span class="k">"widget"</span>: <span class="s">"cards"</span>, <span class="k">"count"</span>: <span class="n">5</span> }
+}`,
+  },
+  prs: {
+    name: 'My PRs', title: 'Pull requests waiting', icon: 'merge', color: '#BF5AF2', src: 'api.github.com', every: '2 min',
+    steps: [['Reading what you asked', 'my open pull requests'], ['Looking for a live source', 'GitHub, signed in as you'], ['Designing the layout', 'list with review state'], ['Testing with real data', '3 open']],
+    refine: [['Only ones needing my review', 'mine']],
+    render: () => [['merge', '#30D158', 'Dark mode for settings', 'approved · aurora-web'], ['rate_review', '#FF9F0A', 'Fix flaky auth tests', 'changes requested · pixel-api'], ['schedule', 'rgba(255,255,255,.5)', 'Hero parallax', 'waiting for review · orbit-landing']]
+      .map(([i, c, t, s]) => `<div class="pr" data-k="${t}">${ms(i, `color:${c}`)}<span class="t">${t}</span><small>${s}</small></div>`).join(''),
+    recipe: `{
+  <span class="k">"name"</span>: <span class="s">"My PRs"</span>,
+  <span class="k">"source"</span>: { <span class="k">"url"</span>: <span class="s">"https://api.github.com/search/issues?q=is:pr+is:open+author:@me"</span>, <span class="k">"every"</span>: <span class="n">120</span> },
+  <span class="k">"items"</span>: <span class="s">"items"</span>,
+  <span class="k">"view"</span>: { <span class="k">"widget"</span>: <span class="s">"list"</span>, <span class="k">"title"</span>: <span class="s">"title"</span>, <span class="k">"badge"</span>: <span class="s">"review state"</span> },
+  <span class="k">"alerts"</span>: [ { <span class="k">"when"</span>: <span class="s">"a PR is approved"</span> } ]
+}`,
+  },
+};
+let cur = null, unit = null;
+function sparkSVG() {
+  let pts = [], v = 60;
+  for (let i = 0; i < 48; i++) { v += Math.sin(i * 0.7) * 3 + Math.cos(i * 0.23) * 2 + (i > 30 ? 1.3 : 0.3); pts.push(v); }
+  const mn = Math.min(...pts), mx = Math.max(...pts);
+  const xy = pts.map((p, i) => `${(i / 47 * 300).toFixed(1)},${(80 - (p - mn) / (mx - mn) * 70).toFixed(1)}`);
+  return `<svg class="spark" viewBox="0 0 300 86" preserveAspectRatio="none"><defs><linearGradient id="sg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#FF9F0A" stop-opacity=".35"/><stop offset="1" stop-color="#FF9F0A" stop-opacity="0"/></linearGradient></defs>
+    <path d="M${xy.join(' L')} L300,86 L0,86 Z" fill="url(#sg)"/><path d="M${xy.join(' L')}" fill="none" stroke="#FF9F0A" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function pick(text) {
+  const t = text.toLowerCase();
+  if (/(bitcoin|crypto|btc|eth|price)/.test(t)) return 'crypto';
+  if (/(weather|temperature|rain|forecast)/.test(t)) return 'weather';
+  if (/(pr|pull|github|review)/.test(t)) return 'prs';
+  if (/(match|score|football|soccer|game|league)/.test(t)) return 'football';
+  return null;
+}
+
+/* ================================================================ the island demo */
+const GEM = (size, cls = '') => `<svg class="gem ${cls}" width="${size}" height="${size}" viewBox="0 0 24 24"><path d="M12 0C12.6 6.4 17.6 11.4 24 12 17.6 12.6 12.6 17.6 12 24 11.4 17.6 6.4 12.6 0 12 6.4 11.4 11.4 6.4 12 0Z" fill="url(#gemGrad)"/></svg>`;
+
+/* the loader, first as plain lines (Claude is still reading), then in the shape of the widget it chose */
+const LINES = () => `<div class="textsk">${[86, 70, 92, 58].map((w, i) => `<i class="gl" style="--i:${i};width:${w}%"></i>`).join('')}</div>`;
+const SHAPES = {
+  football: () => {
+    const row = i => `<div class="srow" style="--i:${i}"><i class="gl" style="--i:${i};width:42px;height:18px;border-radius:7px"></i><i class="gl" style="--i:${i};flex:1;max-width:110px;margin-left:auto"></i><i class="gl" style="--i:${i};width:46px;height:16px"></i><i class="gl" style="--i:${i};flex:1;max-width:110px;margin-right:auto"></i></div>`;
+    return `<i class="gl lab" style="--i:0"></i>${row(0)}<i class="gl lab" style="--i:1"></i>${row(1)}${row(2)}<i class="gl lab" style="--i:3"></i>${row(3)}`;
+  },
+  crypto: () => `<div style="padding:4px 6px;display:flex;flex-direction:column;gap:10px"><i class="gl" style="width:190px;height:30px;border-radius:10px"></i><i class="gl" style="--i:1;width:90px;height:9px"></i></div>
+    <svg viewBox="0 0 300 70" preserveAspectRatio="none" style="width:100%;height:80px;display:block"><defs><linearGradient id="skg" x1="0" x2="1"><stop offset="0" stop-color="#4285F4"/><stop offset=".5" stop-color="#9B72CB"/><stop offset="1" stop-color="#D96570"/></linearGradient></defs>
+    <path d="M0,50 C40,40 60,58 100,44 S160,20 200,34 260,10 300,16" fill="none" stroke="url(#skg)" stroke-width="3" stroke-linecap="round" stroke-dasharray="14 10" opacity=".75"><animate attributeName="stroke-dashoffset" from="0" to="-48" dur="1s" repeatCount="indefinite"/></path></svg>`,
+  weather: () => `<div class="sk-cards">${[0, 1, 2, 3, 4].map(i => `<div><i class="gl" style="--i:${i};width:26px;height:8px"></i><i class="gl" style="--i:${i};width:30px;height:30px;border-radius:50%"></i><i class="gl" style="--i:${i};width:34px;height:12px"></i></div>`).join('')}</div>`,
+  prs: () => [0, 1, 2].map(i => `<div class="srow" style="--i:${i}"><i class="gl" style="--i:${i};width:18px;height:18px;border-radius:50%"></i><i class="gl" style="--i:${i};flex:1;max-width:${[180, 150, 120][i]}px"></i><i class="gl" style="--i:${i};width:120px;height:8px;margin-left:auto"></i></div>`).join(''),
+};
+
+let tabs = [{ id: 'overview', name: 'Overview' }, { id: 'agents', name: 'Agents' }, { id: 'tasks', name: 'Tasks' }];
+let selected = 'overview', creating = false, made = null, timer = null, run = 0;
+
+function drawTabs(flip) {
+  const before = new Map();
+  if (flip) document.querySelectorAll('#tabs .tab').forEach(el => before.set(el.dataset.id, el.getBoundingClientRect().left));
+  $('#tabs').innerHTML = tabs.map(t => `<span class="tab${t.id === selected && !creating ? ' on' : ''}" data-id="${t.id}">${t.icon ? ms(t.icon, `color:${t.color}`) : ''}${t.name}</span>`).join('')
+    + `<span class="tab plus${creating ? ' open' : ''}" data-id="plus" title="Describe a tab">${ms('add')}</span>`;
+  if (flip) document.querySelectorAll('#tabs .tab').forEach(el => {
+    const b = before.get(el.dataset.id); if (b == null) return;
+    const dx = b - el.getBoundingClientRect().left;
+    if (Math.abs(dx) > .5) el.animate([{ transform: `translateX(${dx}px)` }, { transform: 'none' }], { duration: 650, easing: SMOOTH });
+  });
+}
+function swap(html) {
+  const panel = $('#panel'), old = panel.firstElementChild;
+  const v = document.createElement('div'); v.className = 'view'; v.innerHTML = html;
+  panel.appendChild(v);
+  v.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 560, easing: SMOOTH });
+  if (old) old.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateY(-6px)' }], { duration: 240, easing: 'ease-in', fill: 'forwards' }).onfinish = () => old.remove();
+  return v;
+}
+function hop(el) {
+  el?.animate([{ transform: 'none' }, { transform: 'scale(1.1, .86)', offset: .2 }, { transform: 'translateY(-9px) scale(.95, 1.07)', offset: .5 }, { transform: 'scale(1.04, .96)', offset: .8 }, { transform: 'none' }], { duration: 680, easing: 'ease-out' });
+}
+
+function showDash() {
+  creating = false; drawTabs(); run++;
+  swap(`<div class="dashv">
+    <div class="card"><h4>Agents <small>3 working</small></h4>
+      <div class="arow">${bloub(24, '#2D8CFF')}<div>aurora-web<small>Editing SettingsPage.tsx</small></div></div>
+      <div class="arow">${bloub(24, '#E5374C')}<div>pixel-api<small>Running pytest tests/auth</small></div></div></div>
+    <div class="card"><h4>Today <small>1/3</small></h4>
+      <div class="trow"><i></i>Review the dark-mode PR</div><div class="trow"><i></i>Reply to design feedback</div><div class="trow done"><i></i>Fix flaky auth tests</div></div>
+    <div class="describe" id="describe">${GEM(18)}<span>Want a tab that isn’t here? <b>Describe it</b> and the island makes it.</span><span class="go">${ms('add')}New tab</span></div></div>`);
+  $('#describe').onclick = openCreator;
+}
+
+const IDEAS = [['football', 'sports_soccer', '#30D158', 'Live scores of today’s matches', 'scores · live'], ['crypto', 'currency_bitcoin', '#FF9F0A', 'Bitcoin price with a chart', 'price · every minute'],
+  ['weather', 'partly_cloudy_day', '#64D2FF', 'Weather in Riyadh this week', 'forecast · 5 days'], ['prs', 'merge', '#BF5AF2', 'My open pull requests', 'GitHub · reviews']];
+function openCreator() {
+  creating = true; drawTabs(); run++;
+  swap(`<div class="cr" id="cr">
+    <div class="intro"><div class="orb"><div class="halo"></div><div class="moons"><i class="moon a"></i><i class="moon b"></i></div><div class="bl" id="orbBloub">${bloub(46)}</div></div>
+      <div><h3>What should this tab show?</h3><p>Describe it in your words. Claude builds it once, then the island keeps it live.</p></div></div>
+    <div class="composer" id="composer"><span class="glow"></span>${GEM(20)}<input id="in" placeholder="Live scores of today’s matches…" autocomplete="off"><button class="again" id="again">${ms('edit')}Edit</button><button class="create" id="go">${ms('auto_awesome')}Create</button></div>
+    <div class="ideas" id="ideas">${IDEAS.map(([k, i, c, t, s]) => `<button class="idea" data-t="${t}"><span class="ic" style="background:${c}26;color:${c}">${ms(i)}</span><span><b>${t}</b><small>${s}</small></span></button>`).join('')}</div>
+    <div class="status"><span class="spin">${GEM(18)}<span class="ok">${ms('check')}</span></span><span class="txt" id="stx"></span><span class="dots" id="dots"><i></i><i></i><i></i><i></i></span></div>
+    <div class="pv" id="pv"><div class="pv-head"><span class="ic" id="pvIc"><i class="gl" style="width:30px;height:30px;border-radius:10px"></i></span>
+      <span class="tt" id="pvTt"><i class="gl" style="width:150px;height:12px;top:3px"></i><i class="gl" style="--i:1;width:96px;height:8px;top:22px"></i></span></div>
+      <div class="pv-body" id="pvBody"><div class="layer skel">${LINES()}</div></div></div>
+    <div class="actions" id="actions"></div></div>`);
+  const inp = $('#in'), comp = $('#composer');
+  setTimeout(() => inp.focus({ preventScroll: true }), 350);
+  inp.oninput = () => comp.classList.toggle('ready', inp.value.trim().length > 0);
+  inp.onkeydown = e => { if (e.key === 'Enter') create(inp.value); };
+  $('#go').onclick = () => create(inp.value || 'Live scores of today’s matches');
+  $('#ideas').onclick = e => { const c = e.target.closest('.idea'); if (!c) return; inp.value = c.dataset.t; comp.classList.add('ready'); create(c.dataset.t); };
+  $('#again').onclick = backToDescribe;
+  // Bloub reads along as you type
+  inp.addEventListener('input', () => { const k = Math.min(1, inp.value.length / 28); $('#orbBloub .eyes').style.transform = `translate(${-1 + k * 4}px, 2px)`; });
+}
+function backToDescribe() {
+  run++;
+  const cr = $('#cr'); cr.classList.remove('building', 'ready');
+  $('#in').readOnly = false; $('#in').focus({ preventScroll: true });
+  $('#pvBody').innerHTML = `<div class="layer skel">${LINES()}</div>`;
+  $('#pvIc').innerHTML = `<i class="gl" style="width:30px;height:30px;border-radius:10px"></i>`; $('#pvIc').style.background = '';
+  $('#pvTt').innerHTML = `<i class="gl" style="width:150px;height:12px;top:3px"></i><i class="gl" style="--i:1;width:96px;height:8px;top:22px"></i>`;
+  $('#dots').querySelectorAll('i').forEach(d => d.className = '');
+}
+
+function say(text, plain) {
+  const box = $('#stx'), old = box.firstElementChild;
+  const s = document.createElement('span'); s.className = plain ? '' : 'shine'; s.textContent = text;
+  box.appendChild(s);
+  s.animate([{ opacity: 0, transform: 'translateY(12px)', filter: 'blur(2px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }], { duration: 520, easing: SMOOTH });
+  if (old) old.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateY(-12px)', filter: 'blur(2px)' }], { duration: 360, easing: 'ease-in', fill: 'forwards' }).onfinish = () => old.remove();
+}
+/* swap one loader layer for another (or for the real data), row by row */
+function morph(html, isData) {
+  const body = $('#pvBody'), old = body.lastElementChild;
+  const nl = document.createElement('div'); nl.className = 'layer ' + (isData ? 'data' : 'skel'); nl.innerHTML = html;
+  body.appendChild(nl);
+  [...nl.children].forEach((el, i) => el.animate(isData
+    ? [{ opacity: 0, filter: 'blur(6px)', transform: 'translateY(5px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }]
+    : [{ opacity: 0, transform: 'scale(.98)' }, { opacity: 1, transform: 'none' }], { duration: isData ? 640 : 480, delay: 90 + i * (isData ? 85 : 50), easing: SMOOTH, fill: 'backwards' }));
+  if (old) [...old.children].forEach((el, i) => el.animate([{ opacity: 1 }, { opacity: 0, filter: 'blur(4px)' }], { duration: 380, delay: i * (isData ? 85 : 40), easing: 'ease', fill: 'forwards' }));
+  setTimeout(() => old?.remove(), 1400);
+  if (isData) { const sw = document.createElement('div'); sw.className = 'sweep'; $('#pv').appendChild(sw); setTimeout(() => sw.remove(), 1100); }
+}
+
+async function create(text) {
+  const kind = pick(text || '');
+  if (!kind) { toast('In this demo, try one of the ideas'); return; }
+  const K = KINDS[kind], me = ++run;
+  const alive = () => me === run && $('#cr');
+  cur = null; unit = null; onlyLeague = null; matches = MATCHES();
+  const cr = $('#cr'), inp = $('#in');
+  inp.value = text; inp.readOnly = true; inp.blur();
+  cr.classList.add('building');
+  const dots = [...$('#dots').children];
+  const step = i => dots.forEach((d, j) => d.className = j < i ? 'done' : j === i ? 'on' : '');
+  // 1 · reading
+  step(0); say(K.steps[0][0] + '…');
+  await sleep(1300); if (!alive()) return;
+  // 2 · a source is found: it appears under the title
+  step(1); say(K.steps[1][0] + '…');
+  await sleep(1300); if (!alive()) return;
+  const tt = $('#pvTt');
+  tt.lastElementChild.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 250, fill: 'forwards' });
+  setTimeout(() => {
+    if (!alive()) return;
+    tt.lastElementChild.remove();
+    tt.insertAdjacentHTML('beforeend', `<small>${ms('verified')}${K.src} · every ${K.every}</small>`);
+    tt.lastElementChild.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 480, easing: SMOOTH });
+  }, 250);
+  // 3 · designing: the loader takes the widget's shape, the icon and the title arrive
+  step(2); say(K.steps[2][0] + '…');
+  await sleep(500); if (!alive()) return;
+  morph(SHAPES[kind]());
+  const ic = $('#pvIc');
+  ic.style.background = K.color + '33'; ic.style.color = K.color; ic.innerHTML = ms(K.icon);
+  ic.animate([{ transform: 'scale(.4)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 620, easing: SMOOTH });
+  tt.firstElementChild.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 250, fill: 'forwards' });
+  setTimeout(() => {
+    if (!alive()) return;
+    tt.firstElementChild.remove();
+    tt.insertAdjacentHTML('afterbegin', `<b>${K.title}</b>`);
+    tt.firstElementChild.animate([{ opacity: 0, filter: 'blur(4px)' }, { opacity: 1, filter: 'blur(0)' }], { duration: 520, easing: SMOOTH });
+  }, 250);
+  await sleep(1100); if (!alive()) return;
+  // 4 · testing with real data: the data blurs in over the loader, row by row
+  step(3); say(K.steps[3][0] + '…');
+  await sleep(1100); if (!alive()) return;
+  morph(KINDS[kind].render(), true);
+  await sleep(500); if (!alive()) return;
+  cr.classList.add('ready');
+  say(`Ready · ${K.steps[3][1]}`, true);
+  hop($('#face svg'));
+  $('#actions').innerHTML = `<span class="src">${ms('bolt')}No Claude needed to keep it live</span>
+    ${K.refine.map(([t, v]) => `<button class="btn ref" data-r="${v}">${GEM(13, 'gemmini')}${t}</button>`).join('')}
+    <button class="btn blue" id="add">${ms('add')}Add tab</button>`;
+  $('#actions').onclick = e => {
+    const r = e.target.closest('[data-r]');
+    if (r) { refine(kind, r.dataset.r); r.animate([{ opacity: 1 }, { opacity: 0, transform: 'scale(.9)' }], { duration: 250, fill: 'forwards' }).onfinish = () => r.remove(); return; }
+    if (e.target.closest('#add')) addTab(kind);
+  };
+  $('#recipe').innerHTML = K.recipe;
+}
+
+/* "change something": a Gemini sweep passes over the preview and the rows glide to their new places */
+function refine(kind, v) {
+  const body = $('#pvBody .data'); if (!body) return;
+  const sw = document.createElement('div'); sw.className = 'sweep'; $('#pv').appendChild(sw); setTimeout(() => sw.remove(), 1100);
+  say('Updating the recipe…');
+  setTimeout(() => {
+    const before = new Map();
+    body.querySelectorAll('[data-k]').forEach(el => before.set(el.dataset.k, el.getBoundingClientRect().top));
+    if (kind === 'football') onlyLeague = v;
+    if (kind === 'crypto') cur = v;
+    if (kind === 'weather') unit = v;
+    body.innerHTML = KINDS[kind].render();
+    [...body.children].forEach(el => {
+      const b = before.get(el.dataset.k);
+      if (b == null) { el.animate([{ opacity: 0, filter: 'blur(4px)' }, { opacity: 1, filter: 'blur(0)' }], { duration: 500, easing: SMOOTH }); return; }
+      const dy = b - el.getBoundingClientRect().top;
+      if (Math.abs(dy) > .5) el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 650, easing: SMOOTH });
+    });
+    say('Updated · the data didn’t need Claude again', true);
+  }, 420);
+}
+
+/* add: the preview folds into a chip and flies up into the tab bar, which makes room for it */
+async function addTab(kind) {
+  const K = KINDS[kind];
+  const pv = $('#pv'), isl = $('#island').getBoundingClientRect(), sc = isl.width / 724;
+  const from = pv.getBoundingClientRect();
+  tabs.push({ id: 'custom', name: K.name, icon: K.icon, color: K.color });
+  creating = false; selected = 'custom'; made = kind; run++;
+  drawTabs(true);
+  const tabEl = $('#tabs [data-id="custom"]'); tabEl.style.visibility = 'hidden';
+  const to = tabEl.getBoundingClientRect();
+  const ghost = document.createElement('div');
+  ghost.style.cssText = `position:absolute;z-index:8;left:0;top:0;width:${from.width / sc}px;height:${from.height / sc}px;border-radius:22px;background:#1b1b21;overflow:hidden;transform-origin:0 0;pointer-events:none;box-shadow:0 20px 50px rgba(0,0,0,.5)`;
+  ghost.innerHTML = `<div class="pv-head"><span class="ic" style="background:${K.color}33;color:${K.color}">${ms(K.icon)}</span><span class="tt"><b>${K.title}</b></span></div>`;
+  $('#island').appendChild(ghost);
+  const x0 = (from.left - isl.left) / sc, y0 = (from.top - isl.top) / sc, x1 = (to.left - isl.left) / sc, y1 = (to.top - isl.top) / sc;
+  const sx = to.width / from.width, sy = to.height / from.height;
+  $('#panel').firstElementChild.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, fill: 'forwards' });
+  ghost.animate([
+    { transform: `translate(${x0}px, ${y0}px) scale(1, 1)`, borderRadius: '22px', opacity: 1 },
+    { transform: `translate(${x0 + (x1 - x0) * .4}px, ${y0 - 36}px) scale(.5, .36)`, borderRadius: '34px', opacity: 1, offset: .5 },
+    { transform: `translate(${x1}px, ${y1}px) scale(${sx}, ${sy})`, borderRadius: '999px', opacity: .15 },
+  ], { duration: 860, easing: 'cubic-bezier(.45,0,.2,1)', fill: 'forwards' });
+  await sleep(860);
+  ghost.remove();
+  tabEl.style.visibility = '';
+  drawTabs();
+  $('#tabs [data-id="custom"]').animate([{ transform: 'scale(1.12)' }, { transform: 'none' }], { duration: 650, easing: SMOOTH });
+  hop($('#face svg'));
+  showCustom();
+  toast(`“${K.name}” is now one of your tabs`);
+}
+
+function showCustom() {
+  const K = KINDS[made];
+  swap(`<div class="full"><div class="pv-head"><span class="ic" style="background:${K.color}33;color:${K.color}">${ms(K.icon)}</span><span class="tt"><b>${K.title}</b><small>${ms('bolt')}${K.src} · updated just now</small></span></div><div class="layer" id="live">${K.render()}</div></div>`);
+  if (made === 'football') { $('#mini').style.display = ''; drawPill(); startClock(); }
+}
+
+/* the live part: minutes tick, a goal rolls the score and lights the row and the closed island */
+function startClock() {
+  clearInterval(timer);
+  timer = setInterval(() => {
+    matches.forEach(m => { if (m.st === 'live' && m.min < 90) m.min++; });
+    document.querySelectorAll('#live .st.live').forEach(el => {
+      const m = matches.find(x => x.h === el.parentElement.dataset.k);
+      if (m) el.textContent = m.min + '’';
+    });
+    drawPill($('#pill').classList.contains('goal'));
+  }, 2000);
+}
+function drawPill(goal) {
+  const m = matches[1];
+  $('#pill').innerHTML = `${bloub(26)}<span class="gl2">GOAL!</span><span>ARS</span><span class="sc">${m.hs} – ${m.as}</span><span>CHE</span><span class="min">${m.min}’</span>`;
+  $('#pill').classList.toggle('goal', !!goal);
+}
+function goal() {
+  if (made !== 'football' || selected !== 'custom') { toast('Add the football tab first'); return; }
+  const m = matches[1];
+  m.hs++;
+  const row = document.querySelector(`#live .match[data-k="${m.h}"]`);
+  if (row) {
+    const d = row.querySelector('.d');
+    d.innerHTML = `<span>${m.hs - 1}</span><span>${m.hs}</span>`;
+    [...d.children].forEach(s => s.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-20px)' }], { duration: 600, easing: SMOOTH, fill: 'forwards' }));
+    row.classList.remove('goal'); void row.offsetWidth; row.classList.add('goal');
+  }
+  drawPill(true);
+  hop($('#pill svg'));
+  setTimeout(() => drawPill(false), 3200);
+}
+
+$('#tabs').onclick = e => {
+  const t = e.target.closest('.tab'); if (!t) return;
+  if (t.dataset.id === 'plus') { creating ? showDash() : openCreator(); return; }
+  selected = t.dataset.id; creating = false; drawTabs();
+  if (t.dataset.id === 'custom') showCustom(); else showDash();
+};
+$('#goal').onclick = goal;
+$('#restart').onclick = () => { clearInterval(timer); tabs = tabs.filter(t => t.id !== 'custom'); selected = 'overview'; made = null; $('#mini').style.display = 'none'; matches = MATCHES(); showDash(); $('#recipe').innerHTML = KINDS.football.recipe; };
+$('#face').innerHTML = bloub(40);
+$('#avs').innerHTML = ['#2D8CFF', '#F0479B', '#E5374C'].map(c => bloub(22, c)).join('');
+$('#recipe').innerHTML = KINDS.football.recipe;
+
+/* the widget kit */
+$('#kit').innerHTML = [
+  ['Score rows', 'two sides and a live minute', `<div class="match" style="height:30px;font-size:11.5px;grid-template-columns:38px 1fr 40px 1fr"><span class="st live">67’</span><span class="h">ARS</span><span class="sc" style="font-size:13px">2 – 1</span><span class="a">CHE</span></div>`],
+  ['List', 'title, detail, badge', `<div class="pr" style="height:30px">${ms('merge', 'color:#30D158;font-size:16px')}<span class="t">Dark mode</span><small>approved</small></div>`],
+  ['Big number', 'rolls when it changes', `<div style="font:750 26px Inter;letter-spacing:-.03em">$67,582</div>`],
+  ['Chart', 'line or bars', `<div style="height:40px">${sparkSVG()}</div>`],
+  ['Cards', 'a row of small tiles', `<div class="wx" style="grid-template-columns:repeat(3,1fr)"><div style="padding:6px">${ms('sunny', 'color:#FFD60A;font-size:18px;margin:2px 0')}<b style="font-size:12px">38°</b></div><div style="padding:6px">${ms('sunny', 'color:#FFD60A;font-size:18px;margin:2px 0')}<b style="font-size:12px">39°</b></div><div style="padding:6px">${ms('air', 'color:#cfd6ff;font-size:18px;margin:2px 0')}<b style="font-size:12px">34°</b></div></div>`],
+  ['Table', 'rows and columns', `<div style="font:500 11px/1.7 Inter;color:rgba(255,255,255,.7)"><div style="display:flex;justify-content:space-between"><span>1 Al Hilal</span><b>52</b></div><div style="display:flex;justify-content:space-between"><span>2 Al Nassr</span><b>49</b></div></div>`],
+  ['Ring', 'progress toward a goal', `<svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="17" fill="none" stroke="rgba(48,209,88,.2)" stroke-width="5"/><circle cx="22" cy="22" r="17" fill="none" stroke="#30D158" stroke-width="5" stroke-linecap="round" stroke-dasharray="106.8" stroke-dashoffset="34" transform="rotate(-90 22 22)"/></svg>`],
+  ['Countdown', 'to a time or event', `<div style="font:700 22px Inter;font-variant-numeric:tabular-nums">02:14:09</div>`],
+].map(([n, s, html]) => `<div class="w">${html}<div class="name">${n}<small>${s}</small></div></div>`).join('');
+
+drawTabs(); showDash();
+/* ?auto=preview|added: plays the flow by itself (for checking the page) */
+const auto = new URLSearchParams(location.search).get('auto');
+if (auto) (async () => {
+  await sleep(300); openCreator(); await sleep(600);
+  await create('Live scores of today’s matches');
+  if (auto === 'added') { await sleep(500); await addTab('football'); await sleep(1200); goal(); }
+})();
+</script>
+</body>
+</html>

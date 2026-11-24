@@ -117,7 +117,7 @@ public sealed class Agent
 /// and transcripts) and agents the island launches itself (headless Claude, fully controllable).
 /// Views: grid → focus (live log, chat, plan, changes, actions, message box); plus "New agent".
 /// </summary>
-public sealed class AgentTeam
+public sealed partial class AgentTeam
 {
     public const int MaxShown = 6;
     static readonly uint[] Palette = [0x2FBF98, 0xF0912C, 0xE5374C, 0x7A3BF0, 0x2D8CFF, 0xF0479B, 0xE8B92E];
@@ -147,7 +147,77 @@ public sealed class AgentTeam
     static readonly (string label, string task)[] Templates =
         [("Fix bugs", "Find and fix bugs"), ("Write tests", "Write tests for the main code"), ("Review my changes", "Review my recent changes"),
          ("Explain the code", "Explain this codebase"), ("Make it faster", "Make it faster")];
-    float _formH = 440; // the form hugs its content: one or two rows of projects
+
+    // ---- files handed to an agent (dropped on Bloub, then "Ask Claude"; or dropped on the open form or console)
+
+    /// <summary>The files the new agent starts with (their paths go with its first task).</summary>
+    public readonly List<string> Attached = new();
+    /// <summary>A file hangs over the open form or console: "drop to attach".</summary>
+    public bool DropHover;
+    float _dropT;
+
+    /// <summary>Starters for a task about a file: a short label, and the task it writes.</summary>
+    static (string label, string task)[] FileTemplates(string path) => PocketItem.KindOf(path) switch
+    {
+        PocketKind.Image => [("Describe it", "Describe what is in this image"), ("Read the text in it", "Read out all the text in this image"), ("Build it", "Recreate what this image shows in code"), ("What's wrong here?", "This is a screenshot of a problem. Work out what is wrong and how to fix it")],
+        PocketKind.Folder => Templates,
+        PocketKind.Code => [("Explain it", "Explain what this file does"), ("Find bugs", "Find bugs in this file and fix them"), ("Review it", "Review this file and suggest improvements"), ("Write tests", "Write tests for this file")],
+        _ => [("Summarize it", "Summarize this file"), ("Key points", "Pull out the key points of this file"), ("Explain it", "Explain this file to me simply")],
+    };
+
+    (string label, string task)[] Starters => Attached.Count > 0 ? FileTemplates(Attached[0]) : Templates;
+
+    /// <summary>"Ask Claude" about files: the New agent form opens with them attached, in the project they belong to.</summary>
+    public void NewAgentWith(IslandModel m, List<string> paths)
+    {
+        if (paths.Count == 0) return;
+        SetView(TeamView.New);
+        Attached.Clear();
+        Attached.AddRange(paths.Take(8));
+        string folder = Pocket.ProjectFor(paths[0], _recent);
+        if (!_recent.Contains(folder, StringComparer.OrdinalIgnoreCase)) _recent.Insert(0, folder);
+        _newFolder = folder;
+        m.SetMode(Mode.Agents);
+        m.FocusField(Task);
+    }
+
+    /// <summary>Files from the Pocket, waiting for you to pick who gets them: the team is shown, and a click on an agent hands them over.</summary>
+    public readonly List<string> Giving = new();
+
+    /// <summary>"Give to an agent": your agents are shown, you pick one (with nobody there yet, a new one starts with the files).</summary>
+    public void GiveTo(IslandModel m, List<string> paths)
+    {
+        if (paths.Count == 0) return;
+        if (!Live.Any()) { NewAgentWith(m, paths); return; }
+        Attached.Clear();
+        m.OpenTeam();
+        m.FocusField(null);
+        Giving.Clear();
+        Giving.AddRange(paths.Take(8));
+        // (they hop, one after the other: "me?")
+        int i = 0;
+        foreach (var a in Live) a.HopAt = m.Clock + 0.3 + i++ * 0.08;
+    }
+
+    /// <summary>Files dropped on the open widget: onto the form they join the new agent's files, onto a console they go into your message.</summary>
+    public void Attach(IslandModel m, string[] files)
+    {
+        if (files.Length == 0) return;
+        if (View == TeamView.New)
+        {
+            foreach (var f in files) if (Attached.Count < 8 && !Attached.Contains(f, StringComparer.OrdinalIgnoreCase)) Attached.Add(f);
+            if (_step is >= 1 and <= 3) Go(m, 0);   // (back to the first question: what should it do with them?)
+            m.FocusField(Task);
+        }
+        else if (View == TeamView.Focus && Selected is { } a)
+        {
+            if (Message.Text.Length > 0 && !Message.Text.EndsWith(' ')) Message.Insert(" ");
+            Message.Insert(string.Join(" ", files.Select(f => $"\"{f}\"")) + " ");
+            Message.ChangedAt = m.Clock;
+            m.FocusField(Message);
+            a.Grow.Snap(0.84f); a.Grow.To(1, SpringSpec.Bounce);   // (it gulps)
+        }
+    }
 
     readonly Random _rng = new();
     readonly ClaudeSessions _sessions = new();
@@ -176,8 +246,8 @@ public sealed class AgentTeam
     /// <summary>Widget size for the current view (the island springs between them).</summary>
     public (float W, float H, float R) Size => View switch
     {
-        TeamView.Focus => (480, 440, 50),
-        TeamView.New => (500, _formH, 56),
+        TeamView.Focus => (StageW, StageH + (SheetShown ? SheetGrow : 0), 50),   // (a little taller while a sheet is open)
+        TeamView.New => (FormW, FormH, 56),
         _ => (400, 352, 54),
     };
 
@@ -382,6 +452,20 @@ public sealed class AgentTeam
         m.PendingCelebration = (a, $"{a.Name} is done", DoneLine(a));
     }
 
+    /// <summary>As if the first session had just finished, through the same queue a real one goes through (demo word "finish").</summary>
+    public void FinishDemo(IslandModel m)
+    {
+        var a = Live.FirstOrDefault();
+        if (a != null) m.Celebrate(a, $"{a.Name} is done", DoneLine(a));
+    }
+
+    /// <summary>Plays "done" for the first session (Ctrl+Alt+G, Ctrl+Alt+D, the tray's preview, --done-demo): he goes out to your pointer and says it.</summary>
+    public void DoneDemo(IslandModel m)
+    {
+        var a = Live.FirstOrDefault();
+        m.ShowDone(a, a != null ? $"{a.Name} is done" : "Claude is done", a != null ? DoneLine(a) : "Finished, ready for you");
+    }
+
     static uint Hash(string s) { uint h = 2166136261; foreach (char c in s) h = (h ^ c) * 16777619; return h; }
 
     uint PickColor(string id)
@@ -406,7 +490,7 @@ public sealed class AgentTeam
     // ================================================================ launching island agents
 
     /// <summary>Starts a new headless agent in <paramref name="folder"/> with a first task.</summary>
-    public Agent Launch(IslandModel m, string folder, string task, string? mode = null, string? resume = null, string? forkOf = null)
+    public Agent Launch(IslandModel m, string folder, string task, string? mode = null, string? resume = null, string? forkOf = null, IReadOnlyList<string>? files = null, bool focus = true)
     {
         var a = NewAgent(AgentKind.Island, "island-" + Guid.NewGuid().ToString("N")[..8]);
         a.Cwd = folder;
@@ -415,11 +499,21 @@ public sealed class AgentTeam
         a.Mode = mode;
         a.ForkOf = forkOf;
         a.X.Snap(IslandModel.CX); a.Y.Snap(m.Top + 150);
-        try
+        if (Showcase.On)
+        {
+            // (showcase mode starts nothing: the new one only looks busy, so the form can be tried and filmed without Claude Code)
+            a.Data.AddChat(true, task);
+            a.Data.AddLog("Reading the project", "Read");
+            a.Status = AgentStatus.Working;
+            a.BusySince = DateTime.UtcNow;
+        }
+        else try
         {
             a.Runner = new AgentRunner(folder, resume, fork: resume != null, permissionMode: mode);
-            a.Runner.Send(task);
-            a.Data.AddChat(true, task);
+            // (files you attached go along as their paths: the agent reads them itself)
+            string with = files is { Count: > 0 } ? "\n\n" + (files.Count == 1 ? "The file: " : "The files:\n") + string.Join("\n", files) : "";
+            a.Runner.Send(task + with);
+            a.Data.AddChat(true, files is { Count: > 0 } ? $"{task}  ·  {string.Join(", ", files.Select(f => Path.GetFileName(f.TrimEnd('\\', '/'))))}" : task);
             a.Status = AgentStatus.Working;
             a.BusySince = DateTime.UtcNow;
         }
@@ -429,7 +523,7 @@ public sealed class AgentTeam
             a.Status = AgentStatus.Ended;
         }
         Event(a, BloubState.Egg, BloubExpressionId.Excite, 1.3); // hatches
-        Focus(a);
+        if (focus) Focus(a);   // (from the form it is sent off first: see AgentTeam.Form)
         return a;
     }
 
@@ -455,7 +549,7 @@ public sealed class AgentTeam
         a.Data.AddChat(true, text);
         Transition(m, a, AgentStatus.Working);
         a.Grow.Snap(0.8f); a.Grow.To(1, SpringSpec.Bounce); // gulps your message
-        Scroll.To(0);
+        Scroll.To(0); _sheet = false;
     }
 
     // ================================================================ interaction
@@ -463,34 +557,26 @@ public sealed class AgentTeam
     public void SetView(TeamView v, Agent? sel = null)
     {
         if (sel != null) Selected = sel;
-        if (v == TeamView.New) { _recent = Showcase.On ? Showcase.RecentProjects() : Shell.RecentProjects(); _newFolder ??= _recent.FirstOrDefault(); }
+        if (v == TeamView.New) { _recent = Showcase.On ? Showcase.RecentProjects() : Shell.RecentProjects(); _newFolder ??= _recent.FirstOrDefault(); OpenForm(); }
         if (v == View) return;
         View = v;
         ViewTime = 0;
         ViewFade.Snap(0); ViewFade.To(1);
-        Panel = TeamPanel.Activity; PanelT.Snap(1);
+        Panel = TeamPanel.Activity; PanelT.Snap(1); _sheet = false;
     }
 
     /// <summary>Opens the widget focused on one agent (e.g. from a "needs you" banner).</summary>
     public void Focus(Agent a)
     {
-        if (Selected != a) { Message.Clear(); Panel = TeamPanel.Activity; PanelT.Snap(1); Scroll.Snap(0); }
+        if (Selected != a) { Message.Clear(); Panel = TeamPanel.Activity; PanelT.Snap(1); Scroll.Snap(0); _sheet = false; }
         Selected = a; View = TeamView.Focus; ViewTime = 0; ViewFade.Snap(0); ViewFade.To(1);
         if (a.Status == AgentStatus.Done) a.DoneAt = DateTime.UtcNow;
-    }
-
-    void SetTab(TeamPanel p)
-    {
-        if (Panel == p) return;
-        Panel = p;
-        Scroll.Snap(0);
-        PanelT.Snap(0); PanelT.To(1);
     }
 
     public void Wheel(float delta)
     {
         if (View != TeamView.Focus) return;
-        float d = Panel == TeamPanel.Activity ? delta : -delta; // the feed scrolls up into history
+        float d = SheetShown && Panel == TeamPanel.Activity ? delta : -delta; // the feed scrolls up into history; his words, the plan and the files scroll down
         Scroll.To(Math.Clamp(Scroll.Target + d * 0.6f, 0, _scrollMax));
     }
 
@@ -498,7 +584,7 @@ public sealed class AgentTeam
     public void Submit(IslandModel m, TextField f)
     {
         if (f == Message && Selected != null) { var t = Message.Text; Message.Clear(); Send(m, Selected, t); }
-        else if (f == Task) LaunchFromForm(m);
+        else if (f == Task || f == Keys) FormEnter(m);
         else m.Tabs.Submit(m, f);
     }
 
@@ -512,17 +598,6 @@ public sealed class AgentTeam
         m.FocusField(Task);
     }
 
-    void LaunchFromForm(IslandModel m)
-    {
-        if (_newFolder == null) { m.ShowToast("Pick a folder first"); return; }
-        if (Task.Text.Trim().Length == 0) { m.FocusField(Task); m.ShowToast("Tell it what to do"); return; }
-        if (Count >= MaxShown) { m.ShowToast($"The team is full ({MaxShown}) — close an agent first"); return; }
-        var task = Task.Text.Trim();
-        Task.Clear();
-        m.FocusField(null);
-        Launch(m, _newFolder, task, Modes[_newMode].mode);
-    }
-
     Agent? ByKey(string k) => int.TryParse(k.TrimStart('k'), out int key) ? Agents.FirstOrDefault(a => a.Key == key) : null;
 
     /// <summary>Clicks inside the widget. Returns false when the id isn't ours.</summary>
@@ -534,9 +609,12 @@ public sealed class AgentTeam
             case "team":
                 switch (p[1])
                 {
-                    case "back": SetView(TeamView.Grid); m.FocusField(null); break;
-                    case "home": m.SetMode(Mode.Full); break;
-                    case "new": SetView(TeamView.New); m.FocusField(Task); break;
+                    case "back" when View == TeamView.New && _step is >= 1 and <= 3: Go(m, _step - 1); break;   // (one question back)
+                    case "back": SetView(TeamView.Grid); m.FocusField(null); Attached.Clear(); break;
+                    case "home": Giving.Clear(); m.SetMode(Mode.Full); break;
+                    // (with a file waiting to be given: the new agent gets it)
+                    case "new" when Giving.Count > 0: { var files = Giving.ToList(); Giving.Clear(); NewAgentWith(m, files); break; }
+                    case "new": Attached.Clear(); SetView(TeamView.New); m.FocusField(Task); break;
                 }
                 return true;
             case "input":
@@ -546,17 +624,20 @@ public sealed class AgentTeam
                 if (sel != null) { var t = Message.Text; Message.Clear(); Send(m, sel, t); }
                 return true;
             case "atab":
-                SetTab(p[1] switch { "plan" => TeamPanel.Plan, "files" => TeamPanel.Files, _ => TeamPanel.Activity });
+                OpenSheet(p[1] switch { "plan" => TeamPanel.Plan, "files" => TeamPanel.Files, _ => TeamPanel.Activity });
+                return true;
+            case "sheet":
+                _sheet = false;
                 return true;
             case "copy" when sel != null && int.TryParse(p[1], out int ci) && ci < sel.Data.Feed.Count:
                 if (Shell.SetClipboard(m.Hwnd, sel.Data.Feed[ci].Text)) m.ShowToast("Copied");
                 return true;
-            case "ans" when sel?.Runner != null && sel.Ask != null:
+            case "ans" when sel?.Ask != null && (sel.Runner != null || Showcase.On):
             {
                 var qs = Questions(sel.Ask);
                 if (p[1] == "skip" || qs.Length == 0)
                 {
-                    sel.Runner.Answer(sel.Ask, false, "The user skipped this question; continue with your best judgement.");
+                    sel.Runner?.Answer(sel.Ask, false, "The user skipped this question; continue with your best judgement.");
                     sel.Data.AddLog("Skipped the question");
                 }
                 else
@@ -567,17 +648,17 @@ public sealed class AgentTeam
                     if (++sel.AskStep < qs.Length) return true; // next question
                     var input = sel.Ask.Input?.DeepClone() as JsonObject ?? new JsonObject();
                     input["answers"] = sel.AskAnswers.DeepClone();
-                    sel.Runner.Answer(sel.Ask, true, input: input);
+                    sel.Runner?.Answer(sel.Ask, true, input: input);
                 }
                 sel.Ask = null;
                 Transition(m, sel, AgentStatus.Working);
                 Event(sel, BloubState.Wink, BloubExpressionId.Heureux, 1.2);
                 return true;
             }
-            case "perm" when sel?.Runner != null && sel.Ask != null:
+            case "perm" when sel?.Ask != null && (sel.Runner != null || Showcase.On):
             {
                 bool allow = p[1] == "allow";
-                sel.Runner.Answer(sel.Ask, allow);
+                sel.Runner?.Answer(sel.Ask, allow);
                 if (!allow && sel.Ask.Input?["file_path"]?.GetValue<string>() is { } denied) sel.Data.Unchange(denied);
                 sel.Data.AddLog((allow ? "Allowed: " : "Denied: ") + sel.Ask.Summary);
                 sel.Ask = null;
@@ -589,9 +670,15 @@ public sealed class AgentTeam
             case "new":
                 switch (p[1])
                 {
-                    case "folder": _newFolder = _recent[int.Parse(p[2])]; break;
-                    case "mode": _newMode = int.Parse(p[2]); break;
-                    case "tpl": Task.Set(Templates[int.Parse(p[2])].task); m.FocusField(Task); break;
+                    case "folder": _newFolder = _recent[int.Parse(p[2])]; Chose(1, 1.0); break;
+                    case "mode": _newMode = int.Parse(p[2]); Chose(2, 0.9); break;
+                    case "next": FormEnter(m); break;
+                    case "step": Go(m, int.Parse(p[2])); break;
+                    case "other": Browse(m); break;
+                    case "open": if (_sent is { Gone: false } made) Focus(made); break;
+                    case "poke": _formHop.Velocity = -150; m.Bloub.Engine.Blink(m.Clock); break;
+                    case "tpl": Task.Set(Starters[Math.Clamp(int.Parse(p[2]), 0, Starters.Length - 1)].task); m.FocusField(Task); break;
+                    case "detach": if (int.TryParse(p[2], out int di) && di < Attached.Count) Attached.RemoveAt(di); break;
                     case "launch": LaunchFromForm(m); break;
                 }
                 return true;
@@ -612,6 +699,14 @@ public sealed class AgentTeam
                 {
                     t.Grow.Snap(0.86f); t.Grow.To(1, SpringSpec.Bounce);
                     if (m.Mode == Mode.Agents) Focus(t); else m.OpenTeam(t); // from the dashboard: open its console
+                    if (Giving.Count > 0)
+                    {
+                        // the file from the Pocket is for this one: it goes into your message to it
+                        var files = Giving.ToArray();
+                        Giving.Clear();
+                        Attach(m, files);
+                        m.ShowToast($"Given to {t.Name}: say what to do with it");
+                    }
                 }
                 return true;
         }
@@ -675,8 +770,8 @@ public sealed class AgentTeam
 
     public const float FocusR = 60, MiniR = 7.5f;
 
-    /// <summary>Where the focused Bloub sits: big in the middle, or small in the corner while a panel is open.</summary>
-    (Vector2 c, float r) FocusPose(float left, float top, float w) => (new Vector2(left + HeroBallX, top + HeroBallY), HeroBallR);
+    /// <summary>Where the focused Bloub stands: large, in the middle of his stage.</summary>
+    (Vector2 c, float r) FocusPose(float left, float top, float w) => (new Vector2(IslandModel.CX, top + StageBallY), StageBallR);
 
     public void Update(IslandModel m, float dt)
     {
@@ -691,6 +786,12 @@ public sealed class AgentTeam
         bool dock = m.Mode == Mode.Full && !m.Welcoming; // docked in the dashboard header
         if (!widget && View != TeamView.Grid && m.Layers.Count == 1) { View = TeamView.Grid; ViewFade.Snap(1); Panel = TeamPanel.Activity; PanelT.Snap(1); }
         if (View == TeamView.Focus && Selected == null) View = TeamView.Grid;
+        Task.Placeholder = Attached.Count == 0 ? "Fix the failing tests…" :   // (he asks the question himself, beside it: here is an example)
+            Attached.Count == 1 ? $"What should it do with {Path.GetFileName(Attached[0].TrimEnd('\\', '/'))}?" : $"What should it do with these {Attached.Count} files?";
+        if (!widget) DropHover = false;
+        if (Giving.Count > 0 && (!widget || View != TeamView.Grid)) Giving.Clear();
+        _dropT += ((DropHover ? 1 : 0) - _dropT) * MathF.Min(1, dt * 14);
+        if (MathF.Abs((DropHover ? 1 : 0) - _dropT) < 0.006f) _dropT = DropHover ? 1 : 0;   // (it arrives: no creeping by amounts too small to redraw)
         Message.Placeholder = Selected == null ? "Message…" : Selected.Island ? $"Message {Selected.Name}…" : $"Ask {Selected.Name} a side question…";
 
         var live = _liveNow; live.Clear();
@@ -699,6 +800,9 @@ public sealed class AgentTeam
         if (greet && !_greeted) for (int i = 0; i < live.Count; i++) live[i].HopAt = _now + 0.05 + i * 0.075;
         _greeted = greet;
         foreach (var a in Agents) if (_now >= a.HopAt) { a.Hop.Velocity = -150; a.HopAt = double.MaxValue; }
+
+        StepForm(m, dt, widget, left, top, cx);
+        StepStage(m, dt, widget);
 
         var (offs, gridR) = GridLayout(live.Count);
         PillTeamLeft = float.MaxValue;
@@ -726,7 +830,8 @@ public sealed class AgentTeam
                         pos = new(Selected!.X, Selected.Y); r = 0; alpha = 0; // absorbed into the selected one
                         break;
                     default: // New
-                        pos = new(left + w - 52, top + 22); r = 0; alpha = 0; // they all hop into the "+"
+                        if (SentSpot(a, top, cx) is { } spot) { pos = spot; r = 17; }   // (the one just launched, in its row)
+                        else { pos = new(left + w - 52, top + 22); r = 0; alpha = 0; } // they all hop into the "+"
                         break;
                 }
             }
@@ -741,7 +846,7 @@ public sealed class AgentTeam
                     PillTeamLeft = MathF.Max(cx + 10, MathF.Min(PillTeamLeft, pos.X - 9));
                     r = m.Peeking ? 6.2f : MiniR;
                     float sp = a.Status == AgentStatus.Working ? 3.4f : 1.8f;
-                    pos.Y += MathF.Sin((float)_now * sp + i * 1.4f) * 1.1f;
+                    pos.Y += (float)Math.Sin(_now * sp + i * 1.4f) * 1.1f;
                 }
             }
             else if (dock)
@@ -754,7 +859,7 @@ public sealed class AgentTeam
                     pos = new(left + dr - 17 - (shown - 1 - i) * 16 * spread, top + 32);
                     r = 7f;
                     float sp = a.Status == AgentStatus.Working ? 3.4f : 1.8f;
-                    pos.Y += MathF.Sin((float)_now * sp + i * 1.4f) * 1.1f;
+                    pos.Y += (float)Math.Sin(_now * sp + i * 1.4f) * 1.1f;
                 }
             }
             else
@@ -799,6 +904,8 @@ public sealed class AgentTeam
                 AgentStatus.Ended => (BloubState.Sleep, BloubExpressionId.Somnolent),
                 _ => (BloubState.Idle, a.Personality),
             };
+        // On his stage he stays himself when he has stopped: drowsy, eyes half shut (the small sleeping dot is for the grid and the pill).
+        if (state == BloubState.Sleep && widget && View == TeamView.Focus && a == Selected) state = BloubState.Idle;
         // Typing to it: it listens.
         if (!reacting && a == Selected && m.Focused == Message && Message.Text.Length > 0) (state, mood) = (BloubState.Idle, BloubExpressionId.Attentif);
 
@@ -822,7 +929,7 @@ public sealed class AgentTeam
         var c = new Vector2(a.X, a.Y);
         bool focusDone = widget && View == TeamView.Focus && a == Selected && a.Status == AgentStatus.Done && !reacting && m.Focused != Message;
         if (focusDone)
-            e.SetLook(new Look(18, 15, 1, 0, 0), _now, 0.5);
+            e.SetLook(new Look(0, 16, 1, 0, 0), _now, 0.5);   // (finished: he looks down at what he said)
         else if (a == Selected && m.Focused == Message && widget)
             a.Tracker.Update(e, _now, new Vector2(0, 200), new Vector2(240, 150)); // looks down at what you type
         else if (_now < a.LookUntil)
@@ -879,14 +986,14 @@ public sealed class AgentTeam
 
     void Badge(Canvas c, IslandModel m, Agent a, Vector2 p, float rad, float op)
     {
-        float t = m.Clock;
+        double t = m.Clock;   // (a double: see IslandModel.Clock)
         if (rad < 20) // small Bloubs (pill, list rows) get small badges
         {
             switch (a.Status)
             {
                 case AgentStatus.Working:
                 {
-                    float ang = t * 5f;
+                    float ang = (float)(t * 5 % (2 * Math.PI));
                     var col = WithA(Rgba(0x5AA8FF), 0.9f * op);
                     float rr = rad + 2.6f;
                     for (int k = 0; k < 6; k++)
@@ -898,7 +1005,7 @@ public sealed class AgentTeam
                 }
                 case AgentStatus.NeedsYou:
                 {
-                    float k = (t * 1.3f) % 1;
+                    float k = (float)((t * 1.3f) % 1);
                     c.StrokeCircle(p.X, p.Y, rad + 1.5f + k * 6, 1.4f, WithA(Rgba(0xFF9F0A), (1 - k) * 0.9f * op));
                     break;
                 }
@@ -923,14 +1030,14 @@ public sealed class AgentTeam
                 c.Round(bc.X - bw / 2, bc.Y - bh / 2, bw, bh, bh / 2, WithA(Rgba(0x2D8CFF), op));
                 for (int k = 0; k < 3; k++)
                 {
-                    float wave = MathF.Max(0, MathF.Sin(t * 7 - k * 0.9f));
+                    float wave = MathF.Max(0, (float)Math.Sin(t * 7 - k * 0.9f));
                     c.Circle(bc.X + (k - 1) * 8 * s, bc.Y - wave * 2.2f * s, 2.6f * s, WhiteA((0.65f + 0.35f * wave) * op));
                 }
                 break;
             }
             case AgentStatus.NeedsYou:
             {
-                float br = 13 * s * (1 + 0.08f * MathF.Sin(t * 8));
+                float br = 13 * s * (1 + 0.08f * (float)Math.Sin(t * 8));
                 c.Circle(bc.X, bc.Y, br + 2.5f * s, WithA(new Color4(0, 0, 0, 1), op));
                 c.Circle(bc.X, bc.Y, br, WithA(Rgba(0xFF9F0A), op));
                 c.Text("!", bc.X, bc.Y - 10 * s, 15 * s, WhiteA(op), FontWeight.Bold, 0.5f);
@@ -964,29 +1071,31 @@ public sealed class AgentTeam
         var sel = Selected;
         var live = Live.ToList();
 
-        // Header: Bloub (the manager) at the left, title + status, buttons on the right.
-        m.Hit("bloub", x0 + 6, y0 + 4, 40, 40);
-        string title = View switch
+        // Header: Bloub (the manager) at the left, title + status, buttons on the right. (The form has its own: he sits beside the question.)
+        if (View != TeamView.New) m.Hit("bloub", x0 + 6, y0 + 4, 40, 40);
+        bool giving = View == TeamView.Grid && Giving.Count > 0;
+        string title = giving ? "Give it to…" : View switch
         {
             TeamView.Focus when sel != null => sel.Name,
             TeamView.New => "New agent",
             _ => "Claude Code",
         };
         float maxTitle = w - 48 - 150;
-        c.Text(title, x0 + 48, y0 + 11, 14, WhiteA(0.92f * vf), FontWeight.SemiBold, 0, maxTitle);
-        string sub = View switch
+        bool plain = View == TeamView.Grid;   // (the form and the stage write their own top line)
+        if (plain) c.Text(title, x0 + 48, y0 + 11, 14, WhiteA(0.92f * vf), FontWeight.SemiBold, 0, maxTitle);
+        string sub = giving ? Giving.Count == 1 ? Path.GetFileName(Giving[0].TrimEnd('\\', '/')) : $"{Giving.Count} files" : View switch
         {
             TeamView.Focus when sel != null => sel.StatusText,
             TeamView.New => "runs in the background",
             _ => Summary,
         };
-        var subCol = View == TeamView.Focus && sel != null ? Rgba(sel.StatusColor) : View != TeamView.New && AnyNeeds ? Rgba(0xFF9F0A) : WhiteA(0.45f);
+        var subCol = giving ? Rgba(0xD97757) : View == TeamView.Focus && sel != null ? Rgba(sel.StatusColor) : View != TeamView.New && AnyNeeds ? Rgba(0xFF9F0A) : WhiteA(0.45f);
         float tw0 = MathF.Min(c.Measure(title, 14, FontWeight.SemiBold), maxTitle);
-        c.Text(sub, x0 + 48 + tw0 + 8, y0 + 13, 12, WithA(subCol, subCol.A * vf), FontWeight.Regular, 0, w - 48 - tw0 - 130);
+        if (plain) c.Text(sub, x0 + 48 + tw0 + 8, y0 + 13, 12, WithA(subCol, subCol.A * vf), FontWeight.Regular, 0, w - 48 - tw0 - 130);
 
         float bx = x0 + w - 30;
-        if (View is TeamView.Focus or TeamView.New) IconButton(c, m, "team:back", bx, y0 + 22, IcBack);
-        else
+        if (View == TeamView.Focus) IconButton(c, m, "team:back", bx, y0 + 22, IcBack);
+        else if (View != TeamView.New)
         {
             IconButton(c, m, "team:home", bx, y0 + 22, IcHome);
             IconButton(c, m, "team:new", bx - 36, y0 + 22, IcAdd, Rgba(0xBF5AF2));
@@ -996,7 +1105,22 @@ public sealed class AgentTeam
         {
             case TeamView.Grid: Grid(c, m, live, x0, y0, w, h, vf); break;
             case TeamView.New: NewForm(c, m, x0, y0, w, h, vf); break;
-            case TeamView.Focus when sel != null: FocusBody(c, m, sel, x0, y0, w, h, vf); break;
+            case TeamView.Focus when sel != null: StageBody(c, m, sel, x0, y0, w, h, vf); break;
+        }
+
+        // a file hangs over the form or the console: it is for this agent
+        if (_dropT > 0.01f && View != TeamView.Grid)
+        {
+            float k = _dropT, inset = 10 + (1 - k) * 8;
+            var accent = Rgba(Accent);
+            c.Round(x0 + inset, y0 + 48, w - inset * 2, h - 48 - inset, 30, new Color4(0.07f, 0.06f, 0.09f, 0.9f * k));
+            c.DashedRound(x0 + inset + 1, y0 + 49, w - inset * 2 - 2, h - 50 - inset, 29, 1.6f, WithA(accent, 0.8f * k));
+            float my = y0 + 48 + (h - 48 - inset) / 2, bob = (float)Math.Sin(m.Clock * 3.2f) * 3;
+            c.Circle(x0 + w / 2, my - 26 + bob, 22, WithA(accent, 0.9f * k));
+            c.Icon('\uE723', x0 + w / 2, my - 26 + bob, 17, WhiteA(k));
+            string to = View == TeamView.New ? "Drop to give it to the new agent" : sel != null ? $"Drop to attach it to your message to {sel.Name}" : "Drop to attach";
+            c.Text(to, x0 + w / 2, my + 12, 14, WhiteA(0.95f * k), FontWeight.SemiBold, 0.5f, w - 60);
+            c.Text(View == TeamView.New ? "It starts with this file" : "Its path goes into the message box", x0 + w / 2, my + 36, 12, WhiteA(0.5f * k), FontWeight.Regular, 0.5f);
         }
     }
 
@@ -1013,193 +1137,14 @@ public sealed class AgentTeam
         {
             float rr = MathF.Max(a.R, 1) * 1.3f;
             bool hov = m.Hit($"ag:k{a.Key}", a.X - rr, a.Y - rr, rr * 2, rr * 2);
-            string tag = hov ? $"{a.Name} · {a.StatusText}" : a.Name;
+            string tag = hov ? Giving.Count > 0 ? $"Give it to {a.Name}" : $"{a.Name} · {a.StatusText}" : a.Name;
             float tw = MathF.Min(c.Measure(tag, 11.5f, FontWeight.SemiBold), 200) + 18;
             float ty = a.Y + rr - (hov ? 4 : 8);
             if (hov) c.Round(a.X - tw / 2, ty, tw, 22, 11, WithA(Rgba(0x1C1C1E), 0.96f));
             c.Text(tag, a.X - (tw - 18) / 2, ty + 3.5f, 11.5f, WhiteA((hov ? 0.92f : 0.6f) * vf), FontWeight.SemiBold, 0, 200);
         }
-    }
-
-    // ---------------------------------------------------------------- focus: one simple card per agent
-    //
-    //  ┌ header ─ name · status ───────────────── ← ┐
-    //  │ (ball)  What it's doing right now           │
-    //  │         the task                            │
-    //  │         ▬▬▬▬▭▭ 3 of 7 · opus · 29k · $0.12  │
-    //  │ [Activity] [Plan 3/7] [Files 2]             │
-    //  │ ┌ feed: steps, replies, your messages ────┐ │
-    //  │ │ … needs-you card sits at the bottom …   │ │
-    //  │ └─────────────────────────────────────────┘ │
-    //  │ ( Message…                            ➤ )   │
-    //  │ [Go to terminal] [Cursor] [Folder]          │
-    //  └─────────────────────────────────────────────┘
-
-    const float HeroBallX = 46, HeroBallY = 90, HeroBallR = 25;
-
-    void FocusBody(Canvas c, IslandModel m, Agent a, float x0, float y0, float w, float h, float vf)
-    {
-        float t = m.Clock;
-        if (Panel == TeamPanel.Plan && a.Data.Todos.Count == 0 || Panel == TeamPanel.Files && a.Data.Changes.Count == 0) Panel = TeamPanel.Activity;
-        m.Hit("ag:poke", x0 + HeroBallX - 30, y0 + HeroBallY - 30, 60, 60);
-
-        // soft light in the agent's colour from below
-        float gl = Math.Clamp(ViewTime / 0.5f, 0, 1);
-        c.Glow(x0 + w / 2, y0 + h + 30, w * 0.6f, 110, a.Status is AgentStatus.Idle ? a.Color : a.StatusColor, 0.35f * gl);
-
-        float Pop(int i) => vf * Math.Clamp((ViewTime - 0.04f - i * 0.04f) / 0.25f, 0, 1);
-
-        // ---- hero: what it's doing, the task, progress + stats
-        float tx = x0 + 86, tw = w - 86 - 22, p0 = Pop(0);
-        string now = a.Status switch
-        {
-            AgentStatus.Working => a.Data.Log.Count > 0 ? a.Data.Log[^1] : "Thinking…",
-            AgentStatus.NeedsYou => a.Ask != null ? "Needs you — wants to " + a.Ask.Summary : "Needs you in its terminal",
-            AgentStatus.Done => "Finished",
-            AgentStatus.Ended => a.LastError ?? "Stopped",
-            _ => "Ready for your next message",
-        };
-        if (a.Status == AgentStatus.Working) c.ShimmerText(c.Fit(now, 15, FontWeight.SemiBold, tw), tx, y0 + 58, 15, p0, (t * 0.7f) % 1.4f / 1.4f, FontWeight.SemiBold);
-        else
-        {
-            var col = a.Status is AgentStatus.NeedsYou or AgentStatus.Ended ? Rgba(a.StatusColor) : a.Status == AgentStatus.Done ? Rgba(0x30D158) : WhiteA(0.92f);
-            c.Text(now, tx, y0 + 58, 15, WithA(col, col.A * p0), FontWeight.SemiBold, 0, tw);
-        }
-        string task = a.Title ?? a.Prompt ?? (a.Island ? "" : "No task yet");
-        c.Text(task, tx, y0 + 80, 12.5f, WhiteA(0.5f * p0), FontWeight.Regular, 0, tw);
-
-        float sx = tx;
-        var todos = a.Data.Todos;
-        if (todos.Count > 0)
-        {
-            float bw = 70, pr = a.Data.TodosDone / (float)todos.Count;
-            c.Round(sx, y0 + 106, bw, 5, 2.5f, WhiteA(0.14f * p0));
-            c.Round(sx, y0 + 106, MathF.Max(5, bw * pr), 5, 2.5f, WithA(Rgba(0x30D158), p0));
-            string steps = $"{a.Data.TodosDone} of {todos.Count}";
-            c.Text(steps, sx + bw + 8, y0 + 100, 11.5f, WhiteA(0.6f * p0), FontWeight.SemiBold);
-            sx += bw + 8 + c.Measure(steps, 11.5f, FontWeight.SemiBold) + 12;
-        }
-        var bits = new List<string>();
-        if (a.Data.Model is { } model) bits.Add(model.Replace("claude-", ""));
-        if (a.Data.Context > 0) bits.Add($"{a.Data.Context / 1000.0:0}k context");
-        if (a.Data.Cost > 0) bits.Add($"${a.Data.Cost:0.00}");
-        var age = DateTime.UtcNow - a.StartedAt;
-        bits.Add(age.TotalHours >= 1 ? $"{(int)age.TotalHours}h {age.Minutes}m" : $"{Math.Max(1, (int)age.TotalMinutes)}m");
-        if (a.ForkOf != null) bits.Add("side question");
-        c.Text(string.Join(" · ", bits), sx, y0 + 100, 11.5f, WhiteA(0.35f * p0), FontWeight.Regular, 0, x0 + w - 22 - sx);
-
-        // ---- tabs
-        float bx = x0 + 18, by = y0 + 128, p1 = Pop(1);
-        TabPill(c, m, "atab:activity", "Activity", ref bx, by, Panel == TeamPanel.Activity, p1);
-        if (todos.Count > 0) TabPill(c, m, "atab:plan", $"Plan {a.Data.TodosDone}/{todos.Count}", ref bx, by, Panel == TeamPanel.Plan, p1);
-        if (a.Data.Changes.Count > 0) TabPill(c, m, "atab:files", $"Files {a.Data.Changes.Count}", ref bx, by, Panel == TeamPanel.Files, p1);
-
-        // ---- the feed box (needs-you card at its bottom)
-        float fx = x0 + 16, fy = y0 + 162, fw = w - 32, fh = 168, p2 = Pop(2);
-        c.Round(fx, fy, fw, fh, 18, WhiteA(0.05f * p2));
-        float askH = a.Status == AgentStatus.NeedsYou ? 84 : 0;
-        float bodyTop = fy + 8, bodyH = fh - 16 - askH;
-        float k = p2 * Math.Clamp(PanelT, 0, 1);
-        c.PushClip(fx + 2, bodyTop, fw - 4, bodyH);
-        float content = Panel switch
-        {
-            TeamPanel.Plan => PlanPanel(c, a, fx + 14, bodyTop + 4, fw - 28, bodyH - 4, k) + 4,
-            TeamPanel.Files => ChangesPanel(c, m, a, fx + 12, bodyTop, fw - 24, bodyH, k),
-            _ => ActivityFeed(c, m, a, fx + 14, bodyTop, fw - 28, bodyH, k),
-        };
-        c.PopClip();
-        _scrollMax = MathF.Max(0, content - bodyH);
-        if (_scrollMax > 0)
-        {
-            float frac = bodyH / content, bh = MathF.Max(18, bodyH * frac);
-            float pos = Math.Clamp(Scroll / _scrollMax, 0, 1);
-            if (Panel == TeamPanel.Activity) pos = 1 - pos;
-            c.Round(fx + fw - 7, bodyTop + (bodyH - bh) * pos, 3, bh, 1.5f, WhiteA(0.22f * k));
-        }
-        if (askH > 0) AskCard(c, m, a, fx + 8, fy + fh - askH - 6, fw - 16, askH - 2, p2);
-
-        // ---- message box
-        Field(c, m, Message, "input:msg", x0 + 16, y0 + 340, w - 32, 42, Pop(3), true);
-
-        // ---- a few actions
-        float ax = x0 + 16, ay = y0 + 392, p4 = Pop(4);
-        if (!a.Island) ActionPill(c, m, "act:window", IcWindow, "Go to terminal", ref ax, ay, 0x0A84FF, p4);
-        else if (a.Status is AgentStatus.Working or AgentStatus.NeedsYou) ActionPill(c, m, "act:stop", IcStop, "Stop", ref ax, ay, 0xFF453A, p4);
-        else if (a.Status == AgentStatus.Ended) ActionPill(c, m, "act:restart", IcRestart, "Restart", ref ax, ay, 0x30D158, p4);
-        else ActionPill(c, m, "act:terminal", IcTerminal, "Open in terminal", ref ax, ay, null, p4);
-        ActionPill(c, m, "act:editor", IcCode, Shell.EditorName, ref ax, ay, null, p4);
-        ActionPill(c, m, "act:folder", IcFolder, "Folder", ref ax, ay, null, p4);
-        if (a.Island) ActionPill(c, m, "act:close", IcClose, "Close", ref ax, ay, null, p4);
-    }
-
-    void TabPill(Canvas c, IslandModel m, string id, string label, ref float x, float y, bool on, float k)
-    {
-        float w = c.Measure(label, 12, FontWeight.SemiBold) + 24;
-        bool hov = m.Hit(id, x, y, w, 26);
-        c.Round(x, y, w, 26, 13, on ? WhiteA(0.9f * k) : WhiteA((hov ? 0.14f : 0.07f) * k));
-        c.Text(label, x + 12, y + 5, 12, on ? WithA(new Color4(0, 0, 0, 1), k) : WhiteA((hov ? 0.9f : 0.6f) * k), FontWeight.SemiBold);
-        x += w + 6;
-    }
-
-    void ActionPill(Canvas c, IslandModel m, string id, char icon, string label, ref float x, float y, uint? accent, float k)
-    {
-        float w = c.Measure(label, 12, FontWeight.SemiBold) + 44;
-        bool hov = m.Hit(id, x, y, w, 30);
-        var bg = accent is { } ac ? WithA(Rgba(ac), (hov ? 0.5f : 0.3f) * k) : WhiteA((hov ? 0.15f : 0.075f) * k);
-        c.Round(x, y, w, 30, 15, bg);
-        c.Icon(icon, x + 17, y + 15, 12, WhiteA((hov ? 1 : 0.8f) * k));
-        c.Text(label, x + 31, y + 6.5f, 12, WhiteA((hov ? 1 : 0.8f) * k), FontWeight.SemiBold);
-        x += w + 6;
-    }
-
-    /// <summary>The one thing the agent needs from you: a question, a permission, or a nudge to its terminal.</summary>
-    void AskCard(Canvas c, IslandModel m, Agent a, float x, float y, float w, float h, float k)
-    {
-        c.Round(x, y, w, h, 14, WithA(Rgba(0xFF9F0A), 0.13f * k));
-        c.StrokeRound(x + 0.5f, y + 0.5f, w - 1, h - 1, 14, 1, WithA(Rgba(0xFF9F0A), 0.45f * k));
-        float by = y + h - 40;
-        if (a.Ask is { Tool: "AskUserQuestion" } ask && Questions(ask) is { Length: > 0 } qs)
-        {
-            var (q, opts) = qs[Math.Min(a.AskStep, qs.Length - 1)];
-            string head = qs.Length > 1 ? $"{a.AskStep + 1}/{qs.Length}  " : "";
-            c.Text(head + q, x + 14, y + 9, 13, WhiteA(0.95f * k), FontWeight.SemiBold, 0, w - 28);
-            int n = Math.Min(opts.Length, 4);
-            float skipW = 58, gap = 6, ow = (w - 20 - skipW - gap * n) / Math.Max(1, n);
-            for (int i = 0; i < n; i++)
-            {
-                float ox = x + 10 + i * (ow + gap);
-                bool hov = m.Hit($"ans:{i}", ox, by, ow, 32);
-                c.Round(ox, by, ow, 32, 16, WithA(Rgba(hov ? 0x3D9BFFu : 0x0A84FFu), (hov ? 1 : 0.85f) * k));
-                c.Text(opts[i], ox + ow / 2, by + 7.5f, 12, WhiteA(k), FontWeight.SemiBold, 0.5f, ow - 14);
-            }
-            float sx = x + w - 10 - skipW;
-            bool hs = m.Hit("ans:skip", sx, by, skipW, 32);
-            c.Round(sx, by, skipW, 32, 16, WhiteA((hs ? 0.24f : 0.13f) * k));
-            c.Text("Skip", sx + skipW / 2, by + 7.5f, 12, WhiteA(0.85f * k), FontWeight.SemiBold, 0.5f);
-        }
-        else if (a.Ask != null)
-        {
-            c.Text("Wants to " + a.Ask.Summary, x + 14, y + 9, 13, WhiteA(0.95f * k), FontWeight.SemiBold, 0, w - 28);
-            c.Text(a.Ask.Tool, x + 14, y + 28, 11, WithA(Rgba(0xFF9F0A), 0.85f * k), FontWeight.SemiBold);
-            float pw = 96;
-            bool hd = m.Hit("perm:deny", x + w - 10 - pw * 2 - 6, by, pw, 32);
-            bool ha = m.Hit("perm:allow", x + w - 10 - pw, by, pw, 32);
-            c.Round(x + w - 10 - pw * 2 - 6, by, pw, 32, 16, WhiteA((hd ? 0.24f : 0.13f) * k));
-            c.Text("Deny", x + w - 10 - pw * 1.5f - 6, by + 7.5f, 13, WhiteA(0.92f * k), FontWeight.SemiBold, 0.5f);
-            c.Round(x + w - 10 - pw, by, pw, 32, 16, WithA(Rgba(ha ? 0x3D9BFFu : 0x0A84FFu), k));
-            c.Text("Allow", x + w - 10 - pw / 2, by + 7.5f, 13, WhiteA(k), FontWeight.SemiBold, 0.5f);
-        }
-        else
-        {
-            string what = a.WaitingFor is { Length: > 0 } wf && wf != "dialog open" ? wf : "It's waiting for your answer";
-            c.Text(what, x + 14, y + 9, 13, WhiteA(0.95f * k), FontWeight.SemiBold, 0, w - 28);
-            c.Text("Answer it where it runs", x + 14, y + 28, 11, WhiteA(0.5f * k));
-            float pw = 150;
-            bool hov = m.Hit("act:window", x + w - 10 - pw, by, pw, 32);
-            c.Round(x + w - 10 - pw, by, pw, 32, 16, WithA(Rgba(hov ? 0x3D9BFFu : 0x0A84FFu), k));
-            c.Icon(IcWindow, x + w - 10 - pw + 20, by + 16, 12, WhiteA(k));
-            c.Text("Open terminal", x + w - 10 - pw / 2 + 10, by + 7.5f, 13, WhiteA(k), FontWeight.SemiBold, 0.5f);
-        }
+        if (Giving.Count > 0)
+            c.Text("Click the agent that should get it  ·  + starts a new one with it", x0 + w / 2, y0 + h - 25, 11.5f, WhiteA(0.5f * vf), FontWeight.Regular, 0.5f, w - 40);
     }
 
     static char StepIcon(string? tool) => tool switch
@@ -1234,7 +1179,7 @@ public sealed class AgentTeam
             i = j;
         }
 
-        float y = top + h + Scroll, total = 0, t = m.Clock;
+        float y = top + h + Scroll, total = 0; double t = m.Clock;
         int lastStep = a.Status == AgentStatus.Working ? feed.FindLastIndex(f => f.Kind == FeedKind.Step) : -1;
         for (int r = rows.Count - 1; r >= 0; r--)
         {
@@ -1256,7 +1201,7 @@ public sealed class AgentTeam
                     var ic = StepIcon(it.Tool);
                     if (ic == IcDot) c.Circle(x + 8, y + 11, 2.5f, WhiteA((live ? 0.9f : 0.45f) * k));
                     else c.Icon(ic, x + 8, y + 11, 11, WhiteA((live ? 0.9f : 0.45f) * k));
-                    if (live) c.ShimmerText(c.Fit(it.Text, 12.5f, FontWeight.SemiBold, w - 30), x + 24, y + 2, 12.5f, k, (t * 0.7f) % 1.4f / 1.4f, FontWeight.SemiBold);
+                    if (live) c.ShimmerText(c.Fit(it.Text, 12.5f, FontWeight.SemiBold, w - 30), x + 24, y + 2, 12.5f, k, (float)((t * 0.7f) % 1.4f) / 1.4f, FontWeight.SemiBold);
                     else c.Text(it.Text, x + 24, y + 3, 12, WhiteA(0.55f * k), FontWeight.Regular, 0, w - 30);
                     break;
                 }
@@ -1312,7 +1257,7 @@ public sealed class AgentTeam
     {
         var todos = a.Data.Todos;
         if (todos.Count == 0) { c.Text("No plan yet — it shows up when the agent writes a to-do list", x + w / 2, top + h / 2 - 10, 12, WhiteA(0.4f * k), FontWeight.Regular, 0.5f, w); return 0; }
-        float y = top + 2 - Scroll, t = (float)_now;
+        float y = top + 2 - Scroll; double t = _now;
         foreach (var td in todos)
         {
             bool done = td.Status == "completed", active = td.Status == "in_progress";
@@ -1329,7 +1274,7 @@ public sealed class AgentTeam
                 else if (active)
                 {
                     c.StrokeCircle(x + 9, iy, 7, 1.6f, WithA(Rgba(0x0A84FF), 0.35f * k));
-                    float a0 = t * 6;
+                    float a0 = (float)(t * 6 % (2 * Math.PI));   // (an angle: wrapped before it is narrowed)
                     for (int s = 0; s < 5; s++)
                         c.Circle(x + 9 + MathF.Cos(a0 + s * 0.3f) * 7, iy + MathF.Sin(a0 + s * 0.3f) * 7, 1 + s * 0.25f, WithA(Rgba(0x5AA8FF), k));
                 }
@@ -1342,205 +1287,7 @@ public sealed class AgentTeam
         return y + Scroll - top;
     }
 
-    float ChangesPanel(Canvas c, IslandModel m, Agent a, float x, float top, float w, float h, float k)
-    {
-        var ch = a.Data.Changes;
-        if (ch.Count == 0) { c.Text("No files changed yet", x + w / 2, top + h / 2 - 10, 12.5f, WhiteA(0.4f * k), FontWeight.Regular, 0.5f); return 0; }
-        float y = top - Scroll, rowH = 36;
-        for (int i = 0; i < ch.Count; i++, y += rowH)
-        {
-            if (y + rowH < top || y > top + h) continue;
-            var f = ch[i];
-            bool visible = y >= top - 4 && y + rowH <= top + h + 4;
-            bool hov = visible && m.Hit($"file:{i}", x - 4, y, w + 8, rowH - 3);
-            if (hov) c.Round(x - 4, y, w + 8, rowH - 3, 10, WhiteA(0.09f * k));
-            string name = Path.GetFileName(f.Path);
-            string dir = Path.GetDirectoryName(f.Path) ?? "";
-            if (a.Cwd.Length > 0 && dir.StartsWith(a.Cwd, StringComparison.OrdinalIgnoreCase)) dir = "." + dir[a.Cwd.Length..];
-            c.Icon(IcChanges, x + 9, y + rowH / 2 - 1, 12, WithA(Rgba(0x0A84FF), 0.9f * k));
-            c.Text(name, x + 26, y + 3, 13, WhiteA(0.92f * k), FontWeight.SemiBold, 0, w * 0.5f);
-            c.Text(dir, x + 26, y + 19, 10.5f, WhiteA(0.38f * k), FontWeight.Regular, 0, w - 110);
-            c.Text(f.Edits == 1 ? "1 edit" : $"{f.Edits} edits", x + w - 4, y + 9, 11, WhiteA((hov ? 0.8f : 0.4f) * k), FontWeight.SemiBold, 1);
-        }
-        return ch.Count * rowH;
-    }
-
-    // ---------------------------------------------------------------- new agent form
-    //
-    //  ┌ header ─ New agent · runs in the background ─── ← ┐
-    //  │ ┌ What should it do? ─────────────────────────┐   │   the task first: it wraps, Enter launches
-    //  │ └─────────────────────────────────────────────┘   │
-    //  │ [Fix bugs] [Write tests] [Review my changes] …    │   starters
-    //  │ Project                          …\dev\aurora-web │   which folder, in full (two can share a name)
-    //  │ [aurora-web] [pixel-api] [notes-cli] …            │
-    //  │ Permissions                                       │
-    //  │ ( Your default | Ask first | Read-only | Auto )   │
-    //  │ what the chosen one means                         │
-    //  │ (             Launch in aurora-web            ↵ ) │   says where it will run, and what is missing
-    //  └───────────────────────────────────────────────────┘
-
-    const float TaskSize = 14.5f, TaskLine = 21, TaskRows = 3;
     static readonly uint Accent = 0xBF5AF2;
-
-    // Where each line of the task starts (kept until the text or the width changes).
-    string? _wrapOf; float _wrapW; readonly List<int> _wrap = new();
-
-    List<int> WrapTask(Canvas c, string text, float width)
-    {
-        if (text == _wrapOf && width == _wrapW) return _wrap;
-        _wrapOf = text; _wrapW = width; _wrap.Clear(); _wrap.Add(0);
-        int start = 0, space = -1;
-        for (int i = 0; i < text.Length; i++)
-        {
-            if (text[i] == ' ') { space = i; continue; }
-            if (i == start || c.Measure(text[start..(i + 1)], TaskSize) <= width) continue;
-            start = space >= start ? space + 1 : i; // after the last space, or inside a word longer than the line
-            _wrap.Add(start);
-        }
-        return _wrap;
-    }
-
-    /// <summary>A path shortened from the left, so the folders nearest the project stay readable.</summary>
-    static string TailPath(Canvas c, string path, float size, float max)
-    {
-        string s = path;
-        while (c.Measure(s, size) > max)
-        {
-            int cut = s.IndexOf('\\', s[0] == '…' ? 2 : 1);
-            if (cut < 0) break;
-            s = "…" + s[cut..];
-        }
-        return s;
-    }
-
-    void NewForm(Canvas c, IslandModel m, float x0, float y0, float w, float h, float vf)
-    {
-        float x = x0 + 18, iw = w - 36, y = y0 + 52;
-        float Pop(int i) => Math.Clamp((ViewTime - i * 0.05f) / 0.25f, 0, 1);
-        var accent = Rgba(Accent);
-
-        // ---- what: the task, up to three lines in view
-        {
-            float p = Pop(0), k = vf * p, ch = TaskRows * TaskLine + 30, ry = y + (1 - p) * 6;
-            bool focused = m.Focused == Task, hov = m.Hit("input:task", x, y, iw, ch);
-            c.Round(x, ry, iw, ch, 22, WhiteA((focused ? 0.11f : hov ? 0.1f : 0.075f) * k));
-            float tx = x + 18, tw = iw - 36, ty = ry + 14;
-            bool blink = focused && (m.Clock - Task.ChangedAt) % 1.06 < 0.6;
-            if (Task.Text.Length == 0)
-            {
-                c.Text(Task.Placeholder, tx, ty, TaskSize, WhiteA(0.36f * k), FontWeight.Regular, 0, tw);
-                if (blink) c.Round(tx, ty + 1, 1.6f, TaskLine - 2, 0.8f, WithA(accent, k));
-            }
-            else
-            {
-                var lines = WrapTask(c, Task.Text, tw);
-                int at = lines.Count - 1;
-                while (at > 0 && lines[at] > Task.Caret) at--;
-                int first = Math.Clamp(at - ((int)TaskRows - 1), 0, Math.Max(0, lines.Count - (int)TaskRows)); // keep the caret's line in view
-                c.PushClip(x + 8, ry + 6, iw - 16, ch - 12);
-                for (int i = first; i < lines.Count && i < first + TaskRows; i++)
-                {
-                    int s = lines[i], e = i + 1 < lines.Count ? lines[i + 1] : Task.Text.Length;
-                    c.Text(Task.Text[s..e], tx, ty + (i - first) * TaskLine, TaskSize, WhiteA(0.95f * k));
-                }
-                if (blink) c.Round(tx + c.Measure(Task.Text[lines[at]..Task.Caret], TaskSize), ty + 1 + (at - first) * TaskLine, 1.6f, TaskLine - 2, 0.8f, WithA(accent, k));
-                c.PopClip();
-            }
-            y += ch + 10;
-        }
-
-        // ---- starters: one row, as many as fit
-        {
-            float k = vf * Pop(1), tx = x;
-            for (int i = 0; i < Templates.Length; i++)
-            {
-                float cw = c.Measure(Templates[i].label, 11.5f, FontWeight.SemiBold) + 22;
-                if (tx + cw > x + iw) break;
-                bool hov = m.Hit($"new:tpl:{i}", tx, y, cw, 26);
-                c.Round(tx, y, cw, 26, 13, WhiteA((hov ? 0.16f : 0.065f) * k));
-                c.Text(Templates[i].label, tx + 11, y + 5, 11.5f, WhiteA((hov ? 0.95f : 0.58f) * k), FontWeight.SemiBold);
-                tx += cw + 6;
-            }
-            y += 26 + 18;
-        }
-
-        // ---- where
-        string project = _newFolder == null ? "" : Path.GetFileName(_newFolder.TrimEnd('\\'));
-        {
-            float p = Pop(2), k = vf * p, rise = (1 - p) * 6;
-            c.Text("Project", x + 2, y + rise, 12, WhiteA(0.5f * k), FontWeight.SemiBold);
-            if (_newFolder != null) c.Text(TailPath(c, _newFolder, 11, iw - 80), x + iw - 2, y + 1 + rise, 11, WhiteA(0.3f * k), FontWeight.Regular, 1);
-            y += 22;
-            if (_recent.Count == 0)
-            {
-                c.Text("No recent projects yet. Run `claude` in a folder once and it shows up here.", x + 2, y + 5 + rise, 12, WhiteA(0.4f * k), FontWeight.Regular, 0, iw);
-                y += 28;
-            }
-            else
-            {
-                float fx = x; int row = 0;
-                for (int i = 0; i < _recent.Count; i++)
-                {
-                    string name = Path.GetFileName(_recent[i].TrimEnd('\\'));
-                    float cw = MathF.Min(c.Measure(name, 12.5f, FontWeight.SemiBold), 170) + 38;
-                    if (fx + cw > x + iw) { if (++row > 1) break; fx = x; }
-                    float fy = y + row * 34 + rise;
-                    bool on = string.Equals(_newFolder, _recent[i], StringComparison.OrdinalIgnoreCase);
-                    bool hov = m.Hit($"new:folder:{i}", fx, y + row * 34, cw, 28);
-                    c.Round(fx, fy, cw, 28, 14, on ? WithA(accent, (hov ? 1 : 0.9f) * k) : WhiteA((hov ? 0.17f : 0.085f) * k));
-                    c.Icon(IcFolder, fx + 16, fy + 14, 11, WhiteA((on ? 1 : 0.55f) * k));
-                    c.Text(name, fx + 28, fy + 5, 12.5f, WhiteA((on ? 1 : 0.78f) * k), FontWeight.SemiBold, 0, 170);
-                    fx += cw + 6;
-                }
-                y += 28 + row * 34;
-            }
-            y += 18;
-        }
-
-        // ---- how much it may do on its own
-        {
-            float p = Pop(3), k = vf * p, rise = (1 - p) * 6;
-            c.Text("Permissions", x + 2, y + rise, 12, WhiteA(0.5f * k), FontWeight.SemiBold);
-            y += 22;
-            float sw = iw / Modes.Length, sy = y + rise;
-            c.Round(x, sy, iw, 32, 16, WhiteA(0.07f * k));
-            for (int i = 0; i < Modes.Length; i++)
-            {
-                bool on = i == _newMode;
-                bool hov = m.Hit($"new:mode:{i}", x + i * sw, y, sw, 32);
-                if (on) c.Round(x + i * sw + 2, sy + 2, sw - 4, 28, 14, WhiteA(0.2f * k));
-                else if (hov) c.Round(x + i * sw + 2, sy + 2, sw - 4, 28, 14, WhiteA(0.08f * k));
-                c.Text(Modes[i].label, x + i * sw + sw / 2, sy + 7, 12, WhiteA((on ? 1 : 0.6f) * k), FontWeight.SemiBold, 0.5f);
-            }
-            y += 32 + 7;
-            c.Text(_newMode switch
-            {
-                1 => "Asks you here before every edit or command.",
-                2 => "Reads and plans. Never changes files or runs commands.",
-                3 => "Edits files on its own. Asks you here for anything else.",
-                _ => "Follows your terminal's rules. Its questions come to you here.",
-            }, x + 2, y + rise, 11, WhiteA(0.4f * k), FontWeight.Regular, 0, iw);
-            y += 15 + 14;
-        }
-
-        // ---- go: the button says where it will run, or what is still missing
-        {
-            float p = Pop(4), k = vf * p, by = y + (1 - p) * 6;
-            bool ready = _newFolder != null && Task.Text.Trim().Length > 0;
-            bool hov = m.Hit("new:launch", x, y, iw, 44);
-            c.Round(x, by, iw, 44, 22, ready ? WithA(accent, (hov ? 1 : 0.88f) * k) : WhiteA((hov ? 0.11f : 0.08f) * k));
-            string label = ready ? $"Launch in {project}" : _newFolder == null ? "Pick a project to launch" : "Type a task to launch";
-            c.Text(label, x + iw / 2, by + 12, 14, WhiteA((ready ? 1 : 0.42f) * k), FontWeight.SemiBold, 0.5f, iw - 130);
-            if (ready)
-            {
-                c.Round(x + iw - 46, by + 11, 32, 22, 8, new Color4(0, 0, 0, 0.2f * k)); // Enter does the same
-                c.Text("↵", x + iw - 30, by + 10.5f, 15, WhiteA(0.9f * k), FontWeight.SemiBold, 0.5f);
-            }
-            y += 44;
-        }
-
-        _formH = y - y0 + 18;
-    }
 
     // ---------------------------------------------------------------- controls
 
@@ -1598,7 +1345,9 @@ public sealed class AgentTeam
     public void DrawPill(Canvas c, IslandModel m, float x0, float y0, float w, float h)
     {
         var col = AnyNeeds ? Rgba(0xFF9F0A) : WhiteA(0.55f);
-        c.Text(Summary, x0 + 40, y0 + h / 2 - 8.5f, 11.5f, col, FontWeight.SemiBold, 0, Count == 0 ? 160 : 80);
+        // (what he holds for you: a small sheet and a count, between him and the words)
+        float over = Scenes.PocketBadge(c, m, x0, y0, h);
+        c.Text(Summary, x0 + 40 + over, y0 + h / 2 - 8.5f, 11.5f, col, FontWeight.SemiBold, 0, Count == 0 ? 160 : 80);
     }
 
     public void Dispose()

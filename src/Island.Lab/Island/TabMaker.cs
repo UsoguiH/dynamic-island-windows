@@ -25,6 +25,9 @@ public sealed class TabMaker
     public bool KeepsOpen => Now is Stage.Build or Stage.Adding;
     public readonly TextField Field = new("");
     float _clock, _at;   // now, and when the stage began
+    // His own clock is counted only while he is at work (and half a minute after), so a float stays exact however long
+    // the island has been running: the island's clock itself is a double, and too big for a float after a day.
+    double _clockD; float _quiet = 100;
     float Age => _clock - _at;
 
     // ================================================================ the four kinds the line understands on sight
@@ -486,7 +489,7 @@ public sealed class TabMaker
             Builder = new TabBuilder(text);
             Builder.Start(About(text));
         }
-        m.Bloub.React(BloubState.Thinking, _clock, 600, BloubExpressionId.Attentif);
+        m.Bloub.React(BloubState.Thinking, m.Clock, 600, BloubExpressionId.Attentif);
     }
 
     /// <summary>"Change it" on a finished tab: back to the line, to say what should be different.</summary>
@@ -506,7 +509,7 @@ public sealed class TabMaker
         Unstamp(false);
         Builder = new TabBuilder(text) { Previous = Builder.Previous, Change = Builder.Change };
         Builder.Start(Builder.Change != null ? "your change" : About(text));
-        m.Bloub.React(BloubState.Thinking, _clock, 600, BloubExpressionId.Attentif);
+        m.Bloub.React(BloubState.Thinking, m.Clock, 600, BloubExpressionId.Attentif);
     }
 
     void ShowStep(TabBuilder.Step s)
@@ -558,13 +561,13 @@ public sealed class TabMaker
         DotsOffAt = _clock;
         BarAt = _clock + 0.5f;
         _tilt.Snap(0); _tilt.Velocity = 320;   // he shakes his head
-        m.Bloub.React(BloubState.Idle, _clock, 2.4, BloubExpressionId.Triste);
+        m.Bloub.React(BloubState.Idle, m.Clock, 2.4, BloubExpressionId.Triste);
     }
 
     /// <summary>"I made it!": he gathers himself, leaps with a full flip, lands (the floor rings), the ✓ stamps on, two proud hops.</summary>
     void Celebrate(IslandModel m)
     {
-        m.Bloub.React(BloubState.Wide, _clock, 3.2, BloubExpressionId.Excite);
+        m.Bloub.React(BloubState.Wide, m.Clock, 3.2, BloubExpressionId.Excite);
         _sq.Configure(new SpringSpec(0.14f, 1f)); _sq.To(0.72f);
         _celebrateAt = _clock;
         After(0.2f, () =>
@@ -672,7 +675,7 @@ public sealed class TabMaker
                     After(0.23f, () =>
                     {
                         _landAt = _clock; _wiggleAt = _clock + 0.46f;
-                        m.Bloub.React(BloubState.Wink, _clock, 1.4, BloubExpressionId.Heureux);
+                        m.Bloub.React(BloubState.Wink, m.Clock, 1.4, BloubExpressionId.Heureux);
                         After(0.9f, () =>
                         {
                             Unstamp(false);
@@ -725,7 +728,7 @@ public sealed class TabMaker
         bool line = _morph != Morph.None;
         Now = Stage.Off; LibBackAt = _clock;
         if (m.Focused == Field) m.FocusField(null);
-        m.Bloub.React(BloubState.Idle, _clock, 0.1);
+        m.Bloub.React(BloubState.Idle, m.Clock, 0.1);
         if (line)
         {
             BallBack(0.44f, OrbBall, () => Pose = null);
@@ -820,7 +823,9 @@ public sealed class TabMaker
 
     public void Update(IslandModel m, float dt)
     {
-        _clock = m.Clock;
+        if (Active) _quiet = 0; else _quiet += dt;
+        if (_quiet < 30) _clockD += dt;
+        _clock = (float)_clockD;
         if (Active && m.Mode != Mode.Full) Reset(m);
 
         foreach (var s in (Spring[])[_mw, _mh, _mp, _bs, _bp, EyeR, EyeDx, Hop, Tilt, EyeS, Ps, Sx, Fs, ChipT, GoDark, GoHover, Pan, _sq, _tilt, MoonShow, MoonPull, HasPick]) s.Step(dt);

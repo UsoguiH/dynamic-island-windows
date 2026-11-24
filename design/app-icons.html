@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Island App Logos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&display=swap" rel="stylesheet">
+<style>
+:root { --ink: #16151a; --muted: #6b6775; }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { min-height: 100vh; font-family: Inter, system-ui, sans-serif; color: var(--ink); background: #f4f3f7; }
+.page { max-width: 1180px; margin: 0 auto; padding: 40px 16px 64px; }
+header { text-align: center; margin-bottom: 30px; }
+header h1 { margin: 0 0 8px; font: 750 28px Inter; letter-spacing: -.025em; }
+header p { margin: 0 auto; max-width: 600px; font: 400 14.5px/1.55 Inter; color: var(--muted); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 350px), 1fr)); gap: 18px; }
+.card { background: #fff; border-radius: 24px; padding: 14px 14px 16px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 1px 2px rgba(20,15,40,.04), 0 12px 32px rgba(20,15,40,.06); }
+.hero { height: 260px; border-radius: 16px; display: grid; place-items: center; background: radial-gradient(80% 80% at 50% 40%, #fbfbfd, #ecebf1); overflow: hidden; }
+.hero svg { width: 184px; height: 184px; filter: drop-shadow(0 18px 24px rgba(30,20,60,.18)); transition: transform .6s cubic-bezier(.2,.8,.2,1); }
+.card:hover .hero svg { transform: translateY(-4px) rotate(-3deg); }
+.meta { padding: 0 6px; display: flex; flex-direction: column; gap: 4px; }
+.title { display: flex; align-items: center; gap: 10px; }
+.num { font: 700 11.5px Inter; color: #fff; background: var(--ink); border-radius: 999px; min-width: 22px; padding: 0 6px; height: 22px; display: grid; place-items: center; flex: none; }
+.title h2 { margin: 0; font: 700 17px Inter; letter-spacing: -.01em; }
+.meta p { margin: 0; font: 400 13.5px/1.5 Inter; color: var(--muted); }
+
+.strips { display: grid; gap: 8px; }
+.strip { display: flex; align-items: flex-end; gap: 16px; padding: 12px 14px; border-radius: 12px; }
+.strip.dark { background: #1c1c20; }
+.strip.light { background: #f1f0f4; }
+.strip .sz { display: flex; flex-direction: column; align-items: center; gap: 5px; font: 500 10px Inter; }
+.strip.dark .sz { color: rgba(255,255,255,.4); }
+.strip.light .sz { color: rgba(0,0,0,.38); }
+.strip .tray { margin-left: auto; display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; font: 500 11px Inter; }
+.strip.dark .tray { background: rgba(255,255,255,.06); color: rgba(255,255,255,.8); }
+.strip.light .tray { background: rgba(0,0,0,.04); color: rgba(0,0,0,.7); }
+.tray i { width: 16px; height: 16px; border-radius: 3px; background: currentColor; opacity: .25; }
+.sub { margin: 38px 0 14px; font: 700 15px Inter; color: var(--muted); text-align: center; }
+footer { margin-top: 26px; text-align: center; font: 400 13px Inter; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- Six logos on a 256 grid. No outlines anywhere: shape comes from fill, light and shadow only. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="blur6" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter>
+    <filter id="blur12" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="12"/></filter>
+    <filter id="blur28" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="28"/></filter>
+
+    <!-- shared: dark eye, white eye, white Bloub body -->
+    <linearGradient id="eyeD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b1a12"/><stop offset="1" stop-color="#120a06"/></linearGradient>
+    <linearGradient id="eyeN" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#241a44"/><stop offset="1" stop-color="#0f0a20"/></linearGradient>
+    <linearGradient id="eyeW" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dfe2f2"/></linearGradient>
+    <radialGradient id="pearl" cx=".36" cy=".26" r=".9">
+      <stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#f3f1f8"/><stop offset="1" stop-color="#d6d0e6"/>
+    </radialGradient>
+
+    <!-- 1 Glance -->
+    <radialGradient id="g1" cx=".32" cy=".26" r=".95">
+      <stop offset="0" stop-color="#ffd98c"/><stop offset=".32" stop-color="#ff9d3d"/><stop offset=".72" stop-color="#f45d22"/><stop offset="1" stop-color="#d9441a"/>
+    </radialGradient>
+    <radialGradient id="g1b" cx=".72" cy="1" r=".7"><stop offset="0" stop-color="#ff5f8f" stop-opacity=".75"/><stop offset="1" stop-color="#ff5f8f" stop-opacity="0"/></radialGradient>
+
+    <!-- 2 Wink -->
+    <radialGradient id="g2" cx=".3" cy=".22" r=".95">
+      <stop offset="0" stop-color="#a8e4ff"/><stop offset=".35" stop-color="#5f9bff"/><stop offset=".75" stop-color="#5a4af0"/><stop offset="1" stop-color="#4a33d4"/>
+    </radialGradient>
+    <radialGradient id="g2b" cx=".25" cy="1" r=".7"><stop offset="0" stop-color="#ff7ad9" stop-opacity=".7"/><stop offset="1" stop-color="#ff7ad9" stop-opacity="0"/></radialGradient>
+
+    <!-- 3 Night tile -->
+    <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34333d"/><stop offset="1" stop-color="#0b0b0e"/></linearGradient>
+    <radialGradient id="g3b" cx=".1" cy="1" r=".8"><stop offset="0" stop-color="#ff7a2f" stop-opacity=".55"/><stop offset=".6" stop-color="#ff3d7f" stop-opacity=".18"/><stop offset="1" stop-color="#ff3d7f" stop-opacity="0"/></radialGradient>
+    <clipPath id="tile"><rect x="16" y="16" width="224" height="224" rx="58"/></clipPath>
+
+    <!-- 4 Peek -->
+    <linearGradient id="g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffc861"/><stop offset=".5" stop-color="#ff6a5c"/><stop offset="1" stop-color="#b53cf0"/></linearGradient>
+
+    <!-- 5 Island -->
+    <linearGradient id="g5" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2e2e36"/><stop offset=".5" stop-color="#101014"/><stop offset="1" stop-color="#060608"/></linearGradient>
+    <linearGradient id="g5a" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff8a2a"/><stop offset=".5" stop-color="#ff4f9a"/><stop offset="1" stop-color="#7b5cff"/></linearGradient>
+
+    <!-- 6 Jelly -->
+    <clipPath id="jelly"><path d="M128 30C194 30 234 84 234 146C234 204 190 232 128 232C66 232 22 204 22 146C22 84 62 30 128 30Z"/></clipPath>
+    <!-- White set -->
+    <radialGradient id="pearl2" cx=".34" cy=".24" r=".95">
+      <stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#f6f4fa"/><stop offset=".85" stop-color="#e2ddee"/><stop offset="1" stop-color="#d4cde4"/>
+    </radialGradient>
+    <radialGradient id="wbBlue" cx=".7" cy="1" r=".7"><stop offset="0" stop-color="#a9b8ff" stop-opacity=".7"/><stop offset="1" stop-color="#a9b8ff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="wbPink" cx=".25" cy="1" r=".7"><stop offset="0" stop-color="#ffaee0" stop-opacity=".75"/><stop offset="1" stop-color="#ffaee0" stop-opacity="0"/></radialGradient>
+    <radialGradient id="wbWarm" cx=".5" cy="1" r=".6"><stop offset="0" stop-color="#ffc39a" stop-opacity=".7"/><stop offset="1" stop-color="#ffc39a" stop-opacity="0"/></radialGradient>
+    <linearGradient id="snow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e6e3ee"/></linearGradient>
+    <radialGradient id="snowGlow" cx=".12" cy="1" r=".75"><stop offset="0" stop-color="#ff9a5a" stop-opacity=".42"/><stop offset=".6" stop-color="#ff7ab8" stop-opacity=".12"/><stop offset="1" stop-color="#ff7ab8" stop-opacity="0"/></radialGradient>
+    <linearGradient id="pillW" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".6" stop-color="#eeebf4"/><stop offset="1" stop-color="#dcd6e8"/></linearGradient>
+    <linearGradient id="blueTile" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5fa8ff"/><stop offset="1" stop-color="#6a45f2"/></linearGradient>
+
+    <!-- Bloub's eyes glancing up-right, drawn for a ball of radius 112 centred on 128,128 -->
+    <g id="eyesUR">
+      <g transform="translate(-12 2) rotate(14 164 106)">
+        <rect x="125" y="62" width="34" height="88" rx="17" fill="url(#eyeN)"/>
+        <rect x="171" y="70" width="27" height="78" rx="13.5" fill="url(#eyeN)"/>
+        <ellipse cx="142" cy="80" rx="6.5" ry="9" fill="#fff" opacity=".9"/>
+        <ellipse cx="184.5" cy="86" rx="5" ry="7.5" fill="#fff" opacity=".85"/>
+      </g>
+    </g>
+  </defs>
+
+  <!-- 1 · Glance: glossy orange Bloub, big eyes looking up to the right -->
+  <symbol id="L1" viewBox="0 0 256 256">
+    <circle cx="128" cy="128" r="112" fill="url(#g1)"/>
+    <circle cx="128" cy="128" r="112" fill="url(#g1b)"/>
+    <ellipse cx="84" cy="66" rx="42" ry="24" transform="rotate(-35 84 66)" fill="#fff" opacity=".55" filter="url(#blur6)"/>
+    <g transform="translate(-12 2) rotate(14 164 106)">
+      <rect x="125" y="62" width="34" height="88" rx="17" fill="url(#eyeD)"/>
+      <rect x="171" y="70" width="27" height="78" rx="13.5" fill="url(#eyeD)"/>
+      <ellipse cx="142" cy="80" rx="6.5" ry="9" fill="#fff" opacity=".9"/>
+      <ellipse cx="184.5" cy="86" rx="5" ry="7.5" fill="#fff" opacity=".85"/>
+    </g>
+  </symbol>
+
+  <!-- 2 · Wink: tilted head, one eye shut to a dash, a little sparkle -->
+  <symbol id="L2" viewBox="0 0 256 256">
+    <circle cx="120" cy="138" r="106" fill="url(#g2)"/>
+    <circle cx="120" cy="138" r="106" fill="url(#g2b)"/>
+    <ellipse cx="78" cy="80" rx="38" ry="22" transform="rotate(-35 78 80)" fill="#fff" opacity=".5" filter="url(#blur6)"/>
+    <g transform="rotate(-10 120 138)">
+      <rect x="82" y="92" width="34" height="84" rx="17" fill="url(#eyeN)"/>
+      <ellipse cx="99" cy="110" rx="6.5" ry="9" fill="#fff" opacity=".9"/>
+      <rect x="128" y="126" width="48" height="19" rx="9.5" fill="url(#eyeN)"/>
+    </g>
+    <path d="M214 20 C217 38 222 43 240 46 C222 49 217 54 214 72 C211 54 206 49 188 46 C206 43 211 38 214 20Z" fill="#ffd36b"/>
+  </symbol>
+
+  <!-- 3 · Night: the tile is his face, huge white eyes, a warm island glow -->
+  <symbol id="L3" viewBox="0 0 256 256">
+    <g clip-path="url(#tile)">
+      <rect x="16" y="16" width="224" height="224" fill="url(#g3)"/>
+      <rect x="16" y="16" width="224" height="224" fill="url(#g3b)"/>
+      <ellipse cx="128" cy="20" rx="120" ry="40" fill="#fff" opacity=".07" filter="url(#blur12)"/>
+    </g>
+    <g transform="translate(-20 6) rotate(12 160 116)">
+      <rect x="114" y="62" width="42" height="108" rx="21" fill="url(#eyeW)"/>
+      <rect x="170" y="72" width="33" height="96" rx="16.5" fill="url(#eyeW)"/>
+    </g>
+  </symbol>
+
+  <!-- 4 · Peek: Bloub rising from the bottom of a sunset tile, looking up -->
+  <symbol id="L4" viewBox="0 0 256 256">
+    <g clip-path="url(#tile)">
+      <rect x="16" y="16" width="224" height="224" fill="url(#g4)"/>
+      <ellipse cx="80" cy="40" rx="110" ry="50" fill="#fff" opacity=".18" filter="url(#blur12)"/>
+      <ellipse cx="130" cy="240" rx="120" ry="40" fill="#5b1460" opacity=".35" filter="url(#blur12)"/>
+      <circle cx="128" cy="224" r="112" fill="url(#pearl)"/>
+      <g transform="rotate(12 158 162)">
+        <rect x="126" y="130" width="28" height="66" rx="14" fill="url(#eyeN)"/>
+        <rect x="165" y="138" width="22" height="58" rx="11" fill="url(#eyeN)"/>
+        <ellipse cx="140" cy="144" rx="5.5" ry="7.5" fill="#fff" opacity=".9"/>
+        <ellipse cx="176" cy="151" rx="4.5" ry="6.5" fill="#fff" opacity=".85"/>
+      </g>
+    </g>
+  </symbol>
+
+  <!-- 5 · Island: the black pill with Bloub's eyes, lit from below -->
+  <symbol id="L5" viewBox="0 0 256 256">
+    <ellipse cx="128" cy="176" rx="92" ry="22" fill="url(#g5a)" opacity=".9" filter="url(#blur12)"/>
+    <rect x="18" y="74" width="220" height="108" rx="54" fill="url(#g5)"/>
+    <rect x="44" y="80" width="168" height="26" rx="13" fill="#fff" opacity=".09" filter="url(#blur6)"/>
+    <g transform="rotate(12 168 126)">
+      <rect x="140" y="98" width="24" height="56" rx="12" fill="url(#eyeW)"/>
+      <rect x="174" y="102" width="20" height="50" rx="10" fill="url(#eyeW)"/>
+    </g>
+  </symbol>
+
+  <!-- 6 · Jelly: squishy mid-bounce Bloub in an iridescent mesh -->
+  <symbol id="L6" viewBox="0 0 256 256">
+    <g clip-path="url(#jelly)">
+      <rect width="256" height="256" fill="#7466ff"/>
+      <circle cx="60" cy="70" r="90" fill="#4fe3ff" filter="url(#blur28)"/>
+      <circle cx="210" cy="210" r="95" fill="#ff5fc8" filter="url(#blur28)"/>
+      <circle cx="210" cy="60" r="60" fill="#ffd36b" opacity=".85" filter="url(#blur28)"/>
+      <ellipse cx="88" cy="72" rx="44" ry="22" transform="rotate(-30 88 72)" fill="#fff" opacity=".6" filter="url(#blur6)"/>
+    </g>
+    <g transform="translate(-10 6) rotate(14 166 112)">
+      <rect x="130" y="70" width="32" height="80" rx="16" fill="url(#eyeN)"/>
+      <rect x="173" y="78" width="25" height="70" rx="12.5" fill="url(#eyeN)"/>
+      <ellipse cx="146" cy="87" rx="6" ry="8.5" fill="#fff" opacity=".9"/>
+      <ellipse cx="185.5" cy="93" rx="4.8" ry="7" fill="#fff" opacity=".85"/>
+    </g>
+  </symbol>
+  <!-- W1 · Pearl: glossy white Bloub, eyes up-right, cool lilac bounce -->
+  <symbol id="W1" viewBox="0 0 256 256">
+    <circle cx="128" cy="128" r="112" fill="url(#pearl2)"/>
+    <circle cx="128" cy="128" r="112" fill="url(#wbBlue)"/>
+    <ellipse cx="84" cy="66" rx="42" ry="24" transform="rotate(-35 84 66)" fill="#fff" opacity=".9" filter="url(#blur6)"/>
+    <use href="#eyesUR"/>
+  </symbol>
+
+  <!-- W1b · Pearl without the eye glints -->
+  <symbol id="W1b" viewBox="0 0 256 256">
+    <circle cx="128" cy="128" r="112" fill="url(#pearl2)"/>
+    <circle cx="128" cy="128" r="112" fill="url(#wbBlue)"/>
+    <ellipse cx="84" cy="66" rx="42" ry="24" transform="rotate(-35 84 66)" fill="#fff" opacity=".9" filter="url(#blur6)"/>
+    <g transform="translate(-12 2) rotate(14 164 106)">
+      <rect x="125" y="62" width="34" height="88" rx="17" fill="url(#eyeN)"/>
+      <rect x="171" y="70" width="27" height="78" rx="13.5" fill="url(#eyeN)"/>
+    </g>
+  </symbol>
+
+  <!-- W2 · Pearl wink -->
+  <symbol id="W2" viewBox="0 0 256 256">
+    <circle cx="120" cy="138" r="106" fill="url(#pearl2)"/>
+    <circle cx="120" cy="138" r="106" fill="url(#wbPink)"/>
+    <ellipse cx="78" cy="80" rx="38" ry="22" transform="rotate(-35 78 80)" fill="#fff" opacity=".9" filter="url(#blur6)"/>
+    <g transform="rotate(-10 120 138)">
+      <rect x="82" y="92" width="34" height="84" rx="17" fill="url(#eyeN)"/>
+      <ellipse cx="99" cy="110" rx="6.5" ry="9" fill="#fff" opacity=".9"/>
+      <rect x="128" y="126" width="48" height="19" rx="9.5" fill="url(#eyeN)"/>
+    </g>
+    <path d="M214 20 C217 38 222 43 240 46 C222 49 217 54 214 72 C211 54 206 49 188 46 C206 43 211 38 214 20Z" fill="#ffc94d"/>
+  </symbol>
+
+  <!-- W3 · Snow: a white tile that is his face -->
+  <symbol id="W3" viewBox="0 0 256 256">
+    <g clip-path="url(#tile)">
+      <rect x="16" y="16" width="224" height="224" fill="url(#snow)"/>
+      <rect x="16" y="16" width="224" height="224" fill="url(#snowGlow)"/>
+    </g>
+    <g transform="translate(-20 6) rotate(12 160 116)">
+      <rect x="114" y="62" width="42" height="108" rx="21" fill="url(#eyeN)"/>
+      <rect x="170" y="72" width="33" height="96" rx="16.5" fill="url(#eyeN)"/>
+      <ellipse cx="134" cy="84" rx="8" ry="11" fill="#fff" opacity=".9"/>
+      <ellipse cx="186" cy="92" rx="6.5" ry="9.5" fill="#fff" opacity=".85"/>
+    </g>
+  </symbol>
+
+  <!-- W3b · Snow without the eye glints -->
+  <symbol id="W3b" viewBox="0 0 256 256">
+    <g clip-path="url(#tile)">
+      <rect x="16" y="16" width="224" height="224" fill="url(#snow)"/>
+      <rect x="16" y="16" width="224" height="224" fill="url(#snowGlow)"/>
+    </g>
+    <g transform="translate(-20 6) rotate(12 160 116)">
+      <rect x="114" y="62" width="42" height="108" rx="21" fill="url(#eyeN)"/>
+      <rect x="170" y="72" width="33" height="96" rx="16.5" fill="url(#eyeN)"/>
+    </g>
+  </symbol>
+
+  <!-- W4 · Ghost: white Bloub rising out of a dark tile -->
+  <symbol id="W4" viewBox="0 0 256 256">
+    <g clip-path="url(#tile)">
+      <rect x="16" y="16" width="224" height="224" fill="url(#g3)"/>
+      <rect x="16" y="16" width="224" height="224" fill="url(#g3b)"/>
+      <ellipse cx="128" cy="20" rx="120" ry="40" fill="#fff" opacity=".07" filter="url(#blur12)"/>
+      <circle cx="128" cy="224" r="112" fill="url(#pearl2)"/>
+      <g transform="rotate(12 158 162)">
+        <rect x="126" y="130" width="28" height="66" rx="14" fill="url(#eyeN)"/>
+        <rect x="165" y="138" width="22" height="58" rx="11" fill="url(#eyeN)"/>
+        <ellipse cx="140" cy="144" rx="5.5" ry="7.5" fill="#fff" opacity=".9"/>
+        <ellipse cx="176" cy="151" rx="4.5" ry="6.5" fill="#fff" opacity=".85"/>
+      </g>
+    </g>
+  </symbol>
+
+  <!-- W5 · White island: the pill in white, lit from below -->
+  <symbol id="W5" viewBox="0 0 256 256">
+    <ellipse cx="128" cy="178" rx="92" ry="22" fill="url(#g5a)" opacity=".85" filter="url(#blur12)"/>
+    <rect x="18" y="74" width="220" height="108" rx="54" fill="url(#pillW)"/>
+    <rect x="44" y="80" width="168" height="26" rx="13" fill="#fff" opacity=".9" filter="url(#blur6)"/>
+    <g transform="rotate(12 168 126)">
+      <rect x="140" y="98" width="24" height="56" rx="12" fill="url(#eyeN)"/>
+      <rect x="174" y="102" width="20" height="50" rx="10" fill="url(#eyeN)"/>
+    </g>
+  </symbol>
+
+  <!-- W6 · Opal: squishy white Bloub with a faint pearly shimmer -->
+  <symbol id="W6" viewBox="0 0 256 256">
+    <g clip-path="url(#jelly)">
+      <rect width="256" height="256" fill="#f7f5fb"/>
+      <circle cx="56" cy="190" r="80" fill="#9fe9ff" opacity=".55" filter="url(#blur28)"/>
+      <circle cx="214" cy="214" r="90" fill="#ffaee0" opacity=".6" filter="url(#blur28)"/>
+      <circle cx="214" cy="70" r="60" fill="#ffe59a" opacity=".5" filter="url(#blur28)"/>
+      <ellipse cx="88" cy="72" rx="44" ry="22" transform="rotate(-30 88 72)" fill="#fff" filter="url(#blur6)"/>
+    </g>
+    <g transform="translate(-10 6) rotate(14 166 112)">
+      <rect x="130" y="70" width="32" height="80" rx="16" fill="url(#eyeN)"/>
+      <rect x="173" y="78" width="25" height="70" rx="12.5" fill="url(#eyeN)"/>
+      <ellipse cx="146" cy="87" rx="6" ry="8.5" fill="#fff" opacity=".9"/>
+      <ellipse cx="185.5" cy="93" rx="4.8" ry="7" fill="#fff" opacity=".85"/>
+    </g>
+  </symbol>
+
+  <!-- W7 · Moons: white Bloub with his two moons from the tab library -->
+  <symbol id="W7" viewBox="0 0 256 256">
+    <circle cx="214" cy="58" r="17" fill="url(#g2)"/>
+    <circle cx="128" cy="134" r="86" fill="url(#pearl2)"/>
+    <circle cx="128" cy="134" r="86" fill="url(#wbWarm)"/>
+    <ellipse cx="94" cy="88" rx="32" ry="18" transform="rotate(-35 94 88)" fill="#fff" opacity=".9" filter="url(#blur6)"/>
+    <use href="#eyesUR" transform="translate(128 134) scale(.77) translate(-128 -128)"/>
+    <circle cx="50" cy="198" r="24" fill="url(#g1)"/>
+    <ellipse cx="43" cy="189" rx="8" ry="5" transform="rotate(-35 43 189)" fill="#fff" opacity=".6" filter="url(#blur6)"/>
+  </symbol>
+
+  <!-- W8 · Sky tile: white Bloub on a blue-violet tile -->
+  <symbol id="W8" viewBox="0 0 256 256">
+    <g clip-path="url(#tile)">
+      <rect x="16" y="16" width="224" height="224" fill="url(#blueTile)"/>
+      <ellipse cx="80" cy="36" rx="110" ry="46" fill="#fff" opacity=".18" filter="url(#blur12)"/>
+      <ellipse cx="128" cy="212" rx="70" ry="16" fill="#2a1580" opacity=".45" filter="url(#blur12)"/>
+    </g>
+    <circle cx="128" cy="132" r="76" fill="url(#pearl2)"/>
+    <ellipse cx="98" cy="96" rx="28" ry="16" transform="rotate(-35 98 96)" fill="#fff" opacity=".9" filter="url(#blur6)"/>
+    <use href="#eyesUR" transform="translate(128 132) scale(.68) translate(-128 -128)"/>
+  </symbol>
+
+  <!-- W9 · Hop: white Bloub squashed on landing, coloured shadow under him -->
+  <symbol id="W9" viewBox="0 0 256 256">
+    <ellipse cx="128" cy="218" rx="84" ry="14" fill="url(#g5a)" opacity=".75" filter="url(#blur12)"/>
+    <ellipse cx="128" cy="134" rx="112" ry="92" fill="url(#pearl2)"/>
+    <ellipse cx="128" cy="134" rx="112" ry="92" fill="url(#wbPink)"/>
+    <ellipse cx="80" cy="82" rx="40" ry="20" transform="rotate(-25 80 82)" fill="#fff" opacity=".9" filter="url(#blur6)"/>
+    <use href="#eyesUR" transform="translate(128 138) scale(.92 .86) translate(-128 -128)"/>
+  </symbol>
+</svg>
+
+<div class="page">
+  <header>
+    <h1>Rise variations</h1>
+    <p>G4 Rise redone on the island's own background: black, with the blue glow Bloub has in the tab library. Bigger solid eyes, no outlines, no glints. Earlier sets are further down.</p>
+  </header>
+  <main class="grid" id="rise"></main>
+  <h3 class="sub">Orb versions</h3>
+  <main class="grid" id="orb"></main>
+  <h3 class="sub">Earlier picks</h3>
+  <main class="grid" id="pick"></main>
+  <h3 class="sub">Grok bot versions</h3>
+  <main class="grid" id="grok"></main>
+  <h3 class="sub">White versions</h3>
+  <main class="grid" id="white"></main>
+  <h3 class="sub">Colour versions</h3>
+  <main class="grid" id="grid"></main>
+  <footer>Tell me the number (R1–R8, O1–O9, G1–G8, W1–W9 or 1–6) and I'll build the multi-size bloub.ico (256 → 16) from it.</footer>
+</div>
+
+<script>
+const WHITE = [
+  ['W1', 'Pearl', 'Glossy white Bloub, big eyes glancing up to the right, a cool lilac light underneath.'],
+  ['W2', 'Pearl Wink', 'Head tilted, one eye shut to a dash, gold sparkle, a pink glow underneath.'],
+  ['W3', 'Snow', 'A white Windows 11 tile that is his face: two big dark eyes, a faint warm glow in the corner.'],
+  ['W4', 'Ghost', 'White Bloub rising out of a dark tile and looking up. Very readable on any taskbar.'],
+  ['W5', 'White Island', 'The pill in white with his eyes glancing up, lit from underneath.'],
+  ['W6', 'Opal', 'Squishy white Bloub with a soft pearly shimmer of cyan, pink and gold.'],
+  ['W7', 'Moons', 'White Bloub with his two moons from the tab library, one orange, one blue.'],
+  ['W8', 'Sky', 'White Bloub on a blue-violet tile, the classic app-icon shape.'],
+  ['W9', 'Hop', 'White Bloub squashed as he lands, a colourful shadow under him.'],
+];
+const LOGOS = [
+  ['L1', 'Glance', 'Glossy orange Bloub with big eyes looking up to the right, catching the light.'],
+  ['L2', 'Wink', 'Head tilted, one eye shut to a dash, a little gold sparkle. Cheeky and friendly.'],
+  ['L3', 'Night', 'A dark Windows 11 tile that is his face: just two huge white eyes and a warm glow from below.'],
+  ['L4', 'Peek', 'Bloub rising from the bottom of a sunset tile, looking up at you. Reads well at every size.'],
+  ['L5', 'Island', 'The black pill itself with his eyes glancing up, lit from underneath like it is on your screen.'],
+  ['L6', 'Jelly', 'Squishy, mid-bounce Bloub in a cyan-violet-pink mesh. The most modern-app look.'],
+];
+const use = id => s => `<svg viewBox="0 0 256 256" width="${s}" height="${s}"><use href="#${id}"/></svg>`;
+const strip = (r, mode) => `
+  <div class="strip ${mode}">
+    ${[48, 32, 24, 16].map(s => `<div class="sz">${r(s)}${s}</div>`).join('')}
+    <div class="tray"><i></i>${r(16)}<i></i>9:41</div>
+  </div>`;
+const card = (r, num, name, why) => `
+  <section class="card">
+    <div class="hero">${r(184)}</div>
+    <div class="meta">
+      <div class="title"><span class="num">${num}</span><h2>${name}</h2></div>
+      <p>${why}</p>
+    </div>
+    <div class="strips">${strip(r, 'dark')}${strip(r, 'light')}</div>
+  </section>`;
+
+// ---- Grok bot set: black space, faint stars, a glow rising from below, icy-white Bloub, silver moons.
+// Bloub is the library's orb Bloub (grok-orb.html): 120 box, r 56, eyes 12x29 tilted 8deg.
+let gu = 0;
+const BLUE = '#2f6bff';
+const STARS = [[58, 52, 1.6, .7], [92, 34, 1.1, .45], [196, 44, 1.8, .8], [214, 92, 1.2, .5], [44, 104, 1.1, .4], [168, 30, 1.2, .55], [120, 48, 1, .35]];
+function defs(u, glow) {
+  return `<defs>
+    <radialGradient id="sh${u}" cx="40%" cy="26%" r="82%"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#e3eaf3"/><stop offset="1" stop-color="#86acd8"/></radialGradient>
+    <radialGradient id="mo${u}" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#d3dbe6"/><stop offset="1" stop-color="#8b98aa"/></radialGradient>
+    <radialGradient id="a1${u}" gradientUnits="userSpaceOnUse" cx="64" cy="268" r="190"><stop offset="0" stop-color="${glow}" stop-opacity=".78"/><stop offset="1" stop-color="${glow}" stop-opacity="0"/></radialGradient>
+    <radialGradient id="a2${u}" gradientUnits="userSpaceOnUse" cx="208" cy="272" r="140"><stop offset="0" stop-color="${glow}" stop-opacity=".4"/><stop offset="1" stop-color="${glow}" stop-opacity="0"/></radialGradient>
+    <linearGradient id="sp${u}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#121218"/><stop offset="1" stop-color="#000"/></linearGradient>
+    <linearGradient id="ew${u}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cddcf2"/></linearGradient>
+    <clipPath id="t${u}"><rect x="16" y="16" width="224" height="224" rx="58"/></clipPath>
+    <filter id="b${u}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="14"/></filter>
+    <filter id="s${u}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="5"/></filter>
+  </defs>`;
+}
+const space = (u, stars = STARS) => `
+  <rect x="16" y="16" width="224" height="224" fill="url(#sp${u})"/>
+  <rect x="16" y="16" width="224" height="224" fill="url(#a1${u})"/>
+  <rect x="16" y="16" width="224" height="224" fill="url(#a2${u})"/>
+  ${stars.map(([x, y, r, o]) => `<circle cx="${x}" cy="${y}" r="${r * 1.6}" fill="#fff" opacity="${o}"/>`).join('')}`;
+// The orb Bloub at (cx, cy) with radius R. wink: right eye shut to a dash. tilt: head roll in degrees.
+function bloub(u, cx, cy, R, { wink = false, tilt = 0, glow = BLUE, eyeDy = 0 } = {}) {
+  const k = R / 56;
+  const eye = (x, y) => `<g transform="rotate(8 ${x + 6} ${y + 14.5})"><rect x="${x}" y="${y}" width="12" height="29" rx="6" fill="#0b0b10"/></g>`;
+  const dash = `<g transform="rotate(8 71 51)"><rect x="62" y="47" width="19" height="8" rx="4" fill="#0b0b10"/></g>`;
+  return `
+  <ellipse cx="${cx}" cy="${cy + R * .78}" rx="${R * .95}" ry="${R * .32}" fill="${glow}" opacity=".6" filter="url(#b${u})"/>
+  <g transform="translate(${cx} ${cy}) rotate(${tilt}) scale(${k}) translate(-60 -60)">
+    <circle cx="60" cy="60" r="56" fill="url(#sh${u})"/>
+    <ellipse cx="40" cy="28" rx="15" ry="8" fill="#fff" opacity=".55" transform="rotate(-28 40 28)"/>
+    <g transform="translate(0 ${eyeDy})">${eye(40, 35)}${wink ? dash : eye(65, 34)}</g>
+  </g>`;
+}
+const moon = (u, x, y, r, o = 1) => `<circle cx="${x}" cy="${y}" r="${r}" fill="url(#mo${u})" opacity="${o}"/>`;
+const svg = (glow, body) => s => { const u = gu++; return `<svg viewBox="0 0 256 256" width="${s}" height="${s}">${defs(u, glow)}${body(u)}</svg>`; };
+const tile = (u, inner) => `<g clip-path="url(#t${u})">${space(u)}${inner}</g>`;
+
+const orb = glow => svg(glow, u => tile(u, bloub(u, 128, 126, 70, { glow })));
+const moons = glow => svg(glow, u => tile(u, `${moon(u, 184, 78, 10, .85)}${bloub(u, 126, 130, 62, { glow })}${moon(u, 66, 182, 16)}`));
+const GROK = [
+  [orb(BLUE), 'Orb', 'The library\'s orb Bloub on black space with faint stars and the blue glow rising from below.'],
+  [moons(BLUE), 'Moons', 'Same scene with his two silver moons, one passing behind him and one in front.'],
+  [svg(BLUE, u => `
+    <ellipse cx="128" cy="214" rx="96" ry="22" fill="${BLUE}" opacity=".7" filter="url(#b${u})"/>
+    ${bloub(u, 128, 122, 100).replace(/<ellipse[^>]*opacity="\.6"[^>]*\/>/, '')}`),
+    'Float', 'No tile, just icy-white Bloub hovering over his blue glow. The cleanest, most "bot" one.'],
+  [svg(BLUE, u => tile(u, `
+    <ellipse cx="128" cy="236" rx="150" ry="46" fill="${BLUE}" opacity=".8" filter="url(#b${u})"/>
+    ${bloub(u, 128, 250, 104, { eyeDy: -22 })}`)),
+    'Rise', 'Bloub rising over the horizon like a moon, blue light behind him, stars above.'],
+  [svg(BLUE, u => tile(u, bloub(u, 128, 126, 70, { wink: true, tilt: -8 }))), 'Wink', 'The orb Bloub with his head tilted and one eye shut to a dash.'],
+  [svg(BLUE, u => tile(u, `
+    <g transform="translate(-20 6) rotate(12 160 116)">
+      <rect x="114" y="62" width="42" height="108" rx="21" fill="url(#ew${u})"/>
+      <rect x="170" y="72" width="33" height="96" rx="16.5" fill="url(#ew${u})"/>
+    </g>`)),
+    'Night × Grok', 'Your current Night icon in Grok space: stars and a blue glow instead of the orange corner.'],
+  [orb('#ff7a2f'), 'Ember', 'The Orb with a warm orange glow, the colour the library takes on for some tabs.'],
+  [moons('#8b5cf6'), 'Violet Moons', 'The Moons scene under a violet glow.'],
+];
+
+// ---- Orb set: the library's round icy-white Bloub, bigger solid eyes, no glints, no outlines.
+const BODIES = {
+  ice: ['#ffffff', '#e3eaf3', '#86acd8', '#0b0b10', .55],
+  ink: ['#5b5b68', '#17171c', '#000000', '#ffffff', .22],
+  sky: ['#f2f7ff', '#9cc0ff', '#3f72e6', '#0a1230', .5],
+};
+// gx/gy: where he looks, in radius units. The eye nearer the edge foreshortens, as on a sphere.
+function orbFace(u, { cx = 128, cy = 128, R = 110, body = 'ice', ew = .30, eh = .70, gap = .46, gx = .02, gy = -.08, tilt = 8, glow = BLUE, wink = false } = {}) {
+  const [a, b, c, eye, shine] = BODIES[body];
+  const ex = cx + gx * R, ey = cy + gy * R, w = ew * R, h = eh * R;
+  const sq = Math.min(Math.abs(gx) * .9, .35);
+  const L = { x: ex - gap * R / 2, w: w * (gx < 0 ? 1 - sq : 1), h: h * (gx < 0 ? 1 - sq * .4 : 1) };
+  const Rt = { x: ex + gap * R / 2, w: w * (gx > 0 ? 1 - sq : 1), h: h * (gx > 0 ? 1 - sq * .4 : 1) };
+  const cap = e => `<rect x="${e.x - e.w / 2}" y="${ey - e.h / 2}" width="${e.w}" height="${e.h}" rx="${e.w / 2}" fill="${eye}"/>`;
+  const dash = `<rect x="${Rt.x - w * .85}" y="${ey + h * .08 - w * .3}" width="${w * 1.7}" height="${w * .6}" rx="${w * .3}" fill="${eye}"/>`;
+  return `
+  <radialGradient id="ob${u}" cx="40%" cy="26%" r="82%"><stop offset="0" stop-color="${a}"/><stop offset=".5" stop-color="${b}"/><stop offset="1" stop-color="${c}"/></radialGradient>
+  <ellipse cx="${cx}" cy="${cy + R * .78}" rx="${R * .95}" ry="${R * .32}" fill="${glow}" opacity=".55" filter="url(#b${u})"/>
+  <circle cx="${cx}" cy="${cy}" r="${R}" fill="url(#ob${u})"/>
+  <ellipse cx="${cx - R * .36}" cy="${cy - R * .57}" rx="${R * .27}" ry="${R * .14}" transform="rotate(-28 ${cx - R * .36} ${cy - R * .57})" fill="#fff" opacity="${shine}"/>
+  <g transform="rotate(${tilt} ${ex} ${ey})">${cap(L)}${wink ? dash : cap(Rt)}</g>`;
+}
+const of = (o, glow = BLUE) => svg(glow, u => orbFace(u, { glow, ...o }));
+const ofTile = o => svg(BLUE, u => tile(u, orbFace(u, o)));
+const ORB = [
+  [of({}), 'Big Orb', 'The orb Bloub as he is in the library, with eyes about 40% bigger and a blue glow under him.'],
+  [of({ gx: .2, gy: -.16, tilt: 12 }), 'Glance', 'Same orb, big eyes glancing up to the right.'],
+  [of({ ew: .36, eh: .86, gap: .52, gy: -.06 }), 'Wide', 'The biggest eyes, from his "wide" mood. Most expressive at small sizes.'],
+  [ofTile({ R: 84, cy: 126 }), 'Space', 'The orb floating in Grok space: black tile, faint stars, blue glow.'],
+  [ofTile({ R: 96, cy: 134, gx: .18, gy: -.15, tilt: 12 }), 'Space Glance', 'Closer up in space, looking up to the right.'],
+  [of({ body: 'ink' }), 'Ink', 'The same orb in the island\'s black, with big white eyes.'],
+  [of({ body: 'sky', glow: '#8b5cf6' }, '#8b5cf6'), 'Sky', 'The orb tinted blue, big dark eyes, violet glow under him.'],
+  [svg(BLUE, u => `${moon(u, 200, 56, 15, .85)}${orbFace(u, { R: 92, cx: 124, cy: 134 })}${moon(u, 50, 200, 22)}`), 'Moons', 'The orb with his two silver moons, no tile.'],
+  [of({ wink: true, tilt: -4, gx: -.02 }), 'Big Wink', 'The orb winking: one big eye open, the other shut to a dash.'],
+];
+document.getElementById('orb').innerHTML = ORB.map(([r, name, why], n) => card(r, 'O' + (n + 1), name, why)).join('');
+
+// ---- Rise set: the island's black with Bloub's library glow (#2F6BFF by default, or the tab's colour), Bloub rising.
+const SKY = [[44, 40, 1.3, .8], [74, 70, 0.8, .45], [102, 30, 1, .6], [150, 46, 0.7, .4], [176, 26, 1.4, .85], [206, 58, 1, .6], [222, 98, 0.8, .4], [36, 104, 0.9, .45], [128, 84, 0.6, .3], [190, 100, 0.6, .3]];
+function rise(u, { glow = BLUE, glance = false, moons = false, horizon = false, spectrum = false } = {}) {
+  const ice = `<radialGradient id="rb${u}" cx="40%" cy="22%" r="85%"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#f1f2f5"/><stop offset="1" stop-color="#c3c7d0"/></radialGradient>
+    <radialGradient id="rn${u}" cx="50%" cy="100%" r="70%"><stop offset="0" stop-color="${glow}" stop-opacity=".5"/><stop offset="1" stop-color="${glow}" stop-opacity="0"/></radialGradient>
+    <linearGradient id="rs${u}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#070a14"/></linearGradient>`;
+  const stars = SKY.map(([x, y, r, o]) => `<circle cx="${x}" cy="${y}" r="${r * 1.7}" fill="#fff" opacity="${o}"/>`).join('');
+  const halo = (x, y, rx, ry, c, o) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${c}" opacity="${o}" filter="url(#b${u})"/>`;
+  // Bloub: centre, radius, eye centre, eye size, gaze tilt
+  const B = horizon ? { cx: 128, cy: 176, R: 80, ey: 150, w: 21, h: 48, gap: 42 } : { cx: 128, cy: 236, R: 108, ey: 178, w: 27, h: 64, gap: 54 };
+  const ex = B.cx + (glance ? 12 : 0), ey = B.ey - (glance ? 6 : 0);
+  const eyes = glance
+    ? `<g transform="rotate(14 ${ex} ${ey})"><rect x="${ex - B.gap / 2 - B.w / 2}" y="${ey - B.h / 2}" width="${B.w}" height="${B.h}" rx="${B.w / 2}" fill="#0b0b10"/><rect x="${ex + B.gap / 2 - B.w * .4}" y="${ey - B.h * .45}" width="${B.w * .8}" height="${B.h * .9}" rx="${B.w * .4}" fill="#0b0b10"/></g>`
+    : `<g transform="rotate(8 ${ex} ${ey})"><rect x="${ex - B.gap / 2 - B.w / 2}" y="${ey - B.h / 2}" width="${B.w}" height="${B.h}" rx="${B.w / 2}" fill="#0b0b10"/><rect x="${ex + B.gap / 2 - B.w / 2}" y="${ey - B.h / 2}" width="${B.w}" height="${B.h}" rx="${B.w / 2}" fill="#0b0b10"/></g>`;
+  const body = `
+    <circle cx="${B.cx}" cy="${B.cy}" r="${B.R}" fill="url(#rb${u})"/>
+    <ellipse cx="${B.cx - B.R * .36}" cy="${B.cy - B.R * .6}" rx="${B.R * .26}" ry="${B.R * .13}" transform="rotate(-28 ${B.cx - B.R * .36} ${B.cy - B.R * .6})" fill="#fff" opacity=".6"/>
+    ${eyes}`;
+  const glowLayer = spectrum
+    ? halo(58, 200, 90, 70, '#8b5cf6', .75) + halo(204, 196, 84, 66, '#ff7a2f', .6) + halo(128, 150, 96, 60, glow, .75)
+    : halo(128, horizon ? 168 : 150, 112, horizon ? 70 : 64, glow, .8);
+  const sky = `<rect x="16" y="16" width="224" height="224" fill="url(#rs${u})"/>${glowLayer}${stars}`;
+  const mo = moons ? `${moon(u, 62, 82, 11, .9)}${moon(u, 200, 112, 17)}` : '';
+  const scene = horizon
+    ? `${sky}${mo}${body}
+       <circle cx="128" cy="470" r="290" fill="#05070d"/>
+       ${halo(128, 184, 150, 8, glow, 1)}`
+    : `${sky}${mo}${body}`;
+  return `<defs>${ice}</defs>${tile(u, scene)}`;
+}
+const R = o => svg(o.glow || BLUE, u => rise(u, o));
+const RISE = [
+  [GROK[3][0], 'G4 Rise', 'Your pick, as it was, for comparison.'],
+  [R({}), 'Rise+', 'The island\'s black with Bloub\'s library glow behind his head, bigger eyes, a clean white body, finer stars.'],
+  [R({ glance: true }), 'Rise · Glance', 'Same, his big eyes glancing up to the right as he comes up.'],
+  [R({ horizon: true }), 'Moonrise', 'Bloub coming up behind a dark planet, a thin line of blue atmosphere on its edge.'],
+  [R({ moons: true }), 'Rise · Moons', 'Rise+ with his two silver moons already up in the sky.'],
+  [R({ spectrum: true }), 'Rise · Spectrum', 'The glow mixes the library\'s tab colours: blue behind him, violet and orange at the sides.'],
+  [R({ glow: '#ff7a2f' }), 'Rise · Ember', 'Rise+ in orange, the glow the library takes for a warm tab.'],
+  [R({ glow: '#8b5cf6' }), 'Rise · Violet', 'Rise+ in violet.'],
+  [R({ horizon: true, glance: true, glow: '#2fbfa0' }), 'Moonrise · Teal', 'Moonrise glancing up, with a teal atmosphere.'],
+];
+document.getElementById('rise').innerHTML = RISE.map(([r, name, why], n) => card(r, n ? 'R' + n : 'G4', name, why)).join('');
+document.getElementById('pick').innerHTML =
+  card(use('W1b'), 'W1', 'Pearl, no glints', 'Glossy white Bloub with solid dark eyes glancing up to the right, no white highlights in them.') +
+  card(use('W1'), 'W1', 'Pearl, with glints', 'The original, next to it for comparison.') +
+  card(use('W3b'), 'W3', 'Snow, no glints', 'The white tile with solid dark eyes, from your last pick.');
+document.getElementById('grok').innerHTML = GROK.map(([r, name, why], n) => card(r, 'G' + (n + 1), name, why)).join('');
+document.getElementById('white').innerHTML = WHITE.map(([id, name, why]) => card(use(id), id, name, why)).join('');
+document.getElementById('grid').innerHTML = LOGOS.map(([id, name, why], n) => card(use(id), n + 1, name, why)).join('');
+</script>
+</body>
+</html>

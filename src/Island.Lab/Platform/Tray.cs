@@ -10,7 +10,7 @@ namespace Island.Lab.Platform;
 public sealed class Tray : IDisposable
 {
     public const uint WM_TRAY = 0x8002; // WM_APP + 2
-    public enum Command { None, Open = 1, Agents, Usage, Startup, Quit, Preview, Intro }
+    public enum Command { None, Open = 1, Agents, Usage, Startup, Quit, Preview, Intro, File }
 
     readonly nint _hwnd, _icon;
     readonly uint _taskbarCreated;
@@ -67,6 +67,7 @@ public sealed class Tray : IDisposable
         AppendMenuW(menu, 0x800 /* MF_SEPARATOR */, 0, null);
         AppendMenuW(menu, 0, (nuint)Command.Preview, "Play the \"done\" animation");
         AppendMenuW(menu, 0, (nuint)Command.Intro, "Replay the intro");
+        AppendMenuW(menu, 0, (nuint)Command.File, "Preview a file drop");
         AppendMenuW(menu, 0x800, 0, null);
         AppendMenuW(menu, StartsWithWindows ? 0x8u /* MF_CHECKED */ : 0, (nuint)Command.Startup, "Start with Windows");
         AppendMenuW(menu, 0x800, 0, null);

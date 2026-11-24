@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Island app icon "Night": a dark tile that is Bloub's face. Source for src/Island.Lab/Assets/bloub.ico. -->
+  <defs>
+    <filter id="blur12" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="12"/></filter>
+    <linearGradient id="eyeW" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dfe2f2"/></linearGradient>
+    <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34333d"/><stop offset="1" stop-color="#0b0b0e"/></linearGradient>
+    <radialGradient id="g3b" cx=".1" cy="1" r=".8"><stop offset="0" stop-color="#ff7a2f" stop-opacity=".55"/><stop offset=".6" stop-color="#ff3d7f" stop-opacity=".18"/><stop offset="1" stop-color="#ff3d7f" stop-opacity="0"/></radialGradient>
+    <clipPath id="tile"><rect x="16" y="16" width="224" height="224" rx="58"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect x="16" y="16" width="224" height="224" fill="url(#g3)"/>
+    <rect x="16" y="16" width="224" height="224" fill="url(#g3b)"/>
+    <ellipse cx="128" cy="20" rx="120" ry="40" fill="#fff" opacity=".07" filter="url(#blur12)"/>
+  </g>
+  <g transform="translate(-20 6) rotate(12 160 116)">
+    <rect x="114" y="62" width="42" height="108" rx="21" fill="url(#eyeW)"/>
+    <rect x="170" y="72" width="33" height="96" rx="16.5" fill="url(#eyeW)"/>
+  </g>
+</svg>

@@ -15,6 +15,8 @@ public sealed class FrameRenderer : IDisposable
     readonly GaussianBlur _gooBlur;
     readonly ColorMatrix _gooThreshold;
     readonly Shadow _glow;
+    // each effect's output, asked for once: every read of Output is a new reference that must be released
+    readonly ID2D1Image _blurOut, _gooOut, _glowOut;
 
     public FrameRenderer(Gpu gpu)
     {
@@ -31,6 +33,7 @@ public sealed class FrameRenderer : IDisposable
         };
         _gooThreshold.SetInputEffect(0, _gooBlur, true);
         _glow = new Shadow(gpu.D2D) { BlurStandardDeviation = 13f };
+        _blurOut = _blur.Output; _gooOut = _gooThreshold.Output; _glowOut = _glow.Output;
     }
 
     /// <summary>Corner exponent: 2 (circular) for capsules, up to ~2.6 for large continuous "squircle" corners.</summary>
@@ -55,6 +58,7 @@ public sealed class FrameRenderer : IDisposable
     public bool Presented { get; private set; }
     // ISLAND_PERF: time spent probing, issuing draws and flushing them to the GPU; areas redrawn
     public static double ProbeMs, DrawMs, FlushMs; public static int Regions;
+    static readonly bool RedrawAll = Environment.GetEnvironmentVariable("ISLAND_REDRAW_ALL") == "1";
 
     /// <summary>The previous frame is unknown (resize, device lost…): draw the next one in full.</summary>
     public void Invalidate() => _canvas.Invalidate();
@@ -74,6 +78,9 @@ public sealed class FrameRenderer : IDisposable
         _canvas.BeginProbe();
         Scene(m, null);
         var dirty = _canvas.EndProbe(surface);
+        // dev (ISLAND_REDRAW_ALL=1): what changed is found as usual, but the whole frame is redrawn (to tell a missed
+        // redraw from a shape that Direct2D draws a hair differently when it is clipped)
+        if (RedrawAll && dirty != null) { dirty.Clear(); dirty.Add(surface); }
         Prof.Stop("probe", pp);
         long t1 = System.Diagnostics.Stopwatch.GetTimestamp();
         ProbeMs += (t1 - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
@@ -234,7 +241,7 @@ public sealed class FrameRenderer : IDisposable
                         _blur.SetInput(0, list, true);
                         _blur.StandardDeviation = blur * 0.55f;
                         c.Materialize();
-                        ctx!.DrawImage(_blur.Output);
+                        ctx!.DrawImage(_blurOut);
                         list.Dispose();
                     }
                 }
@@ -279,17 +286,32 @@ public sealed class FrameRenderer : IDisposable
             }
             if (bop > 0.01f)
             {
+                // He stays inside the island while it changes shape: when an edge closes in faster than he moves
+                // (his place follows on a spring), the edge carries him along instead of passing over him.
+                float faceR = 11f * m.Face.Size.Value * m.Bloub.Squish.Value, pad = faceR + 3;
+                var face = new Vector2(
+                    w > pad * 2 ? Math.Clamp(m.Face.X.Value, cx - w / 2 + pad, cx + w / 2 - pad) : cx,
+                    hb > pad * 2 ? Math.Clamp(m.Face.Y.Value, top + pad, top + hb - pad) : top + hb / 2);
+                if (m.Mode is Mode.Full or Mode.Gallery || m.Layers.Count == 1) face = new Vector2(m.Face.X, m.Face.Y);   // (settled, or a screen that places him itself)
+                face.Y += m.BloubLift;
                 // Bloub lives inside the island: clip it to the body so it never pokes out while morphing.
                 c.PushLayer(1, clip, bodyBox, bodyKey);
                 // in the tab library Bloub has two moons: the far one passes behind him, the near one in front
                 Scenes.LibraryMoons(c, m, front: false, bop);
                 // (building a tab, he squashes, jumps and flips)
-                c.Transform = m.Maker.BloubXf(m);
-                c.Bloub(_bloub, m.Bloub.Engine.Sample(m.Clock),
-                    new Vector2(m.Face.X, m.Face.Y + m.BloubLift), 11f * m.Face.Size.Value * m.Bloub.Squish.Value, Canvas.Rgba(0xF2F2F7), bop);
+                // (…and in the New agent form his head tilts with each question, and he hops when you choose)
+                c.Transform = m.Team.FormXf(m, face) * m.Maker.BloubXf(m);
+                // (while a film state, or the send-off, covers him completely he is not drawn under it)
+                if (!m.Film.Covers && !m.Team.Parting.Covers)
+                    c.Bloub(_bloub, m.Bloub.Engine.Sample(m.Clock),
+                        face, faceR, Canvas.Rgba(0xF2F2F7), bop);
                 c.Transform = Matrix3x2.Identity;
                 Scenes.LibraryMoons(c, m, front: true, bop);
                 c.PopLayer();
+                // the Greeting, the file, Finished: the reference film's states, in his place
+                m.Film.Draw(c, face, faceR, bop, clip, bodyBox, bodyKey);
+                // a new agent is launched: he takes the middle of the island and splits in two
+                m.Team.Parting.Draw(c, face, faceR, new Vector2(cx, top + AgentTeam.StageY), top, bop, clip, bodyBox, bodyKey);
 
                 // Poke reaction speech bubble ("hehe", "stop poking me!") under Bloub in the larger states.
                 if (m.Bloub.PokeLine is { } line && m.Face.Size.Value > 1.15f)
@@ -344,13 +366,13 @@ public sealed class FrameRenderer : IDisposable
         {
             // Metaball trick: blur the union, then threshold alpha → liquid bridge between the blobs.
             _gooBlur.SetInput(0, bodyList, true);
-            bodyImage = _gooThreshold.Output;
+            bodyImage = _gooOut;
         }
         if (b.Glow.W > 0)
         {
             _glow.SetInput(0, bodyImage, true);
             _glow.Color = new Vector4(b.Glow.X, b.Glow.Y, b.Glow.Z, MathF.Min(1, b.Glow.W * 1.5f));
-            ctx.DrawImage(_glow.Output, new Vector2(0, 6));
+            ctx.DrawImage(_glowOut, new Vector2(0, 6));
         }
         if (b.Vis < 0.999f) ctx.PushLayer(new LayerParameters1
         {
@@ -365,5 +387,5 @@ public sealed class FrameRenderer : IDisposable
         ctx.Target = _gpu.BackBuffer;
     }
 
-    public void Dispose() { _bodyCache?.Dispose(); _glow.Dispose(); _gooThreshold.Dispose(); _gooBlur.Dispose(); _bloub.Dispose(); _blur.Dispose(); _canvas.Dispose(); }
+    public void Dispose() { _bodyCache?.Dispose(); _blurOut.Dispose(); _gooOut.Dispose(); _glowOut.Dispose(); _glow.Dispose(); _gooThreshold.Dispose(); _gooBlur.Dispose(); _bloub.Dispose(); _blur.Dispose(); _canvas.Dispose(); }
 }

@@ -418,7 +418,8 @@ public sealed class Canvas : IDisposable
 
     public void DashedRound(float x, float y, float w, float h, float r, float width, Color4 c)
     {
-        if (!Prim(x, y, w, h, Probing ? H(1).P(x).P(y).P(w).P(h).P(r).P(width).C(c).V : 0)) return;
+        // (the line is drawn half its width outside the rectangle: that belongs to what it covers)
+        if (!Prim(x - width / 2, y - width / 2, w + width, h + width, Probing ? H(1).P(x).P(y).P(w).P(h).P(r).P(width).C(c).V : 0)) return;
         Ctx.DrawRoundedRectangle(new RoundedRectangle(new System.Drawing.RectangleF(x, y, w, h), r, r), Brush(c), width, _dash);
     }
 

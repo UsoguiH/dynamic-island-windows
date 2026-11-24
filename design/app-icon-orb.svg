@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Island app icon "Orb Glance": the tab library's icy-white orb Bloub, big eyes glancing up to the right,
+       nothing under him. Source for src/Island.Lab/Assets/bloub.ico. -->
+  <defs>
+    <radialGradient id="body" cx="40%" cy="26%" r="82%"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#e3eaf3"/><stop offset="1" stop-color="#86acd8"/></radialGradient>
+  </defs>
+  <g transform="translate(128 128) scale(.96) translate(-128 -128)">
+    <circle cx="128" cy="128" r="110" fill="url(#body)"/>
+    <ellipse cx="88.4" cy="65.3" rx="29.7" ry="15.4" transform="rotate(-28 88.4 65.3)" fill="#fff" opacity=".55"/>
+    <g transform="rotate(12 150 110.4)" fill="#0b0b10">
+      <rect x="108.2" y="71.9" width="33" height="77" rx="16.5"/>
+      <rect x="161.77" y="74.67" width="27.06" height="71.46" rx="13.53"/>
+    </g>
+  </g>
+</svg>

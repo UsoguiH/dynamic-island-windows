@@ -8,3 +8,9 @@ publish/
 agent-widget.mp4
 welcome-orb.mp4
 launch_video.mp4
+limi_check.mp4
+orb_aniamtionState.mp4
+design/launch/ref/
+
+# launch film renders (rebuilt from design/launch; the timing check carries the reference's audio)
+design/launch/out/
